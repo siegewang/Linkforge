@@ -1,0 +1,15 @@
+services:
+  dashforge:
+    build: .
+    container_name: dashforge
+    restart: unless-stopped
+    ports:
+      - "5005:5000"
+    environment:
+      # Forces Flask to run in debug mode for live reloading
+      - FLASK_DEBUG=1 
+    volumes:
+      # 1. LIVE EDITING: Mounts your current directory over the container's /app folder
+      - /home/.config/docker/steve-dashforge:/app
+      # 2. DOCKER API: Allows the dashboard to see your other running containers
+      - /var/run/docker.sock:/var/run/docker.sock:ro

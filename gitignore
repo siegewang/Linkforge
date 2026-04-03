@@ -1,0 +1,17 @@
+# Python environment and cache
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.env
+
+# Dashboard Database (Crucial to ignore!)
+# We don't want to overwrite your live data when pulling code updates
+data/
+*.db
+*.sqlite3
+
+# OS generated files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,72 @@
+{% set active_page = 'bin' %}
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-8 bg-rose-950/20 p-6 rounded-2xl border border-rose-900/50 w-full gap-4 shadow-sm">
+    <div>
+        <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-rose-400 to-red-600 ml-2">Link Bin</h1>
+        <p class="text-rose-200/50 text-sm mt-1 ml-2 font-medium">Links marked as dead or broken by the Health Auditor.</p>
+    </div>
+</div>
+
+<div class="w-full min-w-0">
+    <div class="grid gap-4 w-full">
+        {% for link in links %}
+        <div class="bg-zinc-900 p-3.5 rounded-2xl border border-zinc-800 flex items-center gap-4 shadow-sm w-full overflow-hidden opacity-75 hover:opacity-100 transition-opacity" 
+             id="link-{{ link.id }}" 
+             title="{{ link.description or 'No description provided.' }}">
+            
+            <div class="flex-shrink-0 w-10 h-10 bg-zinc-950 rounded-xl flex items-center justify-center border border-zinc-800 grayscale">
+                {% if link.favicon %}<img src="{{ link.favicon }}" class="w-5 h-5 rounded object-contain" onerror="this.style.display='none'">
+                {% else %}<i class="fa-solid fa-link text-zinc-600 text-sm"></i>{% endif %}
+            </div>
+            
+            <div class="flex-1 min-w-0">
+                <a href="{{ link.url }}" target="_blank" class="text-base font-semibold text-rose-300/80 hover:text-rose-400 line-through block truncate">{{ link.title or link.url }}</a>
+            </div>
+
+            <div class="flex items-center gap-2 flex-shrink-0">
+                <button onclick="restoreLink({{ link.id }})" title="Restore to Archive" class="text-emerald-500/70 hover:text-emerald-400 transition-colors p-2 bg-zinc-950 rounded-lg border border-zinc-800 flex gap-2 items-center text-xs font-bold px-3">
+                    <i class="fa-solid fa-rotate-left"></i> Restore
+                </button>
+                <button onclick="deleteLink({{ link.id }})" title="Delete Permanently" class="text-rose-500/70 hover:text-red-500 transition-colors p-2 bg-zinc-950 rounded-lg border border-zinc-800">
+                    <i class="fa-solid fa-trash text-xs"></i>
+                </button>
+            </div>
+        </div>
+        {% else %}
+        <div class="text-center py-20 bg-zinc-900/50 rounded-3xl border border-zinc-800 border-dashed w-full">
+            <i class="fa-solid fa-dumpster text-4xl text-zinc-600 mb-4"></i>
+            <h3 class="text-xl font-bold text-zinc-400">The Bin is empty</h3>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    async function restoreLink(id) {
+        // Sets is_read = 1 to put it back in the main Archive
+        const res = await fetch(`/api/links/${id}/archive`, {
+            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({is_read: 1})
+        });
+        if (res.ok) {
+            const card = document.getElementById(`link-${id}`);
+            card.style.opacity = '0';
+            setTimeout(() => card.remove(), 300);
+        }
+    }
+
+    async function deleteLink(id) {
+        if(confirm('Are you sure you want to permanently obliterate this link? It cannot be undone.')) {
+            const res = await fetch(`/api/links/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                const card = document.getElementById(`link-${id}`);
+                card.style.opacity = '0';
+                setTimeout(() => card.remove(), 300);
+            }
+        }
+    }
+</script>
+{% endblock %}

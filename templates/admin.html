@@ -1,0 +1,132 @@
+{% set active_page = 'admin' %}
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mb-10 bg-zinc-900/40 p-6 rounded-[2rem] border border-zinc-800/60 shadow-2xl backdrop-blur-sm">
+    <h1 class="text-4xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-zinc-300 to-zinc-500">System Admin</h1>
+    <p class="text-zinc-500 text-sm mt-2 font-medium">Manage your applications and dashboard configuration.</p>
+</div>
+
+<div class="flex flex-wrap gap-2 border-b border-zinc-800 mb-8 pb-4">
+    <a href="/admin" class="px-5 py-2.5 rounded-xl text-sm font-bold transition-all {% if sub_page == 'apps' %}bg-zinc-800 text-white border border-zinc-700{% else %}text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50{% endif %}">
+        <i class="fa-solid fa-grid-2 mr-2"></i> Applications
+    </a>
+    <a href="/admin/calendar" class="px-5 py-2.5 rounded-xl text-sm font-bold transition-all {% if sub_page == 'calendar' %}bg-indigo-900/30 text-indigo-400 border border-indigo-500/30{% else %}text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50{% endif %}">
+        <i class="fa-regular fa-calendar mr-2"></i> Calendar
+    </a>
+    <a href="/admin/data" class="px-5 py-2.5 rounded-xl text-sm font-bold transition-all {% if sub_page == 'data' %}bg-emerald-900/30 text-emerald-400 border border-emerald-500/30{% else %}text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50{% endif %}">
+        <i class="fa-solid fa-database mr-2"></i> Data Backup
+    </a>
+    <a href="/admin/health" class="px-5 py-2.5 rounded-xl text-sm font-bold transition-all {% if sub_page == 'health' %}bg-rose-900/30 text-rose-400 border border-rose-500/30{% else %}text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50{% endif %}">
+        <i class="fa-solid fa-heart-pulse mr-2"></i> Link Health
+    </a>
+</div>
+
+<div>
+    <div class="mb-6 relative">
+        <div class="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none"><i class="fa-solid fa-magnifying-glass text-zinc-500"></i></div>
+        <input type="text" id="searchInput" onkeyup="filterApps()" placeholder="Search applications..." class="w-full bg-zinc-900/50 border border-zinc-800 text-zinc-200 p-3 pl-10 rounded-xl text-sm focus:outline-none focus:border-amber-500 transition-colors shadow-lg">
+    </div>
+
+    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden mb-10 shadow-xl">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-zinc-950/50 text-zinc-400 text-xs uppercase tracking-wider border-b border-zinc-800">
+                        <th class="px-6 py-3 font-medium">Application</th>
+                        <th class="px-6 py-3 font-medium">Category / ID</th>
+                        <th class="px-6 py-3 font-medium text-center">Visible</th>
+                        <th class="px-6 py-3 font-medium text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="list" class="divide-y divide-zinc-800/50"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="bg-zinc-900 p-6 rounded-2xl border border-zinc-800 shadow-xl mb-10">
+        <h2 class="text-lg font-bold mb-4">Add Custom Shortcut</h2>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <input id="c-key" placeholder="Key (e.g. adguard)" class="bg-zinc-800 p-2.5 rounded-lg text-sm outline-none focus:border-amber-500 border border-transparent">
+            <input id="c-title" placeholder="Title (e.g. AdGuard)" class="bg-zinc-800 p-2.5 rounded-lg text-sm outline-none focus:border-amber-500 border border-transparent">
+            <input id="c-url" placeholder="URL (e.g. http://192.168.0.77:8280)" class="bg-zinc-800 p-2.5 rounded-lg text-sm outline-none focus:border-amber-500 border border-transparent col-span-1 md:col-span-2">
+            <button onclick="addCustom()" class="bg-amber-600 hover:bg-amber-500 transition-colors p-2.5 rounded-lg text-sm font-bold shadow text-black md:col-span-4 mt-2">Create Shortcut</button>
+        </div>
+    </div>
+</div>
+
+<div id="editModal" class="fixed inset-0 bg-black/90 hidden flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+    <div class="bg-zinc-900 p-6 rounded-2xl w-full max-w-lg border border-zinc-700 shadow-2xl">
+        <h2 class="text-xl font-bold mb-5">Edit Application</h2>
+        <div class="space-y-3">
+            <div><label class="text-xs text-zinc-400 ml-1 mb-1 block">Display Title</label><input id="edit-title" class="w-full bg-zinc-800 p-3 rounded-lg text-sm"></div>
+            <div><label class="text-xs text-zinc-400 ml-1 mb-1 block">Destination URL</label><input id="edit-url" class="w-full bg-zinc-800 p-3 rounded-lg text-sm"></div>
+            <div><label class="text-xs text-zinc-400 ml-1 mb-1 block">Icon URL</label><input id="edit-icon" class="w-full bg-zinc-800 p-3 rounded-lg text-sm"></div>
+            <div class="flex gap-3">
+                <div class="flex-1"><label class="text-xs text-zinc-400 ml-1 mb-1 block">Category Group</label><select id="edit-group" class="w-full bg-zinc-800 p-3 rounded-lg text-sm appearance-none"></select></div>
+                <div class="w-24"><label class="text-xs text-zinc-400 ml-1 mb-1 block">Order</label><input id="edit-order" type="number" class="w-full bg-zinc-800 p-3 rounded-lg text-sm"></div>
+            </div>
+        </div>
+        <div class="flex gap-2 mt-6">
+            <button onclick="closeModal()" class="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium transition-colors">Cancel</button>
+            <button onclick="saveEdit()" class="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-black text-sm font-bold rounded-lg transition-colors">Save</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentKey = null;
+    async function loadAdmin() {
+        const res = await fetch('/api/containers?show_hidden=true');
+        const apps = await res.json();
+        document.getElementById('list').innerHTML = apps.map(app => `
+            <tr class="app-item group hover:bg-zinc-800/30 transition-colors" data-title="${app.title.toLowerCase()}">
+                <td class="px-6 py-3 whitespace-nowrap"><div class="flex items-center gap-3"><img src="${app.icon}" class="w-8 h-8 object-contain bg-zinc-950 rounded-md p-1 border border-zinc-800" onerror="this.src='https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/generic.png'"><span class="font-medium text-sm text-zinc-200">${app.title}</span></div></td>
+                <td class="px-6 py-3 whitespace-nowrap"><div class="text-xs text-zinc-400">${app.group}</div><div class="text-[10px] text-zinc-600 font-mono mt-0.5">${app.key}</div></td>
+                <td class="px-6 py-3 whitespace-nowrap text-center"><label class="relative inline-flex items-center cursor-pointer transform scale-90"><input type="checkbox" class="sr-only peer" onchange="quickToggleHide('${app.key}', this.checked)" ${!app.hidden ? 'checked' : ''}><div class="w-9 h-5 bg-zinc-700 rounded-full peer peer-checked:bg-amber-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label></td>
+                <td class="px-6 py-3 whitespace-nowrap text-right text-sm font-medium"><button onclick="openEdit('${app.key}')" class="text-zinc-500 hover:text-amber-400 px-2 transition-colors"><i class="fa-solid fa-pen"></i></button><button onclick="deleteApp('${app.key}')" class="text-zinc-600 hover:text-red-500 px-2 transition-colors ml-2"><i class="fa-solid fa-trash"></i></button></td>
+            </tr>
+        `).join('');
+    }
+    function filterApps() {
+        const term = document.getElementById('searchInput').value.toLowerCase();
+        document.querySelectorAll('.app-item').forEach(el => { el.style.display = el.getAttribute('data-title').includes(term) ? 'table-row' : 'none'; });
+    }
+    async function quickToggleHide(key, isVisible) {
+        const apps = await (await fetch('/api/containers?show_hidden=true')).json();
+        const app = apps.find(a => a.key === key);
+        await fetch(`/api/config/${key}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({...app, custom_title: app.title, custom_url: app.url, icon_url: app.icon, group_name: app.group, hidden: !isVisible}) });
+    }
+    async function openEdit(key) {
+        currentKey = key;
+        const apps = await (await fetch('/api/containers?show_hidden=true')).json();
+        const app = apps.find(a => a.key === key);
+        const groups = await (await fetch('/api/groups')).json();
+        document.getElementById('edit-group').innerHTML = groups.map(g => `<option value="${g}">${g}</option>`).join('');
+        document.getElementById('edit-title').value = app.title; document.getElementById('edit-url').value = app.url === '#' ? '' : app.url;
+        document.getElementById('edit-icon').value = app.icon; document.getElementById('edit-group').value = app.group;
+        document.getElementById('edit-order').value = app.display_order || 0;
+        document.getElementById('editModal').classList.remove('hidden');
+    }
+    async function saveEdit() {
+        await fetch(`/api/config/${currentKey}`, {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ custom_title: document.getElementById('edit-title').value, custom_url: document.getElementById('edit-url').value, icon_url: document.getElementById('edit-icon').value, group_name: document.getElementById('edit-group').value, display_order: parseInt(document.getElementById('edit-order').value) || 0, is_custom: 1 })
+        });
+        closeModal(); loadAdmin();
+    }
+    async function addCustom() {
+        const key = document.getElementById('c-key').value;
+        await fetch(`/api/config/${key}`, {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ custom_title: document.getElementById('c-title').value, custom_url: document.getElementById('c-url').value, group_name: 'Ungrouped', is_custom: 1 })
+        });
+        document.getElementById('c-key').value = ''; document.getElementById('c-title').value = ''; document.getElementById('c-url').value = ''; loadAdmin();
+    }
+    async function deleteApp(key) { if(confirm('Delete this shortcut?')) { await fetch(`/api/config/${key}`, { method: 'DELETE' }); loadAdmin(); } }
+    function closeModal() { document.getElementById('editModal').classList.add('hidden'); }
+    loadAdmin();
+</script>
+{% endblock %}

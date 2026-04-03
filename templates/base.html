@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}DashForge{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { background: #070707; color: white; font-family: 'Inter', sans-serif; }
+        
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
+        
+        {% block extra_css %}{% endblock %}
+    </style>
+</head>
+<body class="p-6 md:p-8 min-h-screen">
+    <div class="max-w-[100rem] mx-auto flex flex-col lg:flex-row gap-6 xl:gap-10">
+        
+        <aside class="w-full lg:w-56 xl:w-64 flex-shrink-0">
+            <div class="sticky top-8 flex flex-col gap-8">
+                <div>
+                    <h1 class="text-4xl font-bold tracking-tight text-white">DashForge</h1>
+                    <p class="text-zinc-500 text-sm mt-1">Local Server Management</p>
+                </div>
+                
+                <nav class="flex flex-col gap-2">
+                    <a href="/" class="px-4 py-3.5 rounded-xl border text-sm font-medium transition-all flex items-center gap-3 shadow-sm group {% if active_page == 'home' %}bg-zinc-800 border-zinc-700 text-white{% else %}bg-zinc-900/40 hover:bg-zinc-800 border-zinc-800/60 text-zinc-400 hover:text-white{% endif %}">
+                        <i class="fa-solid fa-house text-amber-400 w-5 text-center group-hover:scale-110 transition-transform"></i> Home
+                    </a>
+                    <a href="/notes" class="px-4 py-3.5 rounded-xl border text-sm font-medium transition-all flex items-center gap-3 shadow-sm group {% if active_page == 'notes' %}bg-zinc-800 border-zinc-700 text-white{% else %}bg-zinc-900/40 hover:bg-zinc-800 border-zinc-800/60 text-zinc-400 hover:text-white{% endif %}">
+                        <i class="fa-solid fa-note-sticky text-amber-300 w-5 text-center group-hover:scale-110 transition-transform"></i> Scratchpad
+                    </a>
+                    <a href="/links" class="px-4 py-3.5 rounded-xl border text-sm font-medium transition-all flex items-center gap-3 shadow-sm group {% if active_page == 'links' %}bg-zinc-800 border-zinc-700 text-white{% else %}bg-zinc-900/40 hover:bg-zinc-800 border-zinc-800/60 text-zinc-400 hover:text-white{% endif %}">
+                        <i class="fa-solid fa-inbox text-emerald-400 w-5 text-center group-hover:scale-110 transition-transform"></i> Inbox
+                    </a>
+                    <a href="/bookmarks" class="px-4 py-3.5 rounded-xl border text-sm font-medium transition-all flex items-center gap-3 shadow-sm group {% if active_page == 'bookmarks' %}bg-zinc-800 border-zinc-700 text-white{% else %}bg-zinc-900/40 hover:bg-zinc-800 border-zinc-800/60 text-zinc-400 hover:text-white{% endif %}">
+                        <i class="fa-solid fa-bookmark text-cyan-500 w-5 text-center group-hover:scale-110 transition-transform"></i> Archive
+                    </a>
+                    <a href="/bin" class="px-4 py-2.5 rounded-xl border text-xs font-medium transition-all flex items-center gap-3 shadow-sm group ml-4 {% if active_page == 'bin' %}bg-rose-900/30 border-rose-900/50 text-rose-400{% else %}bg-transparent border-transparent text-zinc-600 hover:text-rose-400 hover:bg-rose-950/20{% endif %}">
+                        <i class="fa-solid fa-dumpster w-4 text-center group-hover:scale-110 transition-transform"></i> Link Bin
+                    </a>
+                    
+                    <div class="h-px bg-zinc-800/50 my-2 mx-2"></div>
+                    
+                    <a href="/admin" class="px-4 py-3.5 rounded-xl border text-sm font-medium transition-all flex items-center gap-3 shadow-sm group {% if active_page == 'admin' %}bg-zinc-800 border-zinc-700 text-white{% else %}bg-zinc-900/40 hover:bg-zinc-800 border-zinc-800/60 text-zinc-400 hover:text-white{% endif %}">
+                        <i class="fa-solid fa-gear text-zinc-400 w-5 text-center group-hover:scale-110 transition-transform"></i> Admin Panel
+                    </a>
+                    
+                    <a href="/settings" class="px-4 py-3.5 rounded-xl border text-sm font-medium transition-all flex items-center gap-3 shadow-sm group {% if active_page == 'settings' %}bg-zinc-800 border-zinc-700 text-white{% else %}bg-zinc-900/40 hover:bg-zinc-800 border-zinc-800/60 text-zinc-400 hover:text-white{% endif %}">
+                        <i class="fa-solid fa-sliders text-zinc-400 w-5 text-center group-hover:scale-110 transition-transform"></i> Settings
+                    </a>
+                </nav>
+
+                {% if active_page == 'bookmarks' and tag_swarm %}
+                <div class="flex flex-col gap-3 mt-4">
+                    <div class="flex items-center gap-3 px-2">
+                        <i class="fa-solid fa-tags text-cyan-500 text-xs"></i>
+                        <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-widest">Filter by Tag</h3>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5 px-2 overflow-y-auto custom-scroll max-h-[calc(100vh-28rem)]">
+                        <button onclick="filterByTag('all')" id="btn-tag-all" class="tag-btn px-2 py-1.5 bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 rounded flex-grow text-center text-[10px] transition-all font-medium uppercase tracking-wider">Show All</button>
+                        {% for tag, count in tag_swarm.items() %}
+                            <button onclick="filterByTag('{{ tag }}')" id="btn-tag-{{ tag }}" class="tag-btn px-2 py-1 bg-zinc-900/40 text-zinc-400 border border-zinc-800/60 rounded text-[10px] hover:bg-zinc-800 hover:text-zinc-300 transition-colors flex items-center gap-1.5 uppercase tracking-wider">
+                                #{{ tag }} <span class="text-zinc-600 bg-zinc-900/80 px-1 rounded">{{ count }}</span>
+                            </button>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </aside>
+
+        <main class="flex-1 min-w-0">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,5 @@
+Flask
+docker
+requests
+beautifulsoup4
+icalevents

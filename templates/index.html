@@ -1,0 +1,197 @@
+{% set active_page = 'home' %}
+{% extends 'base.html' %}
+
+{% block extra_css %}
+    .dashboard-grid { column-gap: 1.5rem; }
+    @media (min-width: 1024px) { .dashboard-grid { column-count: 2; } }
+    .group-section { break-inside: avoid; margin-bottom: 1.5rem; }
+    .card-hover { transition: all 0.2s ease-out; }
+    .card-hover:hover { transform: scale(1.05); filter: brightness(1.1); }
+    .dragging { opacity: 0.3; }
+{% endblock %}
+
+{% block content %}
+<div class="flex flex-col lg:flex-row gap-8">
+    <div class="lg:w-3/4">
+        <div id="top-links-container"></div>
+        
+        <div id="content" class="dashboard-grid">
+            <div class="animate-pulse flex space-x-4 p-6 bg-zinc-900/30 rounded-3xl border border-zinc-800/50">
+                <div class="flex-1 space-y-4 py-1">
+                    <div class="h-2 bg-zinc-800 rounded w-1/4 mb-6"></div>
+                    <div class="grid grid-cols-4 gap-4">
+                        <div class="h-16 bg-zinc-800 rounded-2xl"></div><div class="h-16 bg-zinc-800 rounded-2xl"></div>
+                        <div class="h-16 bg-zinc-800 rounded-2xl"></div><div class="h-16 bg-zinc-800 rounded-2xl"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="lg:w-1/4">
+        <div class="bg-zinc-900/30 border border-zinc-800/50 rounded-3xl p-6 h-[calc(100vh-64px)] flex flex-col sticky top-8">
+            <h2 class="text-sm font-bold uppercase tracking-widest mb-6 text-zinc-500 flex items-center gap-3">
+                <i class="fa-regular fa-calendar text-indigo-400"></i> Agenda Glance
+            </h2>
+            <div id="agenda-container" class="flex-1 overflow-y-auto custom-scroll pr-2 space-y-4">
+                <div class="animate-pulse flex space-x-4"><div class="flex-1 space-y-4 py-1"><div class="h-2 bg-zinc-800 rounded w-3/4"></div><div class="h-2 bg-zinc-800 rounded w-1/2"></div></div></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let draggedCard = null;
+
+    function trackLinkClick(id) {
+        fetch(`/api/links/${id}/click`, { method: 'POST' });
+    }
+
+    async function loadTopLinks() {
+        try {
+            const res = await fetch('/api/links/top');
+            if (!res.ok) throw new Error("API returned status " + res.status);
+            
+            const topLinks = await res.json();
+            if (topLinks.length > 0) {
+                let htmlString = `
+                    <div class="mb-8 bg-zinc-900/40 p-6 rounded-3xl border border-zinc-800/60 shadow-xl">
+                        <h2 class="text-sm font-bold uppercase tracking-widest mb-5 text-cyan-500 flex items-center gap-2">
+                            <i class="fa-solid fa-link text-cyan-400"></i> Most Visited Links
+                        </h2>
+                        <div class="flex flex-wrap gap-4">
+                `;
+
+                topLinks.forEach(link => {
+                    let hostname = '';
+                    try { hostname = new URL(link.url).hostname; } catch(e) {}
+                    
+                    const safeTitle = link.title ? link.title.replace(/"/g, '&quot;') : link.url;
+                    const fallbackIcon = hostname ? `https://www.google.com/s2/favicons?domain=${hostname}&sz=128` : 'https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/generic.png';
+                    const iconSrc = link.favicon || fallbackIcon;
+
+                    htmlString += `
+                        <a href="${link.url}" target="_blank" onclick="trackLinkClick(${link.id})" title="${safeTitle}"
+                           class="flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-cyan-500/50 w-14 h-14 rounded-2xl transition-all shadow-md group">
+                            <img src="${iconSrc}" class="w-8 h-8 object-contain group-hover:scale-110 transition-transform" onerror="this.src='${fallbackIcon}'">
+                        </a>
+                    `;
+                });
+
+                htmlString += `</div></div>`;
+                document.getElementById('top-links-container').innerHTML = htmlString;
+            }
+        } catch (error) {
+            console.error("Top Links Failed:", error);
+        }
+    }
+
+    async function loadDashboard() {
+        const content = document.getElementById('content');
+        try {
+            const res = await fetch('/api/containers');
+            if (!res.ok) throw new Error("Failed to reach Python backend.");
+            
+            const apps = await res.json();
+            
+            if (apps.length === 0) {
+                content.innerHTML = `<div class="text-zinc-500 p-6 text-center border border-dashed border-zinc-800 rounded-3xl">No apps configured yet. Go to Admin to add some!</div>`;
+                return;
+            }
+
+            const groups = {};
+            apps.forEach(app => {
+                const g = app.group || 'Ungrouped';
+                if(!groups[g]) groups[g] = [];
+                groups[g].push(app);
+            });
+            
+            content.innerHTML = Object.keys(groups).map(group => `
+                <div class="group-section bg-zinc-900/30 border border-zinc-800/50 p-6 rounded-3xl"
+                     data-group="${group}" ondragover="handleDragOver(event)" ondrop="handleDrop(event)">
+                    <h2 class="text-sm font-bold uppercase tracking-widest mb-6 text-zinc-500 flex items-center gap-3">${group}</h2>
+                    <div class="grid grid-cols-3 sm:grid-cols-4 gap-4">
+                        ${groups[group].map(app => `
+                            <div class="flex flex-col items-center">
+                                <a href="${app.url}" target="${app.url === '#' ? '' : '_blank'}"
+                                   draggable="true" ondragstart="handleDragStart(event)" ondragend="handleDragEnd(event)"
+                                   class="app-card ${app.color_class} w-16 h-16 md:w-20 md:h-20 rounded-2xl flex items-center justify-center card-hover shadow-lg"
+                                   data-key="${app.key}" onclick="${app.url === '#' ? 'return false' : ''}">
+                                    <img src="${app.icon}" class="w-10 h-10 md:w-12 md:h-12 object-contain" onerror="this.src='https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/generic.png'">
+                                </a>
+                                <span class="text-[11px] md:text-xs font-medium mt-3 text-zinc-400 truncate w-full text-center">${app.title}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error("Dashboard Failed:", error);
+            content.innerHTML = `
+                <div class="bg-red-950/20 border border-red-900/50 p-6 rounded-3xl text-center">
+                    <i class="fa-solid fa-triangle-exclamation text-red-500 text-3xl mb-3"></i>
+                    <h3 class="text-red-400 font-bold mb-1">Failed to load applications</h3>
+                    <p class="text-zinc-500 text-sm">Check your Python server console.</p>
+                </div>`;
+        }
+    }
+
+    function handleDragStart(e) { draggedCard = e.currentTarget.parentElement; e.currentTarget.classList.add('dragging'); }
+    function handleDragEnd(e) { e.currentTarget.classList.remove('dragging'); }
+    function handleDragOver(e) {
+        e.preventDefault();
+        const container = e.currentTarget.querySelector('.grid');
+        const afterElement = getDragAfterElement(container, e.clientX, e.clientY);
+        if (afterElement == null) container.appendChild(draggedCard);
+        else container.insertBefore(draggedCard, afterElement);
+    }
+    function getDragAfterElement(container, x, y) {
+        const draggables = [...container.querySelectorAll('.flex-col:not(.dragging)')];
+        return draggables.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = (x - box.left - box.width / 2) + (y - box.top - box.height / 2);
+            if (offset < 0 && offset > closest.offset) return { offset: offset, element: child };
+            else return closest;
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+    async function handleDrop(e) {
+        e.preventDefault();
+        const items = [];
+        document.querySelectorAll('.group-section').forEach((section, gIdx) => {
+            const group = section.dataset.group;
+            section.querySelectorAll('.app-card').forEach((card, cIdx) => {
+                items.push({ key: card.dataset.key, group: group, order: (gIdx * 1000) + cIdx });
+            });
+        });
+        await fetch('/api/save-order', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ items }) });
+    }
+
+    async function loadAgenda() {
+        const container = document.getElementById('agenda-container');
+        try {
+            const res = await fetch('/api/calendar');
+            if (!res.ok) throw new Error("API returned status " + res.status);
+            
+            const data = await res.json();
+            if (data.status === 'setup_required') { container.innerHTML = `<div class="text-center p-4 bg-zinc-900 rounded-xl border border-zinc-800"><i class="fa-solid fa-calendar-xmark text-2xl text-zinc-600 mb-2 block"></i><p class="text-xs text-zinc-400">Go to <a href="/admin" class="text-indigo-400 hover:underline">Admin</a> to add your Google Calendar iCal link.</p></div>`; return; }
+            if (data.status === 'error') { container.innerHTML = `<div class="text-xs text-red-400 p-3 bg-red-900/20 rounded-lg border border-red-900/50">${data.message}</div>`; return; }
+            if (data.events.length === 0) { container.innerHTML = `<p class="text-xs text-zinc-500 text-center mt-10">No upcoming events this week.</p>`; return; }
+            
+            container.innerHTML = data.events.map(event => {
+                const date = new Date(event.start);
+                const timeString = event.all_day ? 'All Day' : date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                const dateString = date.toLocaleDateString([], {weekday: 'short', month: 'short', day: 'numeric'});
+                return `<div class="bg-zinc-900/80 p-3.5 rounded-2xl border border-zinc-800 hover:border-indigo-500/30 transition-colors"><div class="text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-1">${dateString} • ${timeString}</div><div class="text-sm font-medium text-zinc-200 leading-tight">${event.summary}</div></div>`;
+            }).join('');
+        } catch (err) { 
+            container.innerHTML = `<div class="text-xs text-red-500 p-3 text-center border border-red-900/50 rounded-xl">Error fetching calendar.</div>`; 
+        }
+    }
+    
+    loadTopLinks();
+    loadDashboard();
+    loadAgenda();
+</script>
+{% endblock %}

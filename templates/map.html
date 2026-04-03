@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Container Map • DashForge</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vis-network@9.1.2/standalone/umd/vis-network.min.js"></script>
+</head>
+<body class="bg-zinc-950">
+    <div class="h-screen flex flex-col">
+        <div class="p-6 border-b border-white/10 flex items-center justify-between">
+            <h1 class="text-4xl font-bold">Docker Relationship Map</h1>
+            <a href="/" class="text-amber-400 hover:underline">← Dashboard</a>
+        </div>
+        <div id="network" class="flex-1"></div>
+    </div>
+
+    <script>
+        async function loadMap() {
+            const res = await fetch('/api/graph');
+            const data = await res.json();
+
+            const container = document.getElementById('network');
+            const network = new vis.Network(container, data, {
+                nodes: {
+                    shape: 'image',
+                    size: 45,
+                    font: { color: '#fff', size: 14 }
+                },
+                edges: {
+                    color: { color: '#eab308', opacity: 0.6 },
+                    smooth: { type: 'curvedCW', roundness: 0.3 }
+                },
+                physics: {
+                    stabilization: true,
+                    barnesHut: { gravitationalConstant: -8000 }
+                }
+            });
+
+            // Click → open app
+            network.on("click", function(params) {
+                if (params.nodes.length) {
+                    const nodeId = params.nodes[0];
+                    const node = data.nodes.find(n => n.id === nodeId);
+                    if (node && node.url) window.open(node.url, '_blank');
+                }
+            });
+        }
+        loadMap();
+    </script>
+</body>
+</html>

@@ -1,0 +1,67 @@
+{% set active_page = 'admin' %}
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mb-10 bg-zinc-900/40 p-6 rounded-[2rem] border border-zinc-800/60 shadow-2xl backdrop-blur-sm">
+    <h1 class="text-4xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-zinc-300 to-zinc-500">System Admin</h1>
+    <p class="text-zinc-500 text-sm mt-2 font-medium">Manage your applications and dashboard configuration.</p>
+</div>
+
+<div class="flex flex-wrap gap-2 border-b border-zinc-800 mb-8 pb-4">
+    <a href="/admin" class="px-5 py-2.5 rounded-xl text-sm font-bold transition-all {% if sub_page == 'apps' %}bg-zinc-800 text-white border border-zinc-700{% else %}text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50{% endif %}">
+        <i class="fa-solid fa-grid-2 mr-2"></i> Applications
+    </a>
+    <a href="/admin/calendar" class="px-5 py-2.5 rounded-xl text-sm font-bold transition-all {% if sub_page == 'calendar' %}bg-indigo-900/30 text-indigo-400 border border-indigo-500/30{% else %}text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50{% endif %}">
+        <i class="fa-regular fa-calendar mr-2"></i> Calendar
+    </a>
+    <a href="/admin/data" class="px-5 py-2.5 rounded-xl text-sm font-bold transition-all {% if sub_page == 'data' %}bg-emerald-900/30 text-emerald-400 border border-emerald-500/30{% else %}text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50{% endif %}">
+        <i class="fa-solid fa-database mr-2"></i> Data Backup
+    </a>
+    <a href="/admin/health" class="px-5 py-2.5 rounded-xl text-sm font-bold transition-all {% if sub_page == 'health' %}bg-rose-900/30 text-rose-400 border border-rose-500/30{% else %}text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50{% endif %}">
+        <i class="fa-solid fa-heart-pulse mr-2"></i> Link Health
+    </a>
+</div>
+
+<div class="bg-zinc-900 p-8 rounded-3xl border border-zinc-800 shadow-xl max-w-2xl">
+    <h2 class="text-xl font-bold mb-2 flex items-center gap-3"><i class="fa-solid fa-file-csv text-emerald-400"></i> Backup & Restore</h2>
+    <p class="text-sm text-zinc-400 mb-8">Export your entire library of links to a portable CSV file, or restore a previous backup into your database. Import safely ignores exact duplicate URLs.</p>
+    
+    <div class="flex flex-col sm:flex-row gap-4">
+        <a href="/api/links/export" class="flex-1 bg-zinc-800 hover:bg-zinc-700 transition-colors py-4 rounded-xl text-sm font-bold shadow text-white flex flex-col items-center justify-center gap-2 border border-zinc-700">
+            <i class="fa-solid fa-download text-emerald-400 text-xl mb-1"></i> Export to CSV
+        </a>
+        
+        <div class="flex-1 relative flex flex-col">
+            <input type="file" id="csv-upload" accept=".csv" class="hidden" onchange="importCSV()">
+            <button onclick="document.getElementById('csv-upload').click()" class="h-full bg-zinc-800 hover:bg-zinc-700 transition-colors py-4 rounded-xl text-sm font-bold shadow text-white flex flex-col items-center justify-center gap-2 border border-zinc-700">
+                <i class="fa-solid fa-upload text-amber-400 text-xl mb-1"></i> Import from CSV
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    async function importCSV() {
+        const fileInput = document.getElementById('csv-upload');
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const res = await fetch('/api/links/import', { method: 'POST', body: formData });
+            const result = await res.json();
+            if (res.ok) {
+                alert(result.message);
+                fileInput.value = '';
+            } else alert("Import failed: " + result.error);
+        } catch (error) {
+            console.error("Import error:", error);
+            alert("An error occurred during import.");
+        }
+    }
+</script>
+{% endblock %}
