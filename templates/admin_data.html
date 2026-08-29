@@ -535,23 +535,88 @@
             return;
         }
 
+        const modal = document.getElementById('restoreProgressModal');
+        const progressBar = document.getElementById('restore-progress-bar');
+        const stepLabel = document.getElementById('restore-step-label');
+        const pctLabel = document.getElementById('restore-percentage-label');
+        const filenameDisplay = document.getElementById('restore-filename-display');
+        const iconContainer = document.getElementById('restore-icon-container');
+        const modalTitle = document.getElementById('restore-modal-title');
+
+        filenameDisplay.textContent = file.name + ' (' + (file.size / (1024 * 1024)).toFixed(1) + ' MB)';
+        progressBar.style.width = '5%';
+        pctLabel.textContent = '5%';
+        stepLabel.textContent = 'Uploading backup archive...';
+        iconContainer.className = 'w-16 h-16 rounded-3xl bg-amber-500/20 border border-amber-500/50 flex items-center justify-center text-amber-400 text-3xl mx-auto shadow-lg';
+        iconContainer.innerHTML = '<i class="fa-solid fa-cloud-arrow-up fa-bounce"></i>';
+        modalTitle.textContent = 'Restoring System Backup';
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+
         const formData = new FormData();
         formData.append('file', file);
 
-        try {
-            const res = await fetch('/api/admin/auto-backup/restore', { method: 'POST', body: formData });
-            const result = await res.json();
-            if (res.ok && result.status === 'success') {
-                alert(result.message);
-                fileInput.value = '';
-                loadBackupsList();
-            } else {
-                alert("Restore failed: " + (result.error || result.message || 'Unknown error'));
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/admin/auto-backup/restore', true);
+
+        xhr.upload.onprogress = function(e) {
+            if (e.lengthComputable) {
+                // Upload takes 0% to 75% of progress bar
+                const percentComplete = Math.round((e.loaded / e.total) * 75);
+                const loadedMB = (e.loaded / (1024 * 1024)).toFixed(1);
+                const totalMB = (e.total / (1024 * 1024)).toFixed(1);
+                progressBar.style.width = Math.max(5, percentComplete) + '%';
+                pctLabel.textContent = Math.max(5, percentComplete) + '%';
+                stepLabel.textContent = `Uploading archive (${loadedMB} MB / ${totalMB} MB)...`;
+                
+                if (e.loaded >= e.total) {
+                    stepLabel.textContent = 'Unpacking database & restoring offline archives...';
+                    progressBar.style.width = '88%';
+                    pctLabel.textContent = '88%';
+                }
             }
-        } catch (error) {
-            console.error("Restore error:", error);
-            alert("An error occurred during restore: " + error.message);
-        }
+        };
+
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                try {
+                    const result = JSON.parse(xhr.responseText);
+                    if (result.status === 'success') {
+                        progressBar.style.width = '100%';
+                        pctLabel.textContent = '100%';
+                        stepLabel.textContent = 'Restore completed successfully!';
+                        modalTitle.textContent = 'Restore Complete!';
+                        iconContainer.className = 'w-16 h-16 rounded-3xl bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center text-emerald-400 text-3xl mx-auto shadow-lg';
+                        iconContainer.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+                        
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1200);
+                        return;
+                    } else {
+                        alert("Restore failed: " + (result.error || result.message || 'Unknown error'));
+                    }
+                } catch(e) {
+                    alert("Restore completed with unexpected server response.");
+                    window.location.reload();
+                    return;
+                }
+            } else {
+                alert("Restore failed with server status " + xhr.status);
+            }
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+            fileInput.value = '';
+        };
+
+        xhr.onerror = function() {
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+            alert("A network error occurred during backup upload.");
+            fileInput.value = '';
+        };
+
+        xhr.send(formData);
     }
 
     function renderSavedProfiles() {
@@ -835,4 +900,33 @@
     loadArchiveStats();
     loadDeniedUrlsTable();
 </script>
+
+<!-- Restore & Extraction Progress Modal -->
+<div id="restoreProgressModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center p-4 z-50 backdrop-blur-md">
+    <div class="bg-zinc-900 border-2 border-amber-500/50 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl text-center space-y-5">
+        <div id="restore-icon-container" class="w-16 h-16 rounded-3xl bg-amber-500/20 border border-amber-500/50 flex items-center justify-center text-amber-400 text-3xl mx-auto shadow-lg">
+            <i class="fa-solid fa-cloud-arrow-up fa-bounce"></i>
+        </div>
+        
+        <div>
+            <h3 id="restore-modal-title" class="text-xl font-bold text-white">Restoring System Backup</h3>
+            <p id="restore-filename-display" class="text-xs text-zinc-400 font-mono mt-1 truncate max-w-xs mx-auto">backup.zip</p>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="space-y-2">
+            <div class="w-full bg-zinc-950 border border-zinc-800 rounded-full h-4 p-0.5 overflow-hidden">
+                <div id="restore-progress-bar" class="bg-gradient-to-r from-amber-500 via-cyan-500 to-emerald-500 h-full rounded-full transition-all duration-200" style="width: 5%"></div>
+            </div>
+            <div class="flex justify-between text-[11px] font-mono text-zinc-400">
+                <span id="restore-step-label">Uploading backup archive...</span>
+                <span id="restore-percentage-label" class="text-amber-400 font-bold">5%</span>
+            </div>
+        </div>
+
+        <p class="text-[11px] text-zinc-500 leading-relaxed">
+            Please keep this tab open while LinkForge unpacks and restores your database and offline article archives.
+        </p>
+    </div>
+</div>
 {% endblock %}
