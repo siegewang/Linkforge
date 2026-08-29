@@ -265,9 +265,9 @@
                         </div>
                     </div>
                     <div class="flex flex-wrap items-center gap-2 mt-1.5">
-                        <span class="text-xs text-zinc-400 font-mono">LinkForge v2.1.0 (<span id="version-commit-hash" class="text-cyan-400 font-bold">{{ version_info.current_commit if version_info else '4719b8d' }}</span>)</span>
+                        <span class="text-xs text-zinc-400 font-mono">LinkForge v2.1.0 (<span id="version-commit-hash" class="text-cyan-400 font-bold">{{ version_info.current_commit if version_info and version_info.current_commit != 'unknown' else 'ca98d5c' }}</span>)</span>
                         <span class="text-zinc-600">•</span>
-                        <span id="version-commit-date" class="text-[11px] text-zinc-500">{{ version_info.current_commit_date if version_info else 'Recently' }}</span>
+                        <span id="version-commit-date" class="text-[11px] text-zinc-500">{{ version_info.current_commit_date if version_info and version_info.current_commit_date else 'Recently' }}</span>
                     </div>
                     <div id="update-status-badge-container" class="mt-2.5">
                         {% if version_info and version_info.update_available %}
@@ -369,8 +369,14 @@
             if (res.ok) {
                 const info = await res.json();
                 
-                document.getElementById('version-commit-hash').textContent = info.current_commit;
-                document.getElementById('version-commit-date').textContent = info.current_commit_date;
+                const commitSpan = document.getElementById('version-commit-hash');
+                if (commitSpan && info.current_commit && info.current_commit !== 'unknown') {
+                    commitSpan.textContent = info.current_commit;
+                }
+                const dateSpan = document.getElementById('version-commit-date');
+                if (dateSpan && info.current_commit_date) {
+                    dateSpan.textContent = info.current_commit_date;
+                }
                 
                 const badgeContainer = document.getElementById('update-status-badge-container');
                 const actionsContainer = document.getElementById('update-actions-container');
@@ -389,7 +395,7 @@
                 } else {
                     badgeContainer.innerHTML = `
                         <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-950/80 border border-emerald-700/80 text-emerald-300 rounded-full text-xs font-semibold">
-                            <i class="fa-solid fa-circle-check text-emerald-400"></i> Up to Date (${info.current_commit})
+                            <i class="fa-solid fa-circle-check text-emerald-400"></i> Up to Date
                         </span>
                     `;
                     actionsContainer.innerHTML = `
