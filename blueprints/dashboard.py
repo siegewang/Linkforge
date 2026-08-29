@@ -4,6 +4,7 @@ import datetime
 import logging
 from config import Config
 from services.db import get_db, retry_write
+from services import updater
 
 logger = logging.getLogger(__name__)
 dashboard_bp = Blueprint('dashboard', __name__)
@@ -22,7 +23,17 @@ def settings():
     conn = get_db()
     cursor = conn.execute("SELECT key, value FROM settings WHERE key LIKE 'feature_%'")
     settings_dict = dict(cursor.fetchall())
-    return render_template("settings.html", active_page='settings', settings=settings_dict)
+    version_info = updater.get_version_info()
+    return render_template("settings.html", active_page='settings', settings=settings_dict, version_info=version_info)
+
+@dashboard_bp.route("/api/system/version")
+def api_system_version():
+    return jsonify(updater.get_version_info())
+
+@dashboard_bp.route("/api/system/update", methods=["POST"])
+def api_system_update():
+    res = updater.apply_git_update()
+    return jsonify(res)
 
 @dashboard_bp.route("/api/settings", methods=["GET", "POST"])
 def api_settings():
