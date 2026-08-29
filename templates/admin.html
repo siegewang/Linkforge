@@ -15,18 +15,25 @@
         <i class="fa-regular fa-calendar mr-2"></i> Calendar
     </a>
     <a href="/admin/data" class="px-5 py-2.5 rounded-xl text-sm font-bold transition-all {% if sub_page == 'data' %}bg-emerald-900/30 text-emerald-400 border border-emerald-500/30{% else %}text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50{% endif %}">
-        <i class="fa-solid fa-database mr-2"></i> Data Backup
+        <i class="fa-solid fa-database mr-2"></i> Data & AI
     </a>
-    <a href="/admin/health" class="px-5 py-2.5 rounded-xl text-sm font-bold transition-all {% if sub_page == 'health' %}bg-rose-900/30 text-rose-400 border border-rose-500/30{% else %}text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50{% endif %}">
-        <i class="fa-solid fa-heart-pulse mr-2"></i> Link Health
+    <a href="/admin/extensions" class="px-5 py-2.5 rounded-xl text-sm font-bold transition-all {% if sub_page == 'extensions' %}bg-cyan-900/30 text-cyan-400 border border-cyan-500/30{% else %}text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50{% endif %}">
+        <i class="fa-solid fa-puzzle-piece mr-2"></i> Extensions
     </a>
 </div>
 
 <div>
-    <div class="mb-6 relative">
-        <div class="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none"><i class="fa-solid fa-magnifying-glass text-zinc-500"></i></div>
-        <input type="text" id="searchInput" onkeyup="filterApps()" placeholder="Search applications..." class="w-full bg-zinc-900/50 border border-zinc-800 text-zinc-200 p-3 pl-10 rounded-xl text-sm focus:outline-none focus:border-amber-500 transition-colors shadow-lg">
+    <div class="flex flex-col sm:flex-row gap-3 mb-6">
+        <div class="relative flex-1">
+            <div class="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none"><i class="fa-solid fa-magnifying-glass text-zinc-500"></i></div>
+            <input type="text" id="searchInput" onkeyup="filterApps()" placeholder="Search applications..." class="w-full bg-zinc-900/50 border border-zinc-800 text-zinc-200 p-3 pl-10 rounded-xl text-sm focus:outline-none focus:border-amber-500 transition-colors shadow-lg">
+        </div>
+        <button id="btn-refresh-containers" onclick="refreshContainers()" class="px-5 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition-all shadow-lg flex items-center justify-center gap-2.5 flex-shrink-0">
+            <i class="fa-solid fa-arrows-rotate text-xs"></i> Refresh Containers & Sync URLs
+        </button>
     </div>
+
+    <div id="refresh-status" class="hidden mb-6 p-4 rounded-xl text-xs font-mono bg-zinc-900 border border-zinc-800"></div>
 
     <div class="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden mb-10 shadow-xl">
         <div class="overflow-x-auto">
@@ -55,41 +62,53 @@
     </div>
 </div>
 
-<div id="editModal" class="fixed inset-0 bg-black/90 hidden flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-    <div class="bg-zinc-900 p-6 rounded-2xl w-full max-w-lg border border-zinc-700 shadow-2xl">
-        <h2 class="text-xl font-bold mb-5">Edit Application</h2>
-        <div class="space-y-3">
-            <div><label class="text-xs text-zinc-400 ml-1 mb-1 block">Display Title</label><input id="edit-title" class="w-full bg-zinc-800 p-3 rounded-lg text-sm"></div>
-            <div><label class="text-xs text-zinc-400 ml-1 mb-1 block">Destination URL</label><input id="edit-url" class="w-full bg-zinc-800 p-3 rounded-lg text-sm"></div>
-            <div><label class="text-xs text-zinc-400 ml-1 mb-1 block">Icon URL</label><input id="edit-icon" class="w-full bg-zinc-800 p-3 rounded-lg text-sm"></div>
-            <div class="flex gap-3">
-                <div class="flex-1"><label class="text-xs text-zinc-400 ml-1 mb-1 block">Category Group</label><select id="edit-group" class="w-full bg-zinc-800 p-3 rounded-lg text-sm appearance-none"></select></div>
-                <div class="w-24"><label class="text-xs text-zinc-400 ml-1 mb-1 block">Order</label><input id="edit-order" type="number" class="w-full bg-zinc-800 p-3 rounded-lg text-sm"></div>
-            </div>
-        </div>
-        <div class="flex gap-2 mt-6">
-            <button onclick="closeModal()" class="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium transition-colors">Cancel</button>
-            <button onclick="saveEdit()" class="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-black text-sm font-bold rounded-lg transition-colors">Save</button>
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    let currentKey = null;
     async function loadAdmin() {
-        const res = await fetch('/api/containers?show_hidden=true');
-        const apps = await res.json();
-        document.getElementById('list').innerHTML = apps.map(app => `
-            <tr class="app-item group hover:bg-zinc-800/30 transition-colors" data-title="${app.title.toLowerCase()}">
-                <td class="px-6 py-3 whitespace-nowrap"><div class="flex items-center gap-3"><img src="${app.icon}" class="w-8 h-8 object-contain bg-zinc-950 rounded-md p-1 border border-zinc-800" onerror="this.src='https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/generic.png'"><span class="font-medium text-sm text-zinc-200">${app.title}</span></div></td>
-                <td class="px-6 py-3 whitespace-nowrap"><div class="text-xs text-zinc-400">${app.group}</div><div class="text-[10px] text-zinc-600 font-mono mt-0.5">${app.key}</div></td>
-                <td class="px-6 py-3 whitespace-nowrap text-center"><label class="relative inline-flex items-center cursor-pointer transform scale-90"><input type="checkbox" class="sr-only peer" onchange="quickToggleHide('${app.key}', this.checked)" ${!app.hidden ? 'checked' : ''}><div class="w-9 h-5 bg-zinc-700 rounded-full peer peer-checked:bg-amber-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label></td>
-                <td class="px-6 py-3 whitespace-nowrap text-right text-sm font-medium"><button onclick="openEdit('${app.key}')" class="text-zinc-500 hover:text-amber-400 px-2 transition-colors"><i class="fa-solid fa-pen"></i></button><button onclick="deleteApp('${app.key}')" class="text-zinc-600 hover:text-red-500 px-2 transition-colors ml-2"><i class="fa-solid fa-trash"></i></button></td>
-            </tr>
-        `).join('');
+        const tbody = document.getElementById('list');
+        if (!tbody) return;
+        try {
+            const res = await fetch('/api/containers?show_hidden=true');
+            if (!res.ok) {
+                tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-red-400 font-medium">Failed to load applications (HTTP ${res.status}).</td></tr>`;
+                return;
+            }
+            const apps = await res.json();
+            if (!Array.isArray(apps) || apps.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-zinc-500">No applications found. Click "Refresh Containers & Sync URLs" above to discover containers!</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = apps.map(app => {
+                const titleStr = app.title || app.name || app.key || 'App';
+                const iconUrl = app.icon || 'https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/generic.png';
+                const groupStr = app.group || 'Ungrouped';
+                return `
+                    <tr class="app-item group hover:bg-zinc-800/30 transition-colors" data-title="${escapeHTML(titleStr.toLowerCase())}">
+                        <td class="px-6 py-3 whitespace-nowrap"><div class="flex items-center gap-3"><img src="${escapeHTML(iconUrl)}" class="w-8 h-8 object-contain bg-zinc-950 rounded-md p-1 border border-zinc-800" onerror="this.onerror=null; this.src='https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/generic.png';"><span class="font-medium text-sm text-zinc-200">${escapeHTML(titleStr)}</span></div></td>
+                        <td class="px-6 py-3 whitespace-nowrap"><div class="text-xs text-zinc-400">${escapeHTML(groupStr)}</div><div class="text-[10px] text-zinc-600 font-mono mt-0.5">${escapeHTML(app.key)}</div></td>
+                        <td class="px-6 py-3 whitespace-nowrap text-center"><label class="relative inline-flex items-center cursor-pointer transform scale-90"><input type="checkbox" class="sr-only peer" onchange="quickToggleHide('${escapeHTML(app.key)}', this.checked)" ${!app.hidden ? 'checked' : ''}><div class="w-9 h-5 bg-zinc-700 rounded-full peer peer-checked:bg-amber-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div></label></td>
+                        <td class="px-6 py-3 whitespace-nowrap text-right text-sm font-medium"><button onclick="openEdit('${escapeHTML(app.key)}')" class="text-zinc-500 hover:text-amber-400 px-2 transition-colors"><i class="fa-solid fa-pen"></i></button><button onclick="deleteApp('${escapeHTML(app.key)}')" class="text-zinc-600 hover:text-red-500 px-2 transition-colors ml-2"><i class="fa-solid fa-trash"></i></button></td>
+                    </tr>
+                `;
+            }).join('');
+        } catch (e) {
+            console.error('loadAdmin error:', e);
+            tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-red-400">Error rendering apps list: ${escapeHTML(e.message)}</td></tr>`;
+        }
     }
+
+    async function deleteApp(key) {
+        if (!confirm(`Are you sure you want to delete application shortcut '${key}'?`)) return;
+        try {
+            await fetch(`/api/config/${key}`, { method: 'DELETE' });
+            await loadAdmin();
+        } catch(e) {
+            alert('Failed to delete application: ' + e.message);
+        }
+    }
+
     function filterApps() {
         const term = document.getElementById('searchInput').value.toLowerCase();
         document.querySelectorAll('.app-item').forEach(el => { el.style.display = el.getAttribute('data-title').includes(term) ? 'table-row' : 'none'; });
@@ -99,24 +118,6 @@
         const app = apps.find(a => a.key === key);
         await fetch(`/api/config/${key}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({...app, custom_title: app.title, custom_url: app.url, icon_url: app.icon, group_name: app.group, hidden: !isVisible}) });
     }
-    async function openEdit(key) {
-        currentKey = key;
-        const apps = await (await fetch('/api/containers?show_hidden=true')).json();
-        const app = apps.find(a => a.key === key);
-        const groups = await (await fetch('/api/groups')).json();
-        document.getElementById('edit-group').innerHTML = groups.map(g => `<option value="${g}">${g}</option>`).join('');
-        document.getElementById('edit-title').value = app.title; document.getElementById('edit-url').value = app.url === '#' ? '' : app.url;
-        document.getElementById('edit-icon').value = app.icon; document.getElementById('edit-group').value = app.group;
-        document.getElementById('edit-order').value = app.display_order || 0;
-        document.getElementById('editModal').classList.remove('hidden');
-    }
-    async function saveEdit() {
-        await fetch(`/api/config/${currentKey}`, {
-            method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ custom_title: document.getElementById('edit-title').value, custom_url: document.getElementById('edit-url').value, icon_url: document.getElementById('edit-icon').value, group_name: document.getElementById('edit-group').value, display_order: parseInt(document.getElementById('edit-order').value) || 0, is_custom: 1 })
-        });
-        closeModal(); loadAdmin();
-    }
     async function addCustom() {
         const key = document.getElementById('c-key').value;
         await fetch(`/api/config/${key}`, {
@@ -125,8 +126,43 @@
         });
         document.getElementById('c-key').value = ''; document.getElementById('c-title').value = ''; document.getElementById('c-url').value = ''; loadAdmin();
     }
-    async function deleteApp(key) { if(confirm('Delete this shortcut?')) { await fetch(`/api/config/${key}`, { method: 'DELETE' }); loadAdmin(); } }
-    function closeModal() { document.getElementById('editModal').classList.add('hidden'); }
+    async function refreshContainers() {
+        const btn = document.getElementById('btn-refresh-containers');
+        const statusDiv = document.getElementById('refresh-status');
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-xs"></i> Scanning...`;
+        statusDiv.classList.remove('hidden');
+        statusDiv.className = 'mb-6 p-4 rounded-xl text-xs font-mono bg-zinc-900 border border-zinc-800 text-zinc-400';
+        statusDiv.innerText = 'Scanning Docker containers and syncing container URLs...';
+
+        try {
+            const res = await fetch('/api/containers/refresh', { method: 'POST' });
+            const data = await res.json();
+            if (data.status === 'success') {
+                statusDiv.className = 'mb-6 p-4 rounded-xl text-xs font-mono bg-emerald-950/30 border border-emerald-900/50 text-emerald-400';
+                let msg = `[SUCCESS] ${data.message}`;
+                if (data.synced && data.synced.length > 0) {
+                    msg += '\n' + data.synced.map(s => `• ${s}`).join('\n');
+                } else {
+                    msg += '\n• All container URLs are already up to date.';
+                }
+                statusDiv.innerText = msg;
+                await loadAdmin();
+            } else {
+                statusDiv.className = 'mb-6 p-4 rounded-xl text-xs font-mono bg-rose-950/30 border border-rose-900/50 text-rose-400';
+                statusDiv.innerText = `[ERROR] ${data.message || 'Failed to refresh containers'}`;
+            }
+        } catch (e) {
+            statusDiv.className = 'mb-6 p-4 rounded-xl text-xs font-mono bg-rose-950/30 border border-rose-900/50 text-rose-400';
+            statusDiv.innerText = `[ERROR] Connection failed: ${e.message}`;
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fa-solid fa-arrows-rotate text-xs"></i> Refresh Containers & Sync URLs`;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadAdmin);
+    window.addEventListener('load', loadAdmin);
     loadAdmin();
 </script>
 {% endblock %}

@@ -3,12 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}DashForge{% endblock %}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="theme-color" content="#04020f">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="LinkForge">
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+    <title>{% block title %}LinkForge{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        body { background: #070707; color: white; font-family: 'Inter', sans-serif; }
+        body { 
+            background-color: #04020f; 
+            background-image: 
+                radial-gradient(circle at 0% 50%, rgba(56, 22, 107, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 100% 0%, rgba(8, 96, 148, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 100%, rgba(37, 19, 91, 0.2) 0%, transparent 50%);
+            background-attachment: fixed;
+            color: white; 
+            font-family: 'Inter', sans-serif; 
+        }
+        
+        .hex-bg {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: -1;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 0l20 11.5v23L20 46 0 34.5v-23z' fill-opacity='0.03' fill='%2306b6d4' fill-rule='evenodd'/%3E%3C/svg%3E");
+            background-size: 40px 40px;
+            opacity: 0.3;
+        }
         
         .custom-scroll::-webkit-scrollbar { width: 4px; }
         .custom-scroll::-webkit-scrollbar-track { background: transparent; }
@@ -16,34 +41,34 @@
         
         {% block extra_css %}{% endblock %}
     </style>
+    {% block head_extra %}{% endblock %}
 </head>
-<body class="p-6 md:p-8 min-h-screen">
+<body class="p-6 md:p-8 min-h-screen relative">
+    <div class="hex-bg"></div>
     <div class="max-w-[100rem] mx-auto flex flex-col lg:flex-row gap-6 xl:gap-10">
         
         <aside class="w-full lg:w-56 xl:w-64 flex-shrink-0">
             <div class="sticky top-8 flex flex-col gap-8">
                 <div>
-                    <h1 class="text-4xl font-bold tracking-tight text-white">DashForge</h1>
-                    <p class="text-zinc-500 text-sm mt-1">Local Server Management</p>
+                    <h1 class="text-4xl font-bold tracking-tight text-white">LinkForge</h1>
+                    <p class="text-zinc-500 text-sm mt-1">Personal Knowledge Hub</p>
                 </div>
                 
                 <nav class="flex flex-col gap-2">
                     <a href="/" class="px-4 py-3.5 rounded-xl border text-sm font-medium transition-all flex items-center gap-3 shadow-sm group {% if active_page == 'home' %}bg-zinc-800 border-zinc-700 text-white{% else %}bg-zinc-900/40 hover:bg-zinc-800 border-zinc-800/60 text-zinc-400 hover:text-white{% endif %}">
                         <i class="fa-solid fa-house text-amber-400 w-5 text-center group-hover:scale-110 transition-transform"></i> Home
                     </a>
+                    {% if site_settings.get('show_scratchpad_menu', '1') != '0' %}
                     <a href="/notes" class="px-4 py-3.5 rounded-xl border text-sm font-medium transition-all flex items-center gap-3 shadow-sm group {% if active_page == 'notes' %}bg-zinc-800 border-zinc-700 text-white{% else %}bg-zinc-900/40 hover:bg-zinc-800 border-zinc-800/60 text-zinc-400 hover:text-white{% endif %}">
                         <i class="fa-solid fa-note-sticky text-amber-300 w-5 text-center group-hover:scale-110 transition-transform"></i> Scratchpad
                     </a>
-                    <a href="/links" class="px-4 py-3.5 rounded-xl border text-sm font-medium transition-all flex items-center gap-3 shadow-sm group {% if active_page == 'links' %}bg-zinc-800 border-zinc-700 text-white{% else %}bg-zinc-900/40 hover:bg-zinc-800 border-zinc-800/60 text-zinc-400 hover:text-white{% endif %}">
-                        <i class="fa-solid fa-inbox text-emerald-400 w-5 text-center group-hover:scale-110 transition-transform"></i> Inbox
-                    </a>
+                    {% endif %}
                     <a href="/bookmarks" class="px-4 py-3.5 rounded-xl border text-sm font-medium transition-all flex items-center gap-3 shadow-sm group {% if active_page == 'bookmarks' %}bg-zinc-800 border-zinc-700 text-white{% else %}bg-zinc-900/40 hover:bg-zinc-800 border-zinc-800/60 text-zinc-400 hover:text-white{% endif %}">
-                        <i class="fa-solid fa-bookmark text-cyan-500 w-5 text-center group-hover:scale-110 transition-transform"></i> Archive
+                        <i class="fa-solid fa-network-wired text-cyan-500 w-5 text-center group-hover:scale-110 transition-transform"></i> Neural Links
                     </a>
-                    <a href="/bin" class="px-4 py-2.5 rounded-xl border text-xs font-medium transition-all flex items-center gap-3 shadow-sm group ml-4 {% if active_page == 'bin' %}bg-rose-900/30 border-rose-900/50 text-rose-400{% else %}bg-transparent border-transparent text-zinc-600 hover:text-rose-400 hover:bg-rose-950/20{% endif %}">
-                        <i class="fa-solid fa-dumpster w-4 text-center group-hover:scale-110 transition-transform"></i> Link Bin
+                    <a href="/videos" class="px-4 py-3.5 rounded-xl border text-sm font-medium transition-all flex items-center gap-3 shadow-sm group {% if active_page == 'videos' %}bg-zinc-800 border-zinc-700 text-white{% else %}bg-zinc-900/40 hover:bg-zinc-800 border-zinc-800/60 text-zinc-400 hover:text-white{% endif %}">
+                        <i class="fa-solid fa-clapperboard text-rose-400 w-5 text-center group-hover:scale-110 transition-transform"></i> Video Library
                     </a>
-                    
                     <div class="h-px bg-zinc-800/50 my-2 mx-2"></div>
                     
                     <a href="/admin" class="px-4 py-3.5 rounded-xl border text-sm font-medium transition-all flex items-center gap-3 shadow-sm group {% if active_page == 'admin' %}bg-zinc-800 border-zinc-700 text-white{% else %}bg-zinc-900/40 hover:bg-zinc-800 border-zinc-800/60 text-zinc-400 hover:text-white{% endif %}">
@@ -56,7 +81,7 @@
                 </nav>
 
                 {% if active_page == 'bookmarks' and tag_swarm %}
-                <div class="flex flex-col gap-3 mt-4">
+                <div id="tag-sidebar-container" class="flex flex-col gap-3 mt-4 transition-opacity duration-500">
                     <div class="flex items-center gap-3 px-2">
                         <i class="fa-solid fa-tags text-cyan-500 text-xs"></i>
                         <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-widest">Filter by Tag</h3>
@@ -78,6 +103,194 @@
             {% block content %}{% endblock %}
         </main>
     </div>
+    <div id="editModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center p-4 z-50 backdrop-blur-sm">
+        <div class="bg-zinc-900 p-6 rounded-2xl w-full max-w-lg border border-zinc-700 shadow-2xl">
+            <h2 class="text-xl font-bold mb-5 text-zinc-100 flex items-center gap-2">
+                <i class="fa-solid fa-pen-to-square text-amber-500"></i> Edit Application
+            </h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="text-xs text-zinc-400 ml-1 mb-1 block">Display Title</label>
+                    <input id="edit-title" class="w-full bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-sm text-zinc-200 focus:outline-none focus:border-amber-500">
+                </div>
+                <div>
+                    <label class="text-xs text-zinc-400 ml-1 mb-1 block">Destination URL</label>
+                    <input id="edit-url" class="w-full bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-sm text-zinc-200 focus:outline-none focus:border-amber-500">
+                </div>
+                <div>
+                    <div class="flex items-center justify-between ml-1 mb-1">
+                        <label class="text-xs text-zinc-400 block">Icon URL</label>
+                        <button type="button" onclick="autoFindIcons()" class="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 transition-colors">
+                            <i class="fa-solid fa-wand-magic-sparkles text-[10px]"></i> Auto-Find Icons
+                        </button>
+                    </div>
+                    <div class="flex gap-2.5 items-center">
+                        <div class="w-10 h-10 rounded-lg bg-zinc-950 border border-zinc-800 flex items-center justify-center flex-shrink-0">
+                            <img id="edit-icon-preview" src="" class="w-6 h-6 object-contain" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=App&background=27272a&color=fff&rounded=true&bold=true';">
+                        </div>
+                        <input id="edit-icon" oninput="document.getElementById('edit-icon-preview').src = this.value" class="flex-1 bg-zinc-800 border border-zinc-700/60 p-2.5 rounded-lg text-sm text-zinc-200 focus:outline-none focus:border-amber-500">
+                    </div>
+
+                    <div id="icon-picker-results" class="hidden mt-3 p-3 bg-zinc-950/90 border border-zinc-800 rounded-xl shadow-inner">
+                        <div class="text-[11px] font-bold uppercase tracking-wider text-zinc-500 mb-2.5 flex items-center justify-between">
+                            <span>Available Icons</span>
+                            <button type="button" onclick="document.getElementById('icon-picker-results').classList.add('hidden')" class="text-zinc-500 hover:text-zinc-300 text-xs px-1"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <div id="icon-grid" class="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-40 overflow-y-auto custom-scroll pr-1"></div>
+                    </div>
+                </div>
+
+                <div class="flex gap-3">
+                    <div class="flex-1">
+                        <label class="text-xs text-zinc-400 ml-1 mb-1 block">Category Group</label>
+                        <select id="edit-group" class="w-full bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-sm text-zinc-200 focus:outline-none focus:border-amber-500 appearance-none"></select>
+                    </div>
+                    <div class="w-24">
+                        <label class="text-xs text-zinc-400 ml-1 mb-1 block">Order</label>
+                        <input id="edit-order" type="number" class="w-full bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-sm text-zinc-200 focus:outline-none focus:border-amber-500">
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between p-3.5 bg-zinc-950/60 border border-zinc-800 rounded-xl">
+                    <div>
+                        <label for="edit-hidden" class="text-xs font-semibold text-zinc-200 block cursor-pointer">Hide from Dashboard</label>
+                        <span class="text-[10px] text-zinc-500 block">Hide this app card from the main dashboard screen</span>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="edit-hidden" class="sr-only peer">
+                        <div class="w-9 h-5 bg-zinc-700 rounded-full peer peer-checked:bg-amber-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
+                    </label>
+                </div>
+            </div>
+
+            <div class="flex gap-3 mt-6">
+                <button type="button" onclick="closeModal()" class="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-sm font-medium transition-colors">Cancel</button>
+                <button type="button" onclick="saveEdit()" class="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-black text-sm font-bold rounded-lg transition-colors">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+
+
+    <script>
+        function escapeHTML(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        let currentKey = null;
+        let currentApp = null;
+
+        async function openEdit(key) {
+            currentKey = key;
+            try {
+                const groups = await (await fetch('/api/groups')).json();
+                currentApp = currentApp || {};
+                
+                const groupSelect = document.getElementById('edit-group');
+                groupSelect.innerHTML = groups.map(g => `<option value="${escapeHTML(g)}">${escapeHTML(g)}</option>`).join('');
+                
+                document.getElementById('edit-title').value = currentApp.title || key || '';
+                document.getElementById('edit-url').value = (currentApp.url === '#' ? '' : currentApp.url) || '';
+                document.getElementById('edit-icon').value = currentApp.icon || '';
+                document.getElementById('edit-icon-preview').src = currentApp.icon || '';
+                document.getElementById('edit-group').value = currentApp.group || 'Ungrouped';
+                document.getElementById('edit-order').value = currentApp.display_order || 0;
+                document.getElementById('edit-hidden').checked = Boolean(currentApp.hidden);
+                
+                document.getElementById('icon-picker-results').classList.add('hidden');
+                const modal = document.getElementById('editModal');
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            } catch(e) {
+                console.error('Error opening edit modal:', e);
+            }
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('editModal');
+            if (modal) {
+                modal.classList.remove('flex');
+                modal.classList.add('hidden');
+            }
+            const picker = document.getElementById('icon-picker-results');
+            if (picker) picker.classList.add('hidden');
+        }
+
+        async function saveEdit() {
+            if (!currentKey) return;
+            try {
+                await fetch(`/api/config/${currentKey}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        ...currentApp,
+                        custom_title: document.getElementById('edit-title').value,
+                        custom_url: document.getElementById('edit-url').value,
+                        icon_url: document.getElementById('edit-icon').value,
+                        group_name: document.getElementById('edit-group').value,
+                        display_order: parseInt(document.getElementById('edit-order').value) || 0,
+                        hidden: document.getElementById('edit-hidden').checked ? 1 : 0,
+                        is_custom: currentApp ? currentApp.is_custom : 1
+                    })
+                });
+                closeModal();
+                if (typeof loadDashboard === 'function') await loadDashboard();
+                if (typeof loadAdmin === 'function') await loadAdmin();
+            } catch(e) {
+                console.error('Error saving app edit:', e);
+            }
+        }
+
+        async function autoFindIcons() {
+            const title = document.getElementById('edit-title').value;
+            const url = document.getElementById('edit-url').value;
+            const picker = document.getElementById('icon-picker-results');
+            const grid = document.getElementById('icon-grid');
+            
+            grid.innerHTML = `<div class="col-span-full text-center text-xs text-zinc-500 py-3"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Searching icons...</div>`;
+            picker.classList.remove('hidden');
+
+            try {
+                const res = await fetch(`/api/icons/search?q=${encodeURIComponent(title || currentKey)}&url=${encodeURIComponent(url)}`);
+                const data = await res.json();
+                
+                if (!data.icons || data.icons.length === 0) {
+                    grid.innerHTML = `<div class="col-span-full text-center text-xs text-zinc-500 py-3">No icons found.</div>`;
+                    return;
+                }
+
+                grid.innerHTML = data.icons.map(icon => `
+                    <button type="button" onclick="selectIcon('${escapeHTML(icon.url)}')" title="${escapeHTML(icon.name)}"
+                            class="p-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-indigo-500/60 rounded-xl flex items-center justify-center transition-all group shadow-sm">
+                        <img src="${escapeHTML(icon.url)}" class="w-7 h-7 object-contain group-hover:scale-110 transition-transform" onerror="this.onerror=null; this.src='https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/generic.png';">
+                    </button>
+                `).join('');
+            } catch(e) {
+                grid.innerHTML = `<div class="col-span-full text-center text-xs text-red-400 py-3">Failed to load icons.</div>`;
+            }
+        }
+
+        function selectIcon(url) {
+            document.getElementById('edit-icon').value = url;
+            document.getElementById('edit-icon-preview').src = url;
+            document.getElementById('icon-picker-results').classList.add('hidden');
+        }
+
+        // Register Progressive Web App Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/sw.js')
+                    .then(reg => console.log('LinkForge PWA Service Worker Registered! Scope:', reg.scope))
+                    .catch(err => console.debug('ServiceWorker registration skipped/failed:', err));
+            });
+        }
+    </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

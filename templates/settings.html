@@ -1,20 +1,307 @@
 {% set active_page = 'settings' %}
 {% extends 'base.html' %}
 
-{% block content %}
-<div class="mb-10 bg-zinc-900/40 p-6 rounded-[2rem] border border-zinc-800/60 shadow-2xl backdrop-blur-sm">
-    <h1 class="text-4xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-zinc-300 to-zinc-500">Settings</h1>
-    <p class="text-zinc-500 text-sm mt-2 font-medium">Configure your dashboard preferences.</p>
-</div>
+{% block extra_css %}
+<style>
+    .toggle-checkbox:checked {
+        right: 0;
+        border-color: #06b6d4;
+        background-color: #06b6d4;
+    }
+    .toggle-checkbox:checked + .toggle-label {
+        background-color: #083344;
+    }
+    .info-tooltip {
+        visibility: hidden;
+        opacity: 0;
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        transform: translateY(6px);
+    }
+    .info-bobble:hover .info-tooltip,
+    .info-bobble:focus-within .info-tooltip {
+        visibility: visible;
+        opacity: 1;
+        transform: translateY(0);
+    }
+</style>
+{% endblock %}
 
-<div class="bg-zinc-900 p-8 rounded-3xl border border-zinc-800 shadow-xl max-w-2xl">
-    <div class="flex flex-col items-center justify-center text-center py-10">
-        <i class="fa-solid fa-screwdriver-wrench text-6xl text-zinc-700 mb-6"></i>
-        <h2 class="text-xl font-bold text-zinc-300 mb-2">Settings Panel</h2>
-        <p class="text-zinc-500 text-sm max-w-md">
-            This section is ready for future dashboard configurations (like theme colors or custom backgrounds). <br><br>
-            For now, please use the <a href="/admin" class="text-amber-500 hover:underline">Admin Panel</a> to manage your applications, Google Calendar integration, and Data Backups.
-        </p>
+{% block content %}
+<div class="mb-8 bg-zinc-900/40 p-6 md:p-8 rounded-[2rem] border border-zinc-800/60 shadow-2xl backdrop-blur-sm">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl md:text-4xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-zinc-100 to-zinc-400">Settings & Intelligence</h1>
+            <p class="text-zinc-500 text-sm mt-1.5 font-medium">Fine-tune your LinkForge automated ingestion, AI routing, and transcript extractors.</p>
+        </div>
+        <span id="saveStatus" class="text-xs font-mono text-cyan-400 bg-cyan-950/40 border border-cyan-900/60 px-3 py-1.5 rounded-full hidden items-center gap-2">
+            <i class="fa-solid fa-check"></i> Preferences Saved
+        </span>
     </div>
 </div>
+
+<div class="space-y-4 max-w-4xl">
+
+    <!-- 1. Master Automation Switch -->
+    <div class="bg-gradient-to-br from-zinc-900/90 to-zinc-950/90 p-6 rounded-3xl border border-cyan-500/30 shadow-[0_0_25px_rgba(6,182,212,0.1)] relative overflow-hidden">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="flex items-start gap-4">
+                <div class="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xl flex-shrink-0 mt-0.5">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h2 class="text-lg font-bold text-zinc-100">Smart Automation Master Switch</h2>
+                        <!-- Info Bobble -->
+                        <div class="relative inline-block info-bobble">
+                            <button type="button" class="w-5 h-5 rounded-full bg-zinc-800 hover:bg-cyan-500/20 text-zinc-400 hover:text-cyan-400 text-[11px] flex items-center justify-center border border-zinc-700 transition-colors">
+                                <i class="fa-solid fa-question"></i>
+                            </button>
+                            <div class="info-tooltip absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 p-3 bg-zinc-950/95 border border-cyan-900/80 rounded-xl shadow-2xl z-50 text-xs text-zinc-300 pointer-events-none backdrop-blur-md">
+                                <span class="font-bold text-cyan-400 block mb-1">Master Automation Switch</span>
+                                Primary killswitch for all background AI enrichments, automatic full-text extraction, YouTube transcript downloads, and AI auto-routing. Turn off to run in minimal lightweight mode.
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-zinc-400 text-xs mt-1">Enables or suspends all intelligent background processing and extractors across LinkForge.</p>
+                </div>
+            </div>
+
+            <!-- Toggle Switch -->
+            <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                <input type="checkbox" id="feature_smart_ingestion_master" class="sr-only peer" onchange="toggleSetting('feature_smart_ingestion_master', this.checked)">
+                <div class="w-14 h-7 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[4px] after:bg-zinc-400 peer-checked:after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-cyan-600"></div>
+            </label>
+        </div>
+    </div>
+
+    <!-- 2. Full-Text Article Fetching -->
+    <div class="bg-gradient-to-br from-zinc-900/90 to-zinc-950/90 p-6 rounded-3xl border border-cyan-500/30 shadow-[0_0_25px_rgba(6,182,212,0.1)] relative overflow-hidden">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="flex items-start gap-4">
+                <div class="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xl flex-shrink-0 mt-0.5">
+                    <i class="fa-solid fa-file-lines"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h2 class="text-lg font-bold text-zinc-100">Full-Text Ingestion</h2>
+                        <!-- Info Bobble -->
+                        <div class="relative inline-block info-bobble">
+                            <button type="button" class="w-5 h-5 rounded-full bg-zinc-800 hover:bg-cyan-500/20 text-zinc-400 hover:text-cyan-400 text-[11px] flex items-center justify-center border border-zinc-700 transition-colors">
+                                <i class="fa-solid fa-question"></i>
+                            </button>
+                            <div class="info-tooltip absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 p-3 bg-zinc-950/95 border border-cyan-900/80 rounded-xl shadow-2xl z-50 text-xs text-zinc-300 pointer-events-none backdrop-blur-md">
+                                <span class="font-bold text-cyan-400 block mb-1">Full-Text Article Ingestion</span>
+                                Automatically parses article text, stripping navigation and ads. The body text is indexed in your database so Neural Queries can search within the entire text of the article, not just the title.
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-zinc-400 text-xs mt-1">Extracts and indexes full webpage body content for deep offline search and AI analysis.</p>
+                </div>
+            </div>
+
+            <!-- Toggle Switch -->
+            <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                <input type="checkbox" id="feature_full_text_fetch" class="sr-only peer" onchange="toggleSetting('feature_full_text_fetch', this.checked)">
+                <div class="w-14 h-7 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[4px] after:bg-zinc-400 peer-checked:after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-cyan-600"></div>
+            </label>
+        </div>
+    </div>
+
+    <!-- 3. YouTube Transcript Fetching -->
+    <div class="bg-gradient-to-br from-zinc-900/90 to-zinc-950/90 p-6 rounded-3xl border border-cyan-500/30 shadow-[0_0_25px_rgba(6,182,212,0.1)] relative overflow-hidden">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="flex items-start gap-4">
+                <div class="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xl flex-shrink-0 mt-0.5">
+                    <i class="fa-solid fa-closed-captioning"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h2 class="text-lg font-bold text-zinc-100">YouTube Transcripts</h2>
+                        <!-- Info Bobble -->
+                        <div class="relative inline-block info-bobble">
+                            <button type="button" class="w-5 h-5 rounded-full bg-zinc-800 hover:bg-cyan-500/20 text-zinc-400 hover:text-cyan-400 text-[11px] flex items-center justify-center border border-zinc-700 transition-colors">
+                                <i class="fa-solid fa-question"></i>
+                            </button>
+                            <div class="info-tooltip absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 p-3 bg-zinc-950/95 border border-cyan-900/80 rounded-xl shadow-2xl z-50 text-xs text-zinc-300 pointer-events-none backdrop-blur-md">
+                                <span class="font-bold text-cyan-400 block mb-1">YouTube Closed Captions</span>
+                                Downloads spoken transcripts and timestamps directly from saved YouTube videos. Enables searching inside spoken dialogue via the Neural Query bar.
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-zinc-400 text-xs mt-1">Automatically pulls spoken dialogue transcripts from captured YouTube videos.</p>
+                </div>
+            </div>
+
+            <!-- Toggle Switch -->
+            <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                <input type="checkbox" id="feature_yt_transcript_fetch" class="sr-only peer" onchange="toggleSetting('feature_yt_transcript_fetch', this.checked)">
+                <div class="w-14 h-7 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[4px] after:bg-zinc-400 peer-checked:after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-cyan-600"></div>
+            </label>
+        </div>
+    </div>
+
+    <!-- 4. AI Auto-Routing -->
+    <div class="bg-gradient-to-br from-zinc-900/90 to-zinc-950/90 p-6 rounded-3xl border border-cyan-500/30 shadow-[0_0_25px_rgba(6,182,212,0.1)] relative overflow-hidden">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="flex items-start gap-4">
+                <div class="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xl flex-shrink-0 mt-0.5">
+                    <i class="fa-solid fa-route"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h2 class="text-lg font-bold text-zinc-100">AI Auto-Routing</h2>
+                        <!-- Info Bobble -->
+                        <div class="relative inline-block info-bobble">
+                            <button type="button" class="w-5 h-5 rounded-full bg-zinc-800 hover:bg-cyan-500/20 text-zinc-400 hover:text-cyan-400 text-[11px] flex items-center justify-center border border-zinc-700 transition-colors">
+                                <i class="fa-solid fa-question"></i>
+                            </button>
+                            <div class="info-tooltip absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 p-3 bg-zinc-950/95 border border-cyan-900/80 rounded-xl shadow-2xl z-50 text-xs text-zinc-300 pointer-events-none backdrop-blur-md">
+                                <span class="font-bold text-cyan-400 block mb-1">Intelligent Auto-Routing</span>
+                                When you capture a bookmark or video, the AI analyzes its subject and automatically places it in the most fitting Homepage Group or Video Library category you've created.
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-zinc-400 text-xs mt-1">Automatically places incoming bookmarks and videos into your existing groups and categories.</p>
+                </div>
+            </div>
+
+            <!-- Toggle Switch -->
+            <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                <input type="checkbox" id="feature_ai_auto_route" class="sr-only peer" onchange="toggleSetting('feature_ai_auto_route', this.checked)">
+                <div class="w-14 h-7 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[4px] after:bg-zinc-400 peer-checked:after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-cyan-600"></div>
+            </label>
+        </div>
+    </div>
+
+    <!-- 5. Video Routing Triage Mode -->
+    <div class="bg-gradient-to-br from-zinc-900/90 to-zinc-950/90 p-6 rounded-3xl border border-cyan-500/30 shadow-[0_0_25px_rgba(6,182,212,0.1)] relative overflow-hidden">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="flex items-start gap-4">
+                <div class="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xl flex-shrink-0 mt-0.5">
+                    <i class="fa-solid fa-inbox"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h2 class="text-lg font-bold text-zinc-100">Video Triage & Learning</h2>
+                        <!-- Info Bobble -->
+                        <div class="relative inline-block info-bobble">
+                            <button type="button" class="w-5 h-5 rounded-full bg-zinc-800 hover:bg-cyan-500/20 text-zinc-400 hover:text-cyan-400 text-[11px] flex items-center justify-center border border-zinc-700 transition-colors">
+                                <i class="fa-solid fa-question"></i>
+                            </button>
+                            <div class="info-tooltip absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 p-3 bg-zinc-950/95 border border-cyan-900/80 rounded-xl shadow-2xl z-50 text-xs text-zinc-300 pointer-events-none backdrop-blur-md">
+                                <span class="font-bold text-cyan-400 block mb-1">Triage & Memory Learning</span>
+                                <b>Inbox Suggestions:</b> Keeps new videos in 'New Videos' with a 1-click AI recommendation badge. Every time you accept or change a category, the AI learns your preference for future suggestions.<br><br>
+                                <b>Instant:</b> Silently files videos into category folders immediately.
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-zinc-400 text-xs mt-1">Choose whether new videos stay in New Videos with 1-click AI suggestions, or file away instantly.</p>
+                </div>
+            </div>
+
+            <!-- Dropdown Selector -->
+            <div class="flex-shrink-0">
+                <select id="feature_video_routing_mode" onchange="toggleSetting('feature_video_routing_mode', this.value)"
+                        class="bg-zinc-900 border border-cyan-500/30 text-xs font-semibold text-cyan-300 px-4 py-2.5 rounded-xl focus:outline-none focus:border-cyan-400 shadow-sm cursor-pointer">
+                    <option value="suggest">Inbox Suggestions (Recommended)</option>
+                    <option value="instant">Instant Silent Route</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- 6. Show/Hide Scratchpad Menu Item -->
+    <div class="bg-gradient-to-br from-zinc-900/90 to-zinc-950/90 p-6 rounded-3xl border border-cyan-500/30 shadow-[0_0_25px_rgba(6,182,212,0.1)] relative overflow-hidden">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="flex items-start gap-4">
+                <div class="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xl flex-shrink-0 mt-0.5">
+                    <i class="fa-solid fa-note-sticky"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h2 class="text-lg font-bold text-zinc-100">Scratchpad Menu Item</h2>
+                        <!-- Info Bobble -->
+                        <div class="relative inline-block info-bobble">
+                            <button type="button" class="w-5 h-5 rounded-full bg-zinc-800 hover:bg-cyan-500/20 text-zinc-400 hover:text-cyan-400 text-[11px] flex items-center justify-center border border-zinc-700 transition-colors">
+                                <i class="fa-solid fa-question"></i>
+                            </button>
+                            <div class="info-tooltip absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 p-3 bg-zinc-950/95 border border-cyan-900/80 rounded-xl shadow-2xl z-50 text-xs text-zinc-300 pointer-events-none backdrop-blur-md">
+                                <span class="font-bold text-cyan-400 block mb-1">Sidebar Navigation</span>
+                                Toggle visibility of the Scratchpad navigation item in the main left sidebar. When hidden, the Scratchpad page (/notes) is still accessible directly.
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-zinc-400 text-xs mt-1">Show or hide the Scratchpad item in the main left navigation sidebar.</p>
+                </div>
+            </div>
+
+            <!-- Toggle Switch -->
+            <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                <input type="checkbox" id="show_scratchpad_menu" class="sr-only peer" onchange="toggleSetting('show_scratchpad_menu', this.checked)">
+                <div class="w-14 h-7 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[4px] after:bg-zinc-400 peer-checked:after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-cyan-600"></div>
+            </label>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    async function loadSettings() {
+        try {
+            const res = await fetch('/api/settings');
+            if (res.ok) {
+                const data = await res.json();
+                document.getElementById('feature_smart_ingestion_master').checked = data.feature_smart_ingestion_master !== '0';
+                document.getElementById('feature_full_text_fetch').checked = data.feature_full_text_fetch !== '0';
+                document.getElementById('feature_yt_transcript_fetch').checked = data.feature_yt_transcript_fetch !== '0';
+                document.getElementById('feature_ai_auto_route').checked = data.feature_ai_auto_route !== '0';
+                if (document.getElementById('show_scratchpad_menu')) {
+                    document.getElementById('show_scratchpad_menu').checked = data.show_scratchpad_menu !== '0';
+                }
+                if (document.getElementById('feature_video_routing_mode')) {
+                    document.getElementById('feature_video_routing_mode').value = data.feature_video_routing_mode || 'suggest';
+                }
+            }
+        } catch(e) {
+            console.error("Failed to load settings:", e);
+        }
+    }
+
+    async function toggleSetting(key, val) {
+        const payload = {};
+        if (typeof val === 'boolean') {
+            payload[key] = val ? '1' : '0';
+        } else {
+            payload[key] = String(val);
+        }
+        
+        try {
+            const res = await fetch('/api/settings', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            
+            if (res.ok) {
+                showSaveStatus();
+            }
+        } catch(e) {
+            console.error("Failed to save setting:", e);
+        }
+    }
+
+    function showSaveStatus() {
+        const badge = document.getElementById('saveStatus');
+        badge.classList.remove('hidden');
+        badge.classList.add('inline-flex');
+        setTimeout(() => {
+            badge.classList.remove('inline-flex');
+            badge.classList.add('hidden');
+        }, 2000);
+    }
+
+    loadSettings();
+</script>
 {% endblock %}

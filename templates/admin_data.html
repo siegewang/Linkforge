@@ -15,53 +15,821 @@
         <i class="fa-regular fa-calendar mr-2"></i> Calendar
     </a>
     <a href="/admin/data" class="px-5 py-2.5 rounded-xl text-sm font-bold transition-all {% if sub_page == 'data' %}bg-emerald-900/30 text-emerald-400 border border-emerald-500/30{% else %}text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50{% endif %}">
-        <i class="fa-solid fa-database mr-2"></i> Data Backup
+        <i class="fa-solid fa-database mr-2"></i> Data & AI
     </a>
-    <a href="/admin/health" class="px-5 py-2.5 rounded-xl text-sm font-bold transition-all {% if sub_page == 'health' %}bg-rose-900/30 text-rose-400 border border-rose-500/30{% else %}text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50{% endif %}">
-        <i class="fa-solid fa-heart-pulse mr-2"></i> Link Health
+    <a href="/admin/extensions" class="px-5 py-2.5 rounded-xl text-sm font-bold transition-all {% if sub_page == 'extensions' %}bg-cyan-900/30 text-cyan-400 border border-cyan-500/30{% else %}text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50{% endif %}">
+        <i class="fa-solid fa-puzzle-piece mr-2"></i> Extensions
     </a>
 </div>
 
-<div class="bg-zinc-900 p-8 rounded-3xl border border-zinc-800 shadow-xl max-w-2xl">
-    <h2 class="text-xl font-bold mb-2 flex items-center gap-3"><i class="fa-solid fa-file-csv text-emerald-400"></i> Backup & Restore</h2>
-    <p class="text-sm text-zinc-400 mb-8">Export your entire library of links to a portable CSV file, or restore a previous backup into your database. Import safely ignores exact duplicate URLs.</p>
-    
-    <div class="flex flex-col sm:flex-row gap-4">
-        <a href="/api/links/export" class="flex-1 bg-zinc-800 hover:bg-zinc-700 transition-colors py-4 rounded-xl text-sm font-bold shadow text-white flex flex-col items-center justify-center gap-2 border border-zinc-700">
-            <i class="fa-solid fa-download text-emerald-400 text-xl mb-1"></i> Export to CSV
-        </a>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl">
+    <!-- Automatic Backups Settings Card -->
+    <div class="bg-zinc-900 p-8 rounded-3xl border border-zinc-800 shadow-xl flex flex-col justify-between">
+        <div>
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold flex items-center gap-3">
+                    <i class="fa-solid fa-clock-rotate-left text-emerald-400"></i> Automatic Backups
+                </h2>
+                <span id="auto-backup-status-badge" class="px-3 py-1 rounded-full text-xs font-semibold bg-zinc-800 text-zinc-400 border border-zinc-700">
+                    Loading...
+                </span>
+            </div>
+            <p class="text-sm text-zinc-400 mb-6">
+                Automatically export a complete, crash-consistent snapshot of your entire knowledge hub (Neural Links, Video Library, Categories, Homepage Groups, Notes, and Settings) on a scheduled interval. Expired backups outside your retention window are automatically pruned.
+            </p>
+
+            <form id="auto-backup-form" onsubmit="saveAutoBackupConfig(event)" class="space-y-6">
+                <!-- Toggle Switch -->
+                <div class="flex items-center justify-between p-4 bg-zinc-950/60 border border-zinc-800 rounded-2xl">
+                    <div>
+                        <label for="auto_backup_enabled" class="text-sm font-bold text-zinc-200 block cursor-pointer">
+                            Enable Automatic Backups
+                        </label>
+                        <span class="text-xs text-zinc-500 block">Run scheduled background full system backups</span>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="auto_backup_enabled" class="sr-only peer">
+                        <div class="w-11 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                    </label>
+                </div>
+
+                <!-- Include Archives Toggle -->
+                <div class="flex items-center justify-between p-4 bg-zinc-950/60 border border-zinc-800 rounded-2xl">
+                    <div>
+                        <label for="auto_backup_include_archives" class="text-sm font-bold text-zinc-200 block cursor-pointer">
+                            Include Offline Article Archives
+                        </label>
+                        <span class="text-xs text-zinc-500 block">Package reader snapshots against paywalls and link rot</span>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="auto_backup_include_archives" class="sr-only peer" checked>
+                        <div class="w-11 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500"></div>
+                    </label>
+                </div>
+
+                <!-- Frequency Selection -->
+                <div>
+                    <label class="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-3">Backup Frequency</label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <label class="relative flex items-center justify-between p-4 bg-zinc-950/60 border border-zinc-800 rounded-2xl cursor-pointer hover:border-zinc-700 transition-colors">
+                            <div class="flex items-center gap-3">
+                                <input type="radio" name="frequency" value="daily" class="text-emerald-500 focus:ring-emerald-500 bg-zinc-800 border-zinc-700">
+                                <div>
+                                    <span class="text-sm font-bold text-zinc-200 block">Daily</span>
+                                    <span class="text-[11px] text-zinc-500 block">Every 24 hours</span>
+                                </div>
+                            </div>
+                        </label>
+                        <label class="relative flex items-center justify-between p-4 bg-zinc-950/60 border border-zinc-800 rounded-2xl cursor-pointer hover:border-zinc-700 transition-colors">
+                            <div class="flex items-center gap-3">
+                                <input type="radio" name="frequency" value="weekly" class="text-emerald-500 focus:ring-emerald-500 bg-zinc-800 border-zinc-700">
+                                <div>
+                                    <span class="text-sm font-bold text-zinc-200 block">Weekly</span>
+                                    <span class="text-[11px] text-zinc-500 block">Every 7 days</span>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Retention Duration Selection -->
+                <div>
+                    <label class="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-3">Retention Duration</label>
+                    <div class="flex items-center gap-3 bg-zinc-950/60 border border-zinc-800 p-4 rounded-2xl">
+                        <span class="text-sm font-semibold text-zinc-300">Keep backups for</span>
+                        <input type="number" id="retention_val" min="1" max="365" value="7" class="w-20 bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm font-bold rounded-xl px-3 py-2 text-center focus:outline-none focus:border-emerald-500">
+                        <select id="retention_unit" class="bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm font-bold rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500">
+                            <option value="days">Days</option>
+                            <option value="weeks">Weeks</option>
+                        </select>
+                    </div>
+                    <span class="text-[11px] text-zinc-500 mt-1.5 block">Backups older than this duration will be automatically deleted.</span>
+                </div>
+
+                <div class="text-xs text-zinc-500 flex items-center justify-between pt-2">
+                    <span>Last Run: <strong id="last-run-timestamp" class="text-zinc-400 font-mono">Never</strong></span>
+                </div>
+
+                <div class="flex gap-3 pt-2">
+                    <button type="submit" class="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl transition-colors shadow-lg flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Settings
+                    </button>
+                    <button type="button" onclick="runBackupNow()" class="py-3 px-4 bg-zinc-800 hover:bg-zinc-700 text-amber-400 hover:text-amber-300 font-bold text-sm rounded-xl transition-colors border border-zinc-700 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-bolt"></i> Run Backup Now
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Restore Card -->
+    <div class="bg-zinc-900 p-8 rounded-3xl border border-zinc-800 shadow-xl flex flex-col justify-between">
+        <div>
+            <h2 class="text-xl font-bold mb-2 flex items-center gap-3"><i class="fa-solid fa-upload text-amber-400"></i> Restore & Import</h2>
+            <p class="text-sm text-zinc-400 mb-8">Restore a complete system backup (<code class="text-amber-400">.zip</code> or <code class="text-amber-400">.db</code>) or import links from a <code class="text-amber-400">.csv</code> file. Automated safety checkpoints are created prior to restore.</p>
+            
+            <div class="w-full relative flex flex-col">
+                <input type="file" id="csv-upload" accept=".zip,.db,.sqlite,.csv" class="hidden" onchange="importCSV()">
+                <button onclick="document.getElementById('csv-upload').click()" class="w-full bg-zinc-800 hover:bg-zinc-700 transition-colors py-4 rounded-2xl text-sm font-bold shadow text-white flex items-center justify-center gap-3 border border-zinc-700">
+                    <i class="fa-solid fa-file-zipper text-amber-400 text-xl"></i> Restore from Backup / CSV
+                </button>
+            </div>
+        </div>
         
-        <div class="flex-1 relative flex flex-col">
-            <input type="file" id="csv-upload" accept=".csv" class="hidden" onchange="importCSV()">
-            <button onclick="document.getElementById('csv-upload').click()" class="h-full bg-zinc-800 hover:bg-zinc-700 transition-colors py-4 rounded-xl text-sm font-bold shadow text-white flex flex-col items-center justify-center gap-2 border border-zinc-700">
-                <i class="fa-solid fa-upload text-amber-400 text-xl mb-1"></i> Import from CSV
-            </button>
+        <div class="mt-8 p-4 bg-zinc-950/60 border border-zinc-800/80 rounded-2xl">
+            <div class="flex items-center gap-3 text-xs text-zinc-400">
+                <i class="fa-solid fa-shield-halved text-cyan-400 text-lg flex-shrink-0"></i>
+                <span>Complete archives backup all Neural Links, Video Library, Categories, Homepage Pins, Notes, AI Routing Memory, and System Settings.</span>
+            </div>
         </div>
     </div>
 </div>
+
+<!-- Downloadable Automated Backups List -->
+<div class="mt-8 bg-zinc-900 p-8 rounded-3xl border border-zinc-800 shadow-xl max-w-6xl">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div>
+            <div class="flex items-center gap-3">
+                <h2 class="text-xl font-bold flex items-center gap-3">
+                    <i class="fa-solid fa-box-archive text-cyan-400"></i> Stored Automated Backups
+                </h2>
+                <span id="archive-storage-stats-badge" class="px-3 py-1 bg-zinc-950/80 text-cyan-400 text-xs font-mono rounded-xl border border-zinc-800 flex items-center gap-1.5">
+                    <i class="fa-solid fa-hard-drive text-zinc-500"></i> Archives: Loading...
+                </span>
+            </div>
+            <p class="text-xs text-zinc-500 mt-1">Showing automated snapshots retained within your <strong id="retention-summary-badge" class="text-zinc-400 font-mono">7 days</strong> retention window.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <button onclick="optimizeArchiveImages()" title="Downscale oversized images and re-compress to WebP" class="px-3 py-1.5 bg-zinc-800 hover:bg-emerald-950/80 text-zinc-300 hover:text-emerald-400 text-xs font-semibold rounded-lg border border-zinc-700 hover:border-emerald-700 transition-colors flex items-center gap-1.5 shadow-sm">
+                <i class="fa-solid fa-compress text-emerald-400"></i> Optimize Images
+            </button>
+            <button onclick="cleanOrphanedArchives()" title="Remove unreferenced archive files" class="px-3 py-1.5 bg-zinc-800 hover:bg-amber-950/80 text-zinc-300 hover:text-amber-400 text-xs font-semibold rounded-lg border border-zinc-700 hover:border-amber-700 transition-colors flex items-center gap-1.5 shadow-sm">
+                <i class="fa-solid fa-broom text-amber-400"></i> Clean Orphaned
+            </button>
+            <button onclick="pruneOldArchiveImages()" title="Purge heavy local image files from articles older than 60 days (keeps clean text)" class="px-3 py-1.5 bg-zinc-800 hover:bg-rose-950/80 text-zinc-300 hover:text-rose-400 text-xs font-semibold rounded-lg border border-zinc-700 hover:border-rose-700 transition-colors flex items-center gap-1.5 shadow-sm">
+                <i class="fa-solid fa-calendar-minus text-rose-400"></i> Prune Old Media (>60d)
+            </button>
+            <button onclick="loadBackupsList()" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold rounded-lg border border-zinc-700 transition-colors flex items-center gap-1.5 shadow-sm">
+                <i class="fa-solid fa-rotate-right"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <div id="backups-list-container">
+        <div class="text-center py-12 text-zinc-500">
+            <i class="fa-solid fa-circle-notch fa-spin text-2xl mb-2 block"></i>
+            Loading backups list...
+        </div>
+    </div>
+</div>
+
+<!-- Ignored & Aborted Pages Manager -->
+<div id="ignored-urls-section" class="mt-8 bg-zinc-900 p-8 rounded-3xl border border-zinc-800 shadow-xl max-w-6xl">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div>
+            <div class="flex items-center gap-3">
+                <h2 class="text-xl font-bold flex items-center gap-3">
+                    <i class="fa-solid fa-ban text-rose-400"></i> Ignored & Aborted Pages
+                </h2>
+                <span id="denied-total-badge" class="px-3 py-1 bg-zinc-950/80 text-rose-400 text-xs font-mono rounded-xl border border-zinc-800">
+                    0 pages ignored
+                </span>
+            </div>
+            <p class="text-xs text-zinc-500 mt-1">Pages where you clicked ❌ Abort in the browser extension. These exact URLs will never be automatically logged.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+            <div class="relative">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs pointer-events-none"></i>
+                <input type="text" id="denied-search-input" oninput="filterDeniedUrlsTable()" placeholder="Search ignored URLs..." class="bg-zinc-950/80 border border-zinc-800 text-zinc-300 text-xs rounded-xl pl-9 pr-3 py-2 focus:outline-none focus:border-rose-500 w-56 transition-colors">
+            </div>
+            <button id="batch-unblock-btn" onclick="deleteSelectedDeniedUrls()" disabled class="px-3.5 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-semibold rounded-xl border border-rose-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 shadow-sm">
+                <i class="fa-solid fa-trash-can"></i> Unblock Selected (<span id="selected-denied-count">0</span>)
+            </button>
+            <button onclick="loadDeniedUrlsTable()" class="px-3.5 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold rounded-xl border border-zinc-700 transition-colors flex items-center gap-1.5 shadow-sm">
+                <i class="fa-solid fa-rotate-right"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <div class="overflow-x-auto rounded-2xl border border-zinc-800/80 bg-zinc-950/50">
+        <table class="w-full text-left text-xs text-zinc-300">
+            <thead class="bg-zinc-900/80 text-zinc-400 font-semibold border-b border-zinc-800">
+                <tr>
+                    <th class="p-3.5 w-10 text-center">
+                        <input type="checkbox" id="select-all-denied" onchange="toggleSelectAllDenied(this.checked)" class="rounded bg-zinc-800 border-zinc-700 text-rose-500 focus:ring-0 focus:ring-offset-0 cursor-pointer">
+                    </th>
+                    <th class="p-3.5">Website / Domain</th>
+                    <th class="p-3.5">Full Aborted URL</th>
+                    <th class="p-3.5 w-40">Date Ignored</th>
+                    <th class="p-3.5 w-24 text-right">Action</th>
+                </tr>
+            </thead>
+            <tbody id="denied-urls-tbody" class="divide-y divide-zinc-800/60">
+                <tr>
+                    <td colspan="5" class="text-center py-10 text-zinc-500">
+                        <i class="fa-solid fa-circle-notch fa-spin text-xl mb-2 block text-rose-400"></i>
+                        Loading ignored URLs...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- AI Sysadmin Settings Card -->
+<div class="mt-8 flex gap-6 max-w-[100rem]">
+    <div class="bg-[#111115] p-8 rounded-3xl border border-zinc-800/80 shadow-2xl flex-1 relative overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent pointer-events-none"></div>
+        <div class="relative z-10">
+            <div class="flex items-center justify-between mb-8">
+                <div>
+                    <h2 class="text-2xl font-bold flex items-center gap-3 text-white">
+                        <i class="fa-solid fa-robot text-purple-400 drop-shadow-[0_0_8px_rgba(168,85,247,0.5)]"></i> AI Sysadmin Settings
+                    </h2>
+                    <p class="text-sm text-zinc-400 mt-1">Configure your OpenAI-compatible API to power the AI Sysadmin chat.</p>
+                </div>
+            </div>
+            <form id="ai-config-form" onsubmit="saveAiConfig(event)" class="space-y-6">
+                <div>
+                    <label class="text-xs font-bold text-zinc-400 block mb-2 tracking-wider uppercase">API Key</label>
+                    <input type="password" id="ai_api_key" placeholder="sk-..." class="w-full bg-zinc-900 border border-zinc-700/50 text-zinc-200 text-sm font-medium rounded-xl px-4 py-3 focus:outline-none focus:border-purple-500 focus:bg-zinc-800 transition-colors shadow-inner">
+                </div>
+                <div class="grid grid-cols-2 gap-6">
+                    <div>
+                        <label class="text-xs font-bold text-zinc-400 block mb-2 tracking-wider uppercase">Base URL</label>
+                        <input type="text" id="ai_base_url" placeholder="https://api.openai.com/v1" class="w-full bg-zinc-900 border border-zinc-700/50 text-zinc-200 text-sm font-medium rounded-xl px-4 py-3 focus:outline-none focus:border-purple-500 focus:bg-zinc-800 transition-colors shadow-inner">
+                        <span class="text-[11px] text-zinc-500 block mt-2">Use https://api.groq.com/openai/v1 for Groq</span>
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-zinc-400 block mb-2 tracking-wider uppercase">Model Name</label>
+                        <input type="text" id="ai_model" placeholder="gpt-4o-mini" class="w-full bg-zinc-900 border border-zinc-700/50 text-zinc-200 text-sm font-medium rounded-xl px-4 py-3 focus:outline-none focus:border-purple-500 focus:bg-zinc-800 transition-colors shadow-inner">
+                        <span class="text-[11px] text-zinc-500 block mt-2">Ensure the model supports tool calling</span>
+                    </div>
+                </div>
+                <div class="pt-4 flex gap-4">
+                    <button type="submit" class="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl text-sm transition-all shadow-[0_0_15px_rgba(168,85,247,0.4)] flex items-center gap-2"><i class="fa-solid fa-floppy-disk"></i> Save Active Profile</button>
+                    <button type="button" onclick="saveAsNewProfile()" class="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-xl text-sm transition-colors border border-zinc-700 flex items-center gap-2"><i class="fa-solid fa-bookmark"></i> Save as New Profile</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="w-64 flex-shrink-0 bg-white/5 p-6 rounded-3xl border border-white/10 shadow-xl backdrop-blur-md">
+        <h3 class="text-xs font-bold text-rose-500 uppercase tracking-widest mb-6">Saved AI Models</h3>
+        <div id="saved-ai-models-list" class="flex flex-col gap-3">
+            <!-- Buttons dynamically populated -->
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
+    async function loadAutoBackupConfig() {
+        try {
+            const res = await fetch('/api/admin/auto-backup/config');
+            const config = await res.json();
+            
+            document.getElementById('auto_backup_enabled').checked = Boolean(config.enabled);
+            document.getElementById('auto_backup_include_archives').checked = config.include_archives !== false;
+            
+            const freqRadios = document.getElementsByName('frequency');
+            for (let radio of freqRadios) {
+                if (radio.value === config.frequency) radio.checked = true;
+            }
+
+            document.getElementById('retention_val').value = config.retention_val || 7;
+            document.getElementById('retention_unit').value = config.retention_unit || 'days';
+            document.getElementById('retention-summary-badge').textContent = (config.retention_val || 7) + ' ' + (config.retention_unit || 'days');
+
+            const badge = document.getElementById('auto-backup-status-badge');
+            if (config.enabled) {
+                badge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-emerald-950/60 text-emerald-400 border border-emerald-800/60';
+                badge.textContent = 'Active (' + config.frequency.toUpperCase() + ')';
+            } else {
+                badge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-zinc-800 text-zinc-500 border border-zinc-700';
+                badge.textContent = 'Disabled';
+            }
+
+            document.getElementById('last-run-timestamp').textContent = config.last_run || 'Never';
+        } catch (e) {
+            console.error('Failed to load backup config:', e);
+        }
+    }
+
+    async function saveAutoBackupConfig(e) {
+        e.preventDefault();
+        const enabled = document.getElementById('auto_backup_enabled').checked;
+        const include_archives = document.getElementById('auto_backup_include_archives').checked;
+        const freqRadios = document.getElementsByName('frequency');
+        let frequency = 'daily';
+        for (let radio of freqRadios) {
+            if (radio.checked) frequency = radio.value;
+        }
+
+        const retention_val = parseInt(document.getElementById('retention_val').value, 10) || 7;
+        const retention_unit = document.getElementById('retention_unit').value || 'days';
+
+        try {
+            const res = await fetch('/api/admin/auto-backup/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled, frequency, retention_val, retention_unit, include_archives })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                alert('Automatic backup settings saved!');
+                loadAutoBackupConfig();
+                loadBackupsList();
+            } else alert('Error saving config: ' + data.error);
+        } catch (err) {
+            console.error('Failed to save config:', err);
+            alert('Error saving configuration.');
+        }
+    }
+
+    async function loadArchiveStats() {
+        const badge = document.getElementById('archive-storage-stats-badge');
+        if (!badge) return;
+        try {
+            const res = await fetch('/api/admin/archives/stats');
+            const data = await res.json();
+            badge.innerHTML = `<i class="fa-solid fa-hard-drive text-cyan-400"></i> Archives: <strong>${data.total_formatted}</strong> (${data.article_count} articles, ${data.image_count} images)`;
+        } catch (e) {
+            badge.textContent = 'Archives: Unavailable';
+        }
+    }
+
+    async function optimizeArchiveImages() {
+        if (!confirm("Optimize archive images? This will downscale oversized images to 900px and re-encode to high-efficiency WebP to save disk space.")) return;
+        
+        const badge = document.getElementById('archive-storage-stats-badge');
+        if (badge) badge.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin text-emerald-400"></i> Optimizing images...`;
+
+        try {
+            const res = await fetch('/api/admin/archives/optimize', { method: 'POST' });
+            const data = await res.json();
+            if (res.ok && data.status === 'success') {
+                const r = data.result;
+                alert(`Optimization Complete!\n\n• Processed: ${r.processed} images\n• Optimized: ${r.optimized} oversized images\n• Reclaimed Storage: ${r.saved_formatted}`);
+                loadArchiveStats();
+                loadBackupsList();
+            } else {
+                alert("Optimization failed: " + (data.message || 'Unknown error'));
+                loadArchiveStats();
+            }
+        } catch (e) {
+            console.error("Optimization error:", e);
+            alert("Error running image optimization.");
+            loadArchiveStats();
+        }
+    }
+
+    async function pruneOldArchiveImages() {
+        const days = prompt("Enter the age threshold in days (e.g., 60):\nImages from articles older than this will be purged, but 100% of the article text & reader layout will be permanently preserved.", "60");
+        if (!days) return;
+        const daysNum = parseInt(days, 10);
+        if (isNaN(daysNum) || daysNum < 1) {
+            alert("Please enter a valid positive number of days.");
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/admin/archives/prune-images', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ days_old: daysNum })
+            });
+            const data = await res.json();
+            if (res.ok && data.status === 'success') {
+                const r = data.result;
+                alert(`Pruning Complete!\n\n• Articles Processed: ${r.pruned_articles}\n• Media Files Removed: ${r.removed_images}\n• Reclaimed Space: ${r.freed_formatted}\n\nAll article text and reading layouts remain 100% preserved.`);
+                loadArchiveStats();
+                loadBackupsList();
+            } else {
+                alert("Pruning failed: " + (data.message || 'Unknown error'));
+            }
+        } catch (e) {
+            console.error("Pruning error:", e);
+            alert("Error running media pruning.");
+        }
+    }
+
+    async function cleanOrphanedArchives() {
+        if (!confirm("Clean orphaned offline reader archives? This removes unreferenced HTML files and offline images to free storage space.")) return;
+        try {
+            const res = await fetch('/api/admin/archives/clean', { method: 'POST' });
+            const data = await res.json();
+            if (res.ok && data.status === 'success') {
+                const r = data.result;
+                alert(`Cleanup Complete!\n\n• Removed ${r.deleted_folders} unreferenced folders\n• Removed ${r.deleted_files} orphaned files\n• Reclaimed ${r.freed_formatted} storage space.`);
+                loadArchiveStats();
+                loadBackupsList();
+            } else {
+                alert("Cleanup failed: " + (data.message || 'Unknown error'));
+            }
+        } catch (e) {
+            console.error("Cleanup error:", e);
+            alert("Error running archive cleanup.");
+        }
+    }
+
+    async function runBackupNow() {
+        try {
+            const res = await fetch('/api/admin/auto-backup/run', { method: 'POST' });
+            const data = await res.json();
+            if (res.ok) {
+                alert('Backup created successfully!');
+                loadAutoBackupConfig();
+                loadBackupsList();
+                loadArchiveStats();
+            } else alert('Backup failed: ' + data.message);
+        } catch (e) {
+            console.error('Failed to run backup:', e);
+            alert('Error executing backup.');
+        }
+    }
+
+    async function loadBackupsList() {
+        const container = document.getElementById('backups-list-container');
+        try {
+            const res = await fetch('/api/admin/auto-backup/list');
+            const backups = await res.json();
+
+            if (!backups || backups.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 bg-zinc-950/40 rounded-2xl border border-dashed border-zinc-800">
+                        <i class="fa-solid fa-folder-open text-3xl text-zinc-600 mb-3 block"></i>
+                        <h3 class="text-base font-bold text-zinc-400">No automatic backups stored</h3>
+                        <p class="text-xs text-zinc-500 mt-1">Enable automatic backups above or click "Run Backup Now" to create one.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-zinc-300">
+                        <thead class="text-xs uppercase bg-zinc-950/80 text-zinc-500 border-b border-zinc-800">
+                            <tr>
+                                <th class="py-3 px-4">Backup File</th>
+                                <th class="py-3 px-4">Date Created</th>
+                                <th class="py-3 px-4">File Size</th>
+                                <th class="py-3 px-4 text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-zinc-800/60">
+            `;
+
+            backups.forEach(b => {
+                const isZip = b.filename.endsWith('.zip');
+                const isDb = b.filename.endsWith('.db') || b.filename.endsWith('.sqlite');
+                const iconClass = isZip ? 'fa-solid fa-file-zipper text-cyan-400' : (isDb ? 'fa-solid fa-database text-amber-400' : 'fa-solid fa-file-csv text-zinc-500');
+                const badgeColor = isZip ? 'bg-cyan-950/80 text-cyan-300 border-cyan-800' : (isDb ? 'bg-amber-950/80 text-amber-300 border-amber-800' : 'bg-zinc-800 text-zinc-400 border-zinc-700');
+
+                html += `
+                    <tr class="hover:bg-zinc-800/40 transition-colors">
+                        <td class="py-3.5 px-4">
+                            <div class="flex items-center gap-2.5 font-mono text-xs font-semibold ${isZip ? 'text-cyan-300' : 'text-emerald-400'}">
+                                <i class="${iconClass} text-base"></i>
+                                <span>${escapeHTML(b.filename)}</span>
+                                <span class="px-2 py-0.5 rounded text-[10px] border ${badgeColor} uppercase tracking-wider">${escapeHTML(b.type || 'Backup')}</span>
+                            </div>
+                            ${b.summary ? `<div class="text-[11px] text-zinc-500 font-mono mt-1 ml-6">${escapeHTML(b.summary)}</div>` : ''}
+                        </td>
+                        <td class="py-3.5 px-4 text-zinc-400 text-xs font-mono">${escapeHTML(b.date)}</td>
+                        <td class="py-3.5 px-4 text-zinc-400 text-xs font-mono">${escapeHTML(b.size)}</td>
+                        <td class="py-3.5 px-4 text-right">
+                            <a href="/api/admin/auto-backup/download/${encodeURIComponent(b.filename)}" 
+                               class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-emerald-600 text-zinc-200 hover:text-white text-xs font-bold rounded-lg border border-zinc-700 transition-colors shadow-sm">
+                                <i class="fa-solid fa-download"></i> Download
+                            </a>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            container.innerHTML = html;
+        } catch (e) {
+            console.error('Failed to load backups list:', e);
+            container.innerHTML = `<div class="text-xs text-rose-400 p-4 bg-rose-950/20 border border-rose-900/40 rounded-xl">Error loading backups list.</div>`;
+        }
+    }
+
     async function importCSV() {
         const fileInput = document.getElementById('csv-upload');
         const file = fileInput.files[0];
         if (!file) return;
 
+        if (!confirm(`Are you sure you want to restore/import from "${file.name}"? A safety backup checkpoint will be created.`)) {
+            fileInput.value = '';
+            return;
+        }
+
         const formData = new FormData();
         formData.append('file', file);
 
         try {
-            const res = await fetch('/api/links/import', { method: 'POST', body: formData });
+            const res = await fetch('/api/admin/auto-backup/restore', { method: 'POST', body: formData });
             const result = await res.json();
-            if (res.ok) {
+            if (res.ok && result.status === 'success') {
                 alert(result.message);
                 fileInput.value = '';
-            } else alert("Import failed: " + result.error);
+                loadBackupsList();
+            } else {
+                alert("Restore failed: " + (result.error || result.message || 'Unknown error'));
+            }
         } catch (error) {
-            console.error("Import error:", error);
-            alert("An error occurred during import.");
+            console.error("Restore error:", error);
+            alert("An error occurred during restore: " + error.message);
         }
     }
+
+    function renderSavedProfiles() {
+        const list = document.getElementById('saved-ai-models-list');
+        const profiles = JSON.parse(localStorage.getItem('aiProfiles') || '[]');
+        
+        if (profiles.length === 0) {
+            list.innerHTML = '<p class="text-xs text-zinc-500 italic">No saved profiles.</p>';
+            return;
+        }
+        
+        list.innerHTML = profiles.map((p, index) => `
+            <div class="relative group">
+                <button type="button" onclick="loadProfile(${index})" class="w-full text-left px-5 py-3.5 bg-white text-zinc-900 hover:bg-zinc-200 font-bold text-sm rounded-lg border-2 border-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.3)] transition-all flex items-center justify-between">
+                    <span class="truncate pr-4">${escapeHTML(p.name)}</span>
+                </button>
+                <button type="button" onclick="deleteProfile(${index}, event)" class="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center bg-rose-500 hover:bg-rose-600 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                    <i class="fa-solid fa-xmark text-xs"></i>
+                </button>
+            </div>
+        `).join('');
+    }
+
+    window.loadProfile = function(index) {
+        const profiles = JSON.parse(localStorage.getItem('aiProfiles') || '[]');
+        const p = profiles[index];
+        if (p) {
+            document.getElementById('ai_api_key').value = p.api_key || '';
+            document.getElementById('ai_base_url').value = p.base_url || '';
+            document.getElementById('ai_model').value = p.model || '';
+            // Auto-save when loading
+            saveAiConfig(new Event('submit'));
+        }
+    }
+
+    window.deleteProfile = function(index, event) {
+        event.stopPropagation();
+        const profiles = JSON.parse(localStorage.getItem('aiProfiles') || '[]');
+        profiles.splice(index, 1);
+        localStorage.setItem('aiProfiles', JSON.stringify(profiles));
+        renderSavedProfiles();
+    }
+
+    window.saveAsNewProfile = function() {
+        const name = prompt("Enter a name for this AI connection profile (e.g., 'Groq', 'Gemini'):");
+        if (!name) return;
+        
+        const api_key = document.getElementById('ai_api_key').value;
+        const base_url = document.getElementById('ai_base_url').value;
+        const model = document.getElementById('ai_model').value;
+        
+        const profiles = JSON.parse(localStorage.getItem('aiProfiles') || '[]');
+        profiles.push({ name, api_key, base_url, model });
+        localStorage.setItem('aiProfiles', JSON.stringify(profiles));
+        renderSavedProfiles();
+    }
+
+        function renderSavedProfiles() {
+        const list = document.getElementById('saved-ai-models-list');
+        const profiles = JSON.parse(localStorage.getItem('aiProfiles') || '[]');
+        
+        if (profiles.length === 0) {
+            list.innerHTML = '<p class="text-xs text-zinc-500 italic">No saved profiles.</p>';
+            return;
+        }
+        
+        list.innerHTML = profiles.map((p, index) => `
+            <div class="relative group">
+                <button type="button" onclick="loadProfile(${index})" class="w-full text-left px-5 py-3.5 bg-white text-zinc-900 hover:bg-zinc-200 font-bold text-sm rounded-lg border-2 border-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.3)] transition-all flex items-center justify-between">
+                    <span class="truncate pr-4">${p.name}</span>
+                </button>
+                <button type="button" onclick="deleteProfile(${index}, event)" class="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center bg-rose-500 hover:bg-rose-600 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                    <i class="fa-solid fa-xmark text-xs"></i>
+                </button>
+            </div>
+        `).join('');
+    }
+
+    window.loadProfile = function(index) {
+        const profiles = JSON.parse(localStorage.getItem('aiProfiles') || '[]');
+        const p = profiles[index];
+        if (p) {
+            document.getElementById('ai_api_key').value = p.api_key || '';
+            document.getElementById('ai_base_url').value = p.base_url || '';
+            document.getElementById('ai_model').value = p.model || '';
+            // Auto-save when loading
+            saveAiConfig(new Event('submit'));
+        }
+    }
+
+    window.deleteProfile = function(index, event) {
+        event.stopPropagation();
+        const profiles = JSON.parse(localStorage.getItem('aiProfiles') || '[]');
+        profiles.splice(index, 1);
+        localStorage.setItem('aiProfiles', JSON.stringify(profiles));
+        renderSavedProfiles();
+    }
+
+    window.saveAsNewProfile = function() {
+        const name = prompt("Enter a name for this AI connection profile (e.g., 'Groq', 'Gemini'):");
+        if (!name) return;
+        
+        const api_key = document.getElementById('ai_api_key').value;
+        const base_url = document.getElementById('ai_base_url').value;
+        const model = document.getElementById('ai_model').value;
+        
+        const profiles = JSON.parse(localStorage.getItem('aiProfiles') || '[]');
+        profiles.push({ name, api_key, base_url, model });
+        localStorage.setItem('aiProfiles', JSON.stringify(profiles));
+        renderSavedProfiles();
+    }
+
+    async function loadAiConfig() {
+        try {
+            const res = await fetch('/api/admin/ai/config');
+            const config = await res.json();
+            document.getElementById('ai_api_key').value = config.api_key || '';
+            document.getElementById('ai_base_url').value = config.base_url || 'https://api.openai.com/v1';
+            document.getElementById('ai_model').value = config.model || 'gpt-4o-mini';
+            renderSavedProfiles();
+        } catch (e) { console.error('Failed to load AI config:', e); }
+    }
+
+    async function saveAiConfig(e) {
+        if(e && e.preventDefault) e.preventDefault();
+        const api_key = document.getElementById('ai_api_key').value;
+        const base_url = document.getElementById('ai_base_url').value;
+        const model = document.getElementById('ai_model').value;
+        try {
+            const res = await fetch('/api/admin/ai/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ api_key, base_url, model })
+            });
+            if (res.ok) alert('Active AI Profile saved to backend!');
+            else alert('Error saving AI config.');
+        } catch (err) { alert('Error saving AI config.'); }
+    }
+
+    // --- Ignored & Aborted Pages Management ---
+    let allDeniedItems = [];
+
+    async function loadDeniedUrlsTable() {
+        const tbody = document.getElementById('denied-urls-tbody');
+        const badge = document.getElementById('denied-total-badge');
+        if (!tbody) return;
+
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center py-8 text-zinc-500">
+                    <i class="fa-solid fa-circle-notch fa-spin text-xl mb-2 block text-rose-400"></i>
+                    Loading ignored URLs...
+                </td>
+            </tr>
+        `;
+
+        try {
+            const res = await fetch('/api/admin/denied-urls');
+            const data = await res.json();
+            allDeniedItems = data.items || [];
+            if (badge) badge.textContent = `${allDeniedItems.length} pages ignored`;
+            renderDeniedTable(allDeniedItems);
+        } catch (e) {
+            console.error('Failed to load denied URLs:', e);
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-rose-400">Error loading ignored URLs</td></tr>`;
+        }
+    }
+
+    function renderDeniedTable(items) {
+        const tbody = document.getElementById('denied-urls-tbody');
+        const selectAll = document.getElementById('select-all-denied');
+        if (selectAll) selectAll.checked = false;
+        updateSelectedDeniedCount();
+
+        if (!items || items.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center py-10 text-zinc-500">
+                        <i class="fa-solid fa-circle-check text-2xl mb-2 block text-zinc-600"></i>
+                        No ignored URLs found
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = items.map(item => {
+            let domain = '';
+            try {
+                domain = new URL(item.url).hostname;
+            } catch (e) {
+                domain = 'other';
+            }
+
+            return `
+                <tr class="hover:bg-zinc-800/40 transition-colors group">
+                    <td class="p-3.5 text-center">
+                        <input type="checkbox" value="${encodeURIComponent(item.url)}" onchange="updateSelectedDeniedCount()" class="denied-item-checkbox rounded bg-zinc-800 border-zinc-700 text-rose-500 focus:ring-0 cursor-pointer">
+                    </td>
+                    <td class="p-3.5">
+                        <span class="px-2.5 py-1 bg-zinc-800 text-cyan-400 font-mono text-xs rounded-lg border border-zinc-700 inline-flex items-center gap-1.5">
+                            <i class="fa-solid fa-globe text-zinc-500 text-[10px]"></i> ${domain}
+                        </span>
+                    </td>
+                    <td class="p-3.5 font-mono text-zinc-300 max-w-md truncate">
+                        <a href="${item.url}" target="_blank" rel="noreferrer" class="hover:text-cyan-400 hover:underline transition-colors" title="${item.url}">
+                            ${item.url}
+                        </a>
+                    </td>
+                    <td class="p-3.5 font-mono text-zinc-500 text-[11px]">
+                        ${item.created_at || '—'}
+                    </td>
+                    <td class="p-3.5 text-right">
+                        <button onclick="deleteSingleDeniedUrl('${encodeURIComponent(item.url)}')" class="px-2.5 py-1 bg-zinc-800 hover:bg-rose-950 text-zinc-400 hover:text-rose-400 font-semibold rounded-lg border border-zinc-700 hover:border-rose-700/60 transition-all text-xs inline-flex items-center gap-1">
+                            <i class="fa-solid fa-trash-can text-[10px]"></i> Unblock
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function filterDeniedUrlsTable() {
+        const query = (document.getElementById('denied-search-input')?.value || '').toLowerCase().trim();
+        if (!query) {
+            renderDeniedTable(allDeniedItems);
+            return;
+        }
+        const filtered = allDeniedItems.filter(it => it.url.toLowerCase().includes(query));
+        renderDeniedTable(filtered);
+    }
+
+    function toggleSelectAllDenied(checked) {
+        document.querySelectorAll('.denied-item-checkbox').forEach(cb => cb.checked = checked);
+        updateSelectedDeniedCount();
+    }
+
+    function updateSelectedDeniedCount() {
+        const selected = document.querySelectorAll('.denied-item-checkbox:checked');
+        const countSpan = document.getElementById('selected-denied-count');
+        const batchBtn = document.getElementById('batch-unblock-btn');
+        if (countSpan) countSpan.textContent = selected.length;
+        if (batchBtn) batchBtn.disabled = selected.length === 0;
+    }
+
+    async function deleteSingleDeniedUrl(encodedUrl) {
+        const url = decodeURIComponent(encodedUrl);
+        if (!confirm(`Unblock this URL so it can be logged again?\n\n${url}`)) return;
+        await performDeleteDeniedUrls([url]);
+    }
+
+    async function deleteSelectedDeniedUrls() {
+        const selected = Array.from(document.querySelectorAll('.denied-item-checkbox:checked')).map(cb => decodeURIComponent(cb.value));
+        if (selected.length === 0) return;
+        if (!confirm(`Unblock ${selected.length} selected URLs so they can be logged again?`)) return;
+        await performDeleteDeniedUrls(selected);
+    }
+
+    async function performDeleteDeniedUrls(urls) {
+        try {
+            const res = await fetch('/api/admin/denied-urls/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ urls })
+            });
+            const data = await res.json();
+            if (res.ok && data.status === 'success') {
+                loadDeniedUrlsTable();
+            } else {
+                alert('Error unblocking URLs: ' + (data.message || 'Unknown error'));
+            }
+        } catch (e) {
+            console.error('Delete error:', e);
+            alert('Error deleting denied URLs.');
+        }
+    }
+
+    loadAutoBackupConfig();
+    loadBackupsList();
+    loadAiConfig();
+    loadArchiveStats();
+    loadDeniedUrlsTable();
 </script>
 {% endblock %}

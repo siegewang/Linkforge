@@ -2,78 +2,175 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="flex justify-between items-center mb-8 bg-zinc-900/50 p-6 rounded-2xl border border-zinc-800 w-full gap-4 shadow-sm">
-    <div>
-        <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 ml-2">Saved Bookmarks</h1>
-        <p class="text-zinc-500 text-sm mt-1 ml-2 font-medium">Your permanent archive of useful links.</p>
+<!-- Ambient Background Glow -->
+<div class="fixed inset-0 overflow-hidden pointer-events-none -z-20">
+    <div class="absolute top-[20%] left-[30%] w-[40%] h-[40%] rounded-full bg-cyan-900/20 blur-[150px]"></div>
+    <div class="absolute bottom-[10%] right-[20%] w-[30%] h-[40%] rounded-full bg-blue-900/10 blur-[150px]"></div>
+</div>
+
+<!-- Persistent Mode Switcher (Always visible in Query and Timeline) -->
+<div class="flex justify-center mb-6 z-30 relative">
+    <div class="flex p-1 bg-zinc-950/80 border border-zinc-800/80 rounded-full backdrop-blur-xl shadow-xl">
+        <button onclick="switchView('query')" id="btn-view-query" class="px-6 py-2 rounded-full border border-cyan-500/50 bg-cyan-900/30 text-cyan-400 text-sm font-bold shadow-[0_0_15px_rgba(6,182,212,0.2)] transition-all flex items-center gap-2">
+            <i class="fa-solid fa-magnifying-glass"></i> Query
+        </button>
+        <button onclick="switchView('timeline')" id="btn-view-timeline" class="px-6 py-2 rounded-full border border-transparent bg-transparent text-zinc-400 hover:text-zinc-200 text-sm font-bold transition-all flex items-center gap-2">
+            <i class="fa-solid fa-timeline"></i> Timeline
+        </button>
     </div>
 </div>
 
-<div class="w-full min-w-0">
-    <div class="mb-6 relative">
-        <div class="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none"><i class="fa-solid fa-magnifying-glass text-zinc-500"></i></div>
-        <input type="text" id="searchInput" onkeyup="searchLinks()" placeholder="Search archive..." class="w-full bg-zinc-900 border border-zinc-800 text-zinc-200 text-sm rounded-xl focus:ring-cyan-500 block pl-10 p-3.5 outline-none shadow-lg">
+<div id="searchContainer" class="flex flex-col items-center justify-center min-h-[60vh] transition-all duration-700 ease-in-out">
+    
+    <!-- Hero Header (Fades out on search) -->
+    <div id="heroHeader" class="text-center mb-8 transition-opacity duration-500">
+        <h1 class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600 tracking-tight drop-shadow-[0_0_15px_rgba(6,182,212,0.3)]">Neural Query</h1>
+        <p class="text-cyan-600/70 text-sm mt-3 font-mono tracking-widest uppercase">System Index Database</p>
+    </div>
+    
+<!-- Search Box -->
+    <div class="w-full max-w-3xl relative z-10 transition-all duration-700" id="searchBoxWrapper">
+        <div class="absolute inset-y-0 left-0 flex items-center pl-5 pointer-events-none" id="searchIcon">
+            <i class="fa-solid fa-magnifying-glass text-cyan-400/80 text-xl"></i>
+        </div>
+        <input type="text" id="searchInput" onkeydown="if(event.key==='Enter') executeNeuralQuery()" placeholder="Describe what you are looking for..." class="w-full bg-zinc-950/80 backdrop-blur-xl border-2 border-cyan-900/50 text-cyan-100 text-lg rounded-2xl focus:ring-cyan-500 focus:border-cyan-400 block pl-14 p-5 outline-none shadow-[0_0_30px_rgba(6,182,212,0.15)] transition-all font-medium placeholder-cyan-900/60">
+        
+        <!-- Active Tags Display in Search Box -->
+        <div id="activeTagsDisplay" class="absolute inset-y-0 right-4 flex items-center gap-2"></div>
     </div>
 
-    <div class="flex flex-col gap-2 w-full" id="linksContainer">
-        {% for link in links %}
-        <div class="link-card bg-zinc-900 p-3.5 rounded-2xl border border-zinc-800 flex items-center gap-4 shadow-sm group w-full overflow-hidden transition-colors hover:border-zinc-700 hover:bg-zinc-800/30" 
-             id="link-{{ link.id }}" 
-             data-tags="{{ link.tags|lower }}" 
-             title="{{ link.description or 'No description provided.' }}">
-            
-            <span class="hidden">{{ link.url }} {{ link.description }} {{ link.tags }}</span>
-
-            <div class="flex-shrink-0 w-10 h-10 bg-zinc-950 rounded-xl flex items-center justify-center border border-zinc-800">
-                {% if link.favicon %}<img src="{{ link.favicon }}" class="w-5 h-5 rounded object-contain" onerror="this.style.display='none'">
-                {% else %}<i class="fa-solid fa-link text-zinc-600 text-sm"></i>{% endif %}
-            </div>
-            
-            <div class="flex-1 min-w-0">
-                <a href="{{ link.url }}" target="_blank" onclick="trackLinkClick({{ link.id }})" class="text-base font-semibold text-zinc-200 hover:text-cyan-400 block truncate">{{ link.title or link.url }}</a>
-            </div>
-
-            <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                <button onclick="openEditModal({{ link.id }}, `{{ link.title|replace('`', '\\`') }}`, `{{ link.description|replace('`', '\\`') }}`, `{{ link.tags }}`)" title="Edit" class="text-zinc-500 hover:text-cyan-400 transition-colors p-2 bg-zinc-950 rounded-lg border border-zinc-800"><i class="fa-solid fa-pen text-xs"></i></button>
-                <button onclick="unarchiveLink({{ link.id }})" title="Move to Inbox" class="text-zinc-500 hover:text-amber-400 transition-colors p-2 bg-zinc-950 rounded-lg border border-zinc-800"><i class="fa-solid fa-inbox text-xs"></i></button>
-                <button onclick="deleteLink({{ link.id }})" title="Delete" class="text-zinc-500 hover:text-red-500 transition-colors p-2 bg-zinc-950 rounded-lg border border-zinc-800"><i class="fa-solid fa-trash text-xs"></i></button>
-            </div>
+    <!-- Global Controls -->
+    <div id="globalSearchControls" class="w-full max-w-3xl mt-4 flex justify-end z-10 transition-all duration-700">
+        <div class="flex items-center gap-3 bg-zinc-950/80 px-4 py-2 rounded-full border border-cyan-900/50 shadow-[0_0_15px_rgba(6,182,212,0.1)] hover:border-cyan-500/50 transition-colors">
+            <i class="fa-solid fa-filter text-cyan-600 text-xs"></i>
+            <span class="text-[10px] text-cyan-500 font-mono uppercase tracking-widest">Match Limit</span>
+            <input type="range" id="matchThresholdSlider" min="0" max="100" value="0" step="5" class="w-32 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-cyan-400" onchange="filterResultsByScore()" oninput="document.getElementById('thresholdDisplay').innerText = this.value; filterResultsByScore()">
+            <span id="thresholdDisplay" class="text-xs text-cyan-400 font-mono w-6 text-right">0</span>
         </div>
-        {% else %}
-        <div class="text-center py-20 bg-zinc-900/50 rounded-3xl border border-zinc-800 border-dashed w-full">
-            <i class="fa-regular fa-bookmark text-4xl text-zinc-600 mb-4"></i>
-            <h3 class="text-xl font-bold text-zinc-400">Archive empty</h3>
+    </div>
+
+    <!-- Native CSS Tag Swarm (Fades out/shrinks on search) -->
+    <div id="tagSwarmContainer" class="mt-12 relative w-full max-w-4xl transition-all duration-700 opacity-100">
+        <div id="tags-native" class="flex flex-wrap justify-center gap-3 p-4">
+            {% for tag, count in top_tags.items() %}
+                <a href="#" onclick="toggleTag('{{ tag }}'); return false;" 
+                   style="font-size: {{ 10 + (count * 2) }}px; opacity: {{ 0.5 + (count * 0.1) }};"
+                   class="font-mono text-cyan-400 hover:text-cyan-200 hover:opacity-100 hover:scale-110 hover:drop-shadow-[0_0_10px_rgba(6,182,212,0.8)] transition-all cursor-pointer select-none">
+                    #{{ tag }}
+                </a>
+            {% endfor %}
         </div>
-        {% endfor %}
+    </div>
+    
+</div>
+
+
+<!-- Timeline Container (Hidden initially) -->
+<div id="timelineContainer" class="w-full max-w-5xl mx-auto mt-4 opacity-0 hidden transition-opacity duration-700 pb-20 z-10 relative">
+    <div class="flex items-center justify-between mb-6 px-2">
+        <h2 class="text-indigo-400 font-mono text-sm tracking-widest uppercase"><i class="fa-solid fa-calendar-days mr-2"></i> Memory Timeline</h2>
+        <div class="flex gap-3 items-center">
+            <div id="scrubber-label" class="text-xs font-mono text-cyan-400 bg-cyan-950/50 px-3 py-1 rounded-full border border-cyan-800">Today</div>
+            <input type="hidden" id="timeline-start">
+            <input type="hidden" id="timeline-end">
+            <button onclick="setTimelineToday()" class="text-zinc-400 hover:text-cyan-400 font-mono text-xs transition-colors px-3 py-1 bg-zinc-900/60 hover:bg-zinc-800 border border-zinc-800 rounded-full flex items-center gap-1.5"><i class="fa-solid fa-sun text-[10px] text-amber-400"></i> Today</button>
+            <button onclick="resetScrubber()" class="text-zinc-400 hover:text-indigo-400 font-mono text-xs transition-colors px-3 py-1 bg-zinc-900/60 hover:bg-zinc-800 border border-zinc-800 rounded-full flex items-center gap-1.5"><i class="fa-solid fa-clock-rotate-left text-[10px]"></i> 30 Days</button>
+        </div>
+    </div>
+    
+    <!-- Heatmap placeholder -->
+    <div class="bg-zinc-950/80 border border-zinc-800/50 rounded-2xl p-6 mb-8 shadow-2xl backdrop-blur-xl relative overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-b from-cyan-900/10 to-transparent pointer-events-none"></div>
+        <h3 class="text-[10px] text-cyan-500/70 mb-4 font-mono uppercase tracking-widest flex justify-between">
+            <span>Past 30 Days Volume</span>
+            <span>Drag or click to scrub</span>
+        </h3>
+        <div id="heatmap-container" class="flex items-end gap-[2px] justify-between h-16 w-full relative z-10 group">
+            <!-- Histogram generated via JS -->
+        </div>
+    </div>
+
+    <!-- AI Insights Box -->
+    <div id="timeline-insights-box" class="hidden bg-zinc-950/60 border border-zinc-700/50 backdrop-blur-xl rounded-xl p-6 mb-8 relative overflow-hidden shadow-[0_0_20px_rgba(79,70,229,0.1)]">
+        <div class="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
+            <i class="fa-solid fa-brain text-8xl text-cyan-900/30"></i>
+        </div>
+        <div class="flex items-center justify-between mb-2">
+            <h3 class="text-cyan-400 font-bold font-mono tracking-widest flex items-center gap-2">
+                <i class="fa-solid fa-sparkles text-indigo-300"></i> AI Knowledge Summary
+                <span id="ai-cache-indicator" class="hidden text-[10px] text-zinc-500 font-mono bg-zinc-900/80 px-2 py-0.5 rounded border border-zinc-800 font-normal">Saved</span>
+            </h3>
+            <button onclick="refreshTimelineInsights()" title="Re-synthesize summary for this period" class="text-zinc-400 hover:text-cyan-400 text-xs font-mono transition-colors flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800">
+                <i class="fa-solid fa-arrows-rotate text-[10px]"></i> <span class="text-[11px]">Refresh</span>
+            </button>
+        </div>
+        <p id="timeline-insights-text" class="text-zinc-300 text-sm leading-relaxed font-sans"></p>
+    </div>
+
+    <!-- Event Stream -->
+    <div class="relative pl-8 border-l border-zinc-800/80 space-y-8" id="timeline-stream">
+        <!-- Events injected via JS -->
     </div>
 </div>
 
-<div id="editModal" class="fixed inset-0 bg-black/90 hidden flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-    <div class="bg-zinc-900 p-6 rounded-2xl w-full max-w-lg border border-zinc-700 shadow-2xl">
-        <h2 class="text-xl font-bold mb-5">Edit Archived Link</h2>
+<!-- Results Container (Hidden initially) -->
+<div id="resultsContainer" class="w-full max-w-5xl mx-auto mt-8 opacity-0 hidden transition-opacity duration-700 pb-20">
+    <div class="flex items-center justify-between mb-6 px-2">
+        <h2 class="text-cyan-400 font-mono text-sm tracking-widest uppercase"><i class="fa-solid fa-satellite-dish mr-2 animate-pulse"></i> Query Matches</h2>
+        <button onclick="resetSearch()" class="text-zinc-500 hover:text-cyan-400 font-mono text-xs transition-colors"><i class="fa-solid fa-rotate-left"></i> RESET</button>
+    </div>
+    
+    <div id="resultsList" class="flex flex-col gap-4">
+        <!-- Results injected here via JS -->
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div id="editModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center p-4 z-50 backdrop-blur-sm">
+    <div class="bg-zinc-900 p-6 rounded-2xl w-full max-w-lg border border-cyan-900/50 shadow-[0_0_30px_rgba(6,182,212,0.2)]">
+        <h2 class="text-xl font-bold mb-5 text-cyan-400 font-mono tracking-wider"><i class="fa-solid fa-terminal mr-2"></i>Edit Record</h2>
         <div class="space-y-4">
             <input type="hidden" id="edit-id">
             <div>
-                <label class="text-xs text-zinc-400 ml-1 mb-1 block">Title</label>
-                <input id="edit-title" class="w-full bg-zinc-800 p-3 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500 text-white">
+                <label class="text-xs text-cyan-600 ml-1 mb-1 block font-mono">Destination URL</label>
+                <input id="edit-url" class="w-full bg-zinc-950 border border-zinc-800 p-3 rounded-lg text-sm text-cyan-100 focus:outline-none focus:border-cyan-500 font-mono">
             </div>
             <div>
-                <label class="text-xs text-zinc-400 ml-1 mb-1 block">Description</label>
-                <textarea id="edit-desc" rows="2" class="w-full bg-zinc-800 p-3 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500 text-white"></textarea>
+                <label class="text-xs text-cyan-600 ml-1 mb-1 block font-mono">Title</label>
+                <input id="edit-title" class="w-full bg-zinc-950 border border-zinc-800 p-3 rounded-lg text-sm text-cyan-100 focus:outline-none focus:border-cyan-500">
             </div>
             <div>
-                <label class="text-xs text-cyan-400 font-bold ml-1 mb-1 block">Tags (comma separated)</label>
-                <input id="edit-tags" class="w-full bg-zinc-950 border border-zinc-700 p-3 rounded-lg text-sm focus:outline-none focus:border-cyan-500 text-white">
-                <div class="mt-2 flex flex-wrap gap-1.5" id="suggested-tags">
-                    {% for tag in tag_swarm.keys() %}
-                        <button type="button" onclick="appendTag('{{ tag }}')" class="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-cyan-400 text-[10px] rounded border border-zinc-700 uppercase tracking-wider transition-colors">#{{ tag }}</button>
-                    {% endfor %}
-                </div>
+                <label class="text-xs text-cyan-600 ml-1 mb-1 block font-mono">Description</label>
+                <textarea id="edit-desc" rows="3" class="w-full bg-zinc-950 border border-zinc-800 p-3 rounded-lg text-sm text-cyan-100 focus:outline-none focus:border-cyan-500"></textarea>
+            </div>
+            <div>
+                <label class="text-xs text-cyan-600 ml-1 mb-1 block font-mono">Tags (comma separated)</label>
+                <input id="edit-tags" class="w-full bg-zinc-950 border border-zinc-800 p-3 rounded-lg text-sm text-cyan-100 focus:outline-none focus:border-cyan-500 font-mono">
             </div>
         </div>
-        <div class="flex gap-2 mt-6">
-            <button onclick="closeModal()" class="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium transition-colors">Cancel</button>
-            <button onclick="saveEdits()" class="flex-1 py-3 bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-bold rounded-lg transition-colors shadow-lg">Save Changes</button>
+        <div class="flex gap-3 mt-8">
+            <button onclick="document.getElementById('editModal').classList.add('hidden')" class="flex-1 py-3 bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 rounded-lg text-sm font-mono text-zinc-400 transition-colors">CANCEL</button>
+            <button onclick="saveEdits()" class="flex-1 py-3 bg-cyan-950 border border-cyan-700 hover:bg-cyan-900 text-cyan-400 text-sm font-bold font-mono rounded-lg transition-colors shadow-lg">OVERWRITE</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add to Homepage Modal -->
+<div id="addToHomepageModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center p-4 z-50 backdrop-blur-sm">
+    <div class="bg-zinc-900 p-6 rounded-2xl w-full max-w-sm border border-zinc-700 shadow-2xl">
+        <h2 class="text-lg font-bold mb-4 text-zinc-100 flex items-center gap-2">
+            <i class="fa-solid fa-star text-amber-400"></i> Add to Homepage
+        </h2>
+        <div class="mb-4">
+            <label class="text-xs text-zinc-400 ml-1 mb-1 block">Select or create a group</label>
+            <select id="homepage-group-select" class="w-full bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-sm text-zinc-200 focus:outline-none focus:border-amber-500 appearance-none mb-2"></select>
+            <div class="flex gap-2">
+                <input id="homepage-new-group" class="flex-1 bg-zinc-800 border border-zinc-700/60 p-2 rounded-lg text-xs text-zinc-200 focus:outline-none focus:border-amber-500" placeholder="Or type new group name...">
+            </div>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="closeHomepageModal()" class="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-sm font-medium transition-colors">Cancel</button>
+            <button onclick="confirmAddToHomepage()" class="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-black text-sm font-bold rounded-lg transition-colors">Add</button>
         </div>
     </div>
 </div>
@@ -81,98 +178,859 @@
 
 {% block extra_js %}
 <script>
-    function trackLinkClick(id) { fetch(`/api/links/${id}/click`, { method: 'POST' }); }
-
-    function filterByTag(selectedTag) {
-        // Manipulate the tags in the master sidebar
-        document.querySelectorAll('.tag-btn').forEach(btn => {
-            btn.classList.remove('bg-cyan-500/20', 'text-cyan-400', 'border-cyan-500/50');
-            btn.classList.add('bg-zinc-900/40', 'text-zinc-400', 'border-zinc-800/60');
-        });
-        const activeBtn = document.getElementById(`btn-tag-${selectedTag}`);
-        if(activeBtn) {
-            activeBtn.classList.remove('bg-zinc-900/40', 'text-zinc-400', 'border-zinc-800/60');
-            activeBtn.classList.add('bg-cyan-500/20', 'text-cyan-400', 'border-cyan-500/50');
-        }
-
-        document.querySelectorAll('.link-card').forEach(card => {
-            if (selectedTag === 'all') card.style.display = 'flex';
-            else {
-                const cardTags = card.getAttribute('data-tags');
-                const tagRegex = new RegExp(`\\b${selectedTag}\\b`);
-                card.style.display = tagRegex.test(cardTags) ? 'flex' : 'none';
-            }
-        });
-        document.getElementById('searchInput').value = '';
-    }
-
-    function searchLinks() {
-        document.querySelectorAll('.tag-btn').forEach(btn => {
-            btn.classList.remove('bg-cyan-500/20', 'text-cyan-400', 'border-cyan-500/50');
-            btn.classList.add('bg-zinc-900/40', 'text-zinc-400', 'border-zinc-800/60');
-        });
-        const allBtn = document.getElementById('btn-tag-all');
-        if(allBtn) {
-            allBtn.classList.remove('bg-zinc-900/40', 'text-zinc-400', 'border-zinc-800/60');
-            allBtn.classList.add('bg-cyan-500/20', 'text-cyan-400', 'border-cyan-500/50');
-        }
-
-        const term = document.getElementById('searchInput').value.toLowerCase();
-        document.querySelectorAll('.link-card').forEach(card => {
-            card.style.display = card.innerText.toLowerCase().includes(term) ? 'flex' : 'none';
-        });
-    }
-
-    async function unarchiveLink(id) {
-        const res = await fetch(`/api/links/${id}/archive`, {
-            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({is_read: 0})
-        });
-        if (res.ok) {
-            const card = document.getElementById(`link-${id}`);
-            card.style.opacity = '0';
-            setTimeout(() => card.remove(), 300);
-        }
-    }
 
     async function deleteLink(id) {
-        if(confirm('Delete this bookmark permanently?')) {
+        if(confirm('Purge this neural record permanently?')) {
             const res = await fetch(`/api/links/${id}`, { method: 'DELETE' });
             if (res.ok) {
-                const card = document.getElementById(`link-${id}`);
-                card.style.opacity = '0';
-                setTimeout(() => card.remove(), 300);
+                if (document.getElementById('timelineContainer').style.display === 'block') {
+                    await fetchTimelineData();
+                } else {
+                    executeNeuralQuery();
+                }
             }
         }
     }
 
-    function openEditModal(id, title, desc, tags) {
+
+    
+    window.timelineEventsMap = {};
+    function openEditFromTimeline(id) {
+        const ev = window.timelineEventsMap[id];
+        if (ev) {
+            openEditModal(ev.id, ev.url, ev.title, ev.description, ev.tags);
+        }
+    }
+
+
+    function toggleExpand(id, event) {
+        // don't toggle if clicking a link or button inside it
+        if(event && (event.target.tagName === 'A' || event.target.tagName === 'BUTTON' || event.target.closest('button'))) return;
+        
+        const el = document.getElementById(`expand-${id}`);
+        const isClosed = el.classList.contains('h-0');
+        
+        // Close all others
+        document.querySelectorAll('.card-expander').forEach(exp => {
+            if (exp.id !== `expand-${id}` && !exp.classList.contains('h-0')) {
+                exp.style.height = exp.scrollHeight + "px";
+                void exp.offsetHeight;
+                exp.classList.add('h-0', 'opacity-0');
+                exp.classList.remove('opacity-100');
+                exp.style.height = "0px";
+                
+                const w = exp.closest('.card-glow-wrapper');
+                w.classList.add('from-zinc-800/80', 'via-zinc-900/20', 'to-zinc-800/80');
+                w.classList.remove('from-cyan-500/50', 'via-indigo-500/20', 'to-fuchsia-500/50', 'shadow-[0_0_40px_rgba(6,182,212,0.2)]');
+                w.style.setProperty('--tw-before-from', 'transparent');
+                w.style.setProperty('--tw-before-via', 'transparent');
+                w.style.setProperty('--tw-before-to', 'transparent');
+            }
+        });
+        
+        const wrapper = el.closest('.card-glow-wrapper');
+        
+        if (isClosed) {
+            el.classList.remove('h-0', 'opacity-0');
+            el.classList.add('opacity-100');
+            wrapper.classList.remove('from-zinc-800/80', 'via-zinc-900/20', 'to-zinc-800/80');
+            wrapper.classList.add('from-cyan-500/50', 'via-indigo-500/20', 'to-fuchsia-500/50', 'shadow-[0_0_40px_rgba(6,182,212,0.2)]');
+            wrapper.style.setProperty('--tw-before-from', 'rgba(6,182,212,0.15)');
+            wrapper.style.setProperty('--tw-before-via', 'rgba(99,102,241,0.1)');
+            wrapper.style.setProperty('--tw-before-to', 'rgba(217,70,239,0.15)');
+            el.style.height = el.scrollHeight + "px";
+            setTimeout(() => { if(!el.classList.contains('h-0')) el.style.height = "auto"; }, 500);
+        } else {
+            el.style.height = el.scrollHeight + "px";
+            // force reflow
+            void el.offsetHeight;
+            el.classList.add('h-0', 'opacity-0');
+            el.classList.remove('opacity-100');
+            el.style.height = "0px";
+            
+            wrapper.classList.add('from-zinc-800/80', 'via-zinc-900/20', 'to-zinc-800/80');
+            wrapper.classList.remove('from-cyan-500/50', 'via-indigo-500/20', 'to-fuchsia-500/50', 'shadow-[0_0_40px_rgba(6,182,212,0.2)]');
+            wrapper.style.setProperty('--tw-before-from', 'transparent');
+            wrapper.style.setProperty('--tw-before-via', 'transparent');
+            wrapper.style.setProperty('--tw-before-to', 'transparent');
+        }
+    }
+
+function switchView(view) {
+        const queryBtn = document.getElementById('btn-view-query');
+        const timeBtn = document.getElementById('btn-view-timeline');
+        const searchContainer = document.getElementById('searchContainer');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const timelineContainer = document.getElementById('timelineContainer');
+        
+        if (view === 'query') {
+            queryBtn.className = "px-6 py-2 rounded-full border border-cyan-500/50 bg-cyan-900/30 text-cyan-400 text-sm font-bold shadow-[0_0_15px_rgba(6,182,212,0.2)] transition-all flex items-center gap-2";
+            timeBtn.className = "px-6 py-2 rounded-full border border-transparent bg-transparent text-zinc-400 hover:text-zinc-200 text-sm font-bold transition-all flex items-center gap-2";
+            
+            timelineContainer.style.opacity = '0';
+            setTimeout(() => {
+                timelineContainer.style.display = 'none';
+                searchContainer.style.display = 'flex';
+                setTimeout(() => searchContainer.style.opacity = '1', 50);
+                const sidebar = document.getElementById('tag-sidebar-container');
+                if(sidebar) { sidebar.style.display = 'flex'; setTimeout(() => sidebar.style.opacity = '1', 50); }
+                
+                if(hasSearched) {
+                    resultsContainer.style.display = 'block';
+                    setTimeout(() => resultsContainer.style.opacity = '1', 50);
+                }
+            }, 300);
+        } else {
+            timeBtn.className = "px-6 py-2 rounded-full border border-indigo-500/50 bg-indigo-900/30 text-indigo-400 text-sm font-bold shadow-[0_0_15px_rgba(79,70,229,0.2)] transition-all flex items-center gap-2";
+            queryBtn.className = "px-6 py-2 rounded-full border border-transparent bg-transparent text-zinc-400 hover:text-zinc-200 text-sm font-bold transition-all flex items-center gap-2";
+            
+            searchContainer.style.opacity = '0';
+            resultsContainer.style.opacity = '0';
+            const sidebar = document.getElementById('tag-sidebar-container');
+            if(sidebar) { sidebar.style.opacity = '0'; }
+            setTimeout(() => {
+                if(sidebar) { sidebar.style.display = 'none'; }
+                searchContainer.style.display = 'none';
+                resultsContainer.style.display = 'none';
+                
+                timelineContainer.style.display = 'block';
+                setTimeout(() => timelineContainer.style.opacity = '1', 50);
+                if(!timelineLoaded) {
+                    loadTimelineInit();
+                }
+            }, 300);
+        }
+    }
+    
+    let timelineLoaded = false;
+    let timelineDataCache = {};
+    
+    function getTodayString() {
+        const today = new Date();
+        const y = today.getFullYear();
+        const m = String(today.getMonth() + 1).padStart(2, '0');
+        const d = String(today.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+
+    async function loadTimelineInit() {
+        timelineLoaded = true;
+        const todayStr = getTodayString();
+        document.getElementById('timeline-start').value = todayStr;
+        document.getElementById('timeline-end').value = todayStr;
+        document.getElementById('scrubber-label').innerText = `Today (${todayStr})`;
+        await fetchTimelineData();
+    }
+    
+    async function fetchTimelineData() {
+        try {
+            const res = await fetch('/api/links/timeline');
+            timelineDataCache = await res.json();
+            renderHeatmap();
+            loadTimeline();
+        } catch(e) {
+            console.error("Timeline error:", e);
+        }
+    }
+    
+    window.setTimelineToday = function() {
+        const todayStr = getTodayString();
+        document.getElementById('timeline-start').value = todayStr;
+        document.getElementById('timeline-end').value = todayStr;
+        document.getElementById('scrubber-label').innerText = `Today (${todayStr})`;
+        loadTimeline();
+        renderHeatmap();
+    };
+
+    window.resetScrubber = function() {
+        document.getElementById('timeline-start').value = '';
+        document.getElementById('timeline-end').value = '';
+        document.getElementById('scrubber-label').innerText = 'Showing Last 30 Days';
+        loadTimeline();
+        renderHeatmap();
+    };
+
+    function renderHeatmap() {
+        const container = document.getElementById('heatmap-container');
+        container.innerHTML = '';
+        
+        const today = new Date();
+        let days = [];
+        let maxCount = 1;
+        for(let i = 29; i >= 0; i--) {
+            let d = new Date(today);
+            d.setDate(d.getDate() - i);
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const dayNum = String(d.getDate()).padStart(2, '0');
+            let dayStr = `${y}-${m}-${dayNum}`;
+            days.push(dayStr);
+            let c = timelineDataCache[dayStr] ? timelineDataCache[dayStr].length : 0;
+            if(c > maxCount) maxCount = c;
+        }
+        
+        const activeStart = document.getElementById('timeline-start').value;
+        const activeEnd = document.getElementById('timeline-end').value;
+        
+        days.forEach(day => {
+            const count = timelineDataCache[day] ? timelineDataCache[day].length : 0;
+            const heightPct = count === 0 ? 8 : Math.max(20, (count / maxCount) * 100);
+            
+            const block = document.createElement('div');
+            const isActive = activeStart && day >= activeStart && day <= activeEnd;
+            
+            block.className = `flex-1 rounded-t-sm cursor-pointer transition-all duration-300 hover:bg-cyan-400 hover:shadow-[0_0_15px_rgba(6,182,212,0.8)]`;
+            
+            if (isActive) {
+                block.classList.add('bg-cyan-400', 'shadow-[0_0_12px_rgba(6,182,212,0.8)]', 'ring-1', 'ring-cyan-300');
+            } else if (count === 0) {
+                block.classList.add('bg-zinc-800/50');
+            } else {
+                block.classList.add('bg-indigo-600/60');
+            }
+            
+            block.style.height = `${heightPct}%`;
+            block.title = `${day}: ${count} links recorded`;
+            
+            block.onclick = () => {
+                document.getElementById('timeline-start').value = day;
+                document.getElementById('timeline-end').value = day;
+                const isToday = (day === getTodayString());
+                document.getElementById('scrubber-label').innerText = isToday ? `Today (${day})` : day;
+                loadTimeline();
+                renderHeatmap();
+            };
+            
+            container.appendChild(block);
+        });
+    }
+    
+    async function loadTimeline() {
+        let start = document.getElementById('timeline-start').value;
+        let end = document.getElementById('timeline-end').value;
+        
+        if (!start || !end) {
+            const today = new Date();
+            end = today.toISOString().split('T')[0];
+            const d = new Date(today);
+            d.setDate(d.getDate() - 30);
+            start = d.toISOString().split('T')[0];
+        }
+        const stream = document.getElementById('timeline-stream');
+        
+        stream.innerHTML = '<div class="text-indigo-400 text-sm font-mono animate-pulse pl-4"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Analyzing timeline data...</div>';
+        
+        // Build chronological list
+        let events = [];
+        for (let day in timelineDataCache) {
+            if (day >= start && day <= end) {
+                events = events.concat(timelineDataCache[day]);
+            }
+        }
+        
+        events.sort((a,b) => b.id - a.id); // descending
+        
+        if (events.length === 0) {
+            stream.innerHTML = '<div class="text-zinc-500 text-sm font-mono pl-4">No activity captured in this period.</div>';
+            document.getElementById('timeline-insights-box').classList.add('hidden');
+            return;
+        }
+        
+        // Render events
+        let html = '';
+        
+        events.forEach(ev => {
+            window.timelineEventsMap[ev.id] = ev;
+            let tagsHtml = '';
+
+            if (ev.tags) {
+                const tags = ev.tags.split(',').map(t => t.trim()).filter(t => t);
+                tagsHtml = tags.map(t => `<span data-tag="${t}" onclick="enableTagEditing(${ev.id}, '#tags-timeline-${ev.id}')" class="cursor-pointer hover:bg-zinc-800/80 px-2 py-0.5 bg-zinc-800 text-zinc-400 rounded text-[10px] font-mono border border-zinc-700">#${t}</span>`).join('');
+            }
+            
+            
+            // Check for YouTube
+            let isYoutube = false;
+            let ytId = '';
+            try {
+                if (ev.url) {
+                    const urlObj = new URL(ev.url);
+                    if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be')) {
+                        isYoutube = true;
+                        if (urlObj.hostname.includes('youtu.be')) {
+                            ytId = urlObj.pathname.slice(1);
+                        } else {
+                            ytId = urlObj.searchParams.get('v');
+                        }
+                    }
+                }
+            } catch(e) {}
+            
+            let mediaHtml = '';
+            if (isYoutube && ytId) {
+                mediaHtml = `<div class="w-[45%] flex-shrink-0 aspect-video rounded-xl overflow-hidden border border-zinc-800 shadow-lg relative group">
+                    <iframe width="100%" height="100%" src="https://www.youtube.com/embed/${ytId}" frameborder="0" allowfullscreen></iframe>
+                    <!-- Graceful fallback for protected embeds -->
+                    <a href="https://www.youtube.com/watch?v=${ytId}" target="_blank" onclick="event.stopPropagation();" title="Open directly in YouTube (if embedding is blocked)" class="absolute top-2 right-2 bg-zinc-900/90 text-red-500 hover:text-white hover:bg-red-600 px-3 py-1.5 rounded text-[10px] font-semibold border border-red-900/50 hover:border-red-500 shadow-lg backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all flex items-center gap-2 z-10">
+                        <i class="fa-brands fa-youtube text-sm"></i> Watch on YouTube
+                    </a>
+                </div>`;
+            } else if (ev.image_url) {
+                mediaHtml = `<div class="w-[45%] flex-shrink-0 rounded-xl overflow-hidden border border-zinc-800 shadow-lg flex items-center bg-zinc-950">
+                    <img src="${ev.image_url}" class="w-full h-full object-contain opacity-90 hover:opacity-100 transition-opacity" onerror="this.parentElement.style.display='none'">
+                </div>`;
+            }
+
+            html += `
+                <div class="relative group" id="t-event-${ev.id}">
+                    <div class="absolute -left-[41px] top-4 w-5 h-5 rounded-full border-4 border-[#0a0a0c] bg-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.8)] z-10 group-hover:scale-125 transition-transform"></div>
+                    
+                    <div class="card-glow-wrapper rounded-[24px] p-[1px] bg-gradient-to-br from-zinc-800/80 via-zinc-900/20 to-zinc-800/80 transition-all duration-500 shadow-[0_10px_30px_rgba(0,0,0,0.5)] relative before:absolute before:inset-0 before:bg-gradient-to-r before:from-cyan-500/0 before:via-indigo-500/0 before:to-fuchsia-500/0 before:blur-2xl before:opacity-0 hover:before:opacity-100 before:transition-opacity before:-z-10 z-0">
+                        <div class="bg-[#0f111a]/95 backdrop-blur-2xl rounded-[23px] overflow-hidden cursor-pointer relative transition-all duration-300" onclick="toggleExpand(${ev.id}, event)">
+                            
+                            <!-- Subtle internal gradient -->
+                            <div class="absolute inset-0 bg-gradient-to-r from-cyan-500/5 to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+                            
+                            <div class="p-6 flex items-center justify-between relative z-10">
+                                <div class="flex items-center gap-5 w-5/6">
+                                    <div class="w-10 h-10 rounded-xl bg-zinc-900/80 flex items-center justify-center border border-zinc-700/50 shadow-inner p-2">
+                                        <img src="${ev.favicon || 'https://ui-avatars.com/api/?name=L&background=27272a&color=fff'}" class="w-full h-full object-contain" onerror="this.src='https://ui-avatars.com/api/?name=L&background=27272a&color=fff'">
+                                    </div>
+                                    <h4 class="text-white font-bold text-[1.1rem] truncate tracking-wide drop-shadow-md"><a href="${ev.url}" target="_blank" class="hover:text-cyan-400 transition-colors" onclick="trackLinkClick(${ev.id}); event.stopPropagation();">${ev.title || ev.url}</a></h4>
+                                </div>
+                                <span class="text-zinc-500 text-sm font-mono whitespace-nowrap bg-zinc-900/50 px-3 py-1 rounded-lg border border-zinc-800/80"><i class="fa-regular fa-clock mr-2 opacity-50"></i>${ev.date_added.split(' ')[0]}</span>
+                            </div>
+                            
+                            <!-- Expanded Content -->
+                            <div id="expand-${ev.id}" class="card-expander h-0 opacity-0 overflow-hidden transition-all duration-500 ease-out px-6 relative z-10">
+                                
+                                <div class="flex gap-6 mt-4 mb-6 items-stretch">
+                                    ${mediaHtml}
+                                    
+                                    <!-- AI Insight Box -->
+                                    <div class="flex-1 flex flex-col justify-center">
+                                        <div class="flex items-center gap-3 mb-3">
+                                            <div class="w-8 h-8 rounded-lg bg-cyan-900/30 flex items-center justify-center border border-cyan-800/50">
+                                                <i class="fa-solid fa-microchip text-cyan-400 text-sm"></i>
+                                            </div>
+                                            <h5 class="text-white font-semibold tracking-wide">AI INSIGHT</h5>
+                                        </div>
+                                        <p class="text-zinc-300/90 text-sm leading-relaxed">${ev.description || 'No insight generated.'}</p>
+                                    </div>
+                                </div>
+
+                                <div class="flex justify-between items-center pb-6 pt-4 border-t border-zinc-800/60 mt-2">
+                                    <div id="tags-timeline-${ev.id}" class="flex gap-2 flex-wrap">
+                                        ${tagsHtml.replace(/bg-zinc-800/g, 'bg-zinc-800/50 border-zinc-700/50 text-zinc-300 hover:text-cyan-300 hover:border-cyan-700/50')}
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        ${ev.archive_path ? `<a href="${ev.archive_path}" target="_blank" onclick="event.stopPropagation();" class="px-4 py-2 bg-emerald-900/30 hover:bg-emerald-800/50 text-emerald-400 hover:text-emerald-300 rounded-lg text-xs font-semibold transition-all border border-emerald-800/50 hover:border-emerald-500/50 flex items-center gap-2"><i class="fa-solid fa-box-archive"></i> Archive</a>` : ''}
+                                        <button data-homepage-id="${ev.id}" onclick="event.stopPropagation(); showAddToHomepage(${ev.id})" class="px-4 py-2 bg-zinc-800/40 hover:bg-amber-900/30 border border-zinc-700/50 hover:border-amber-700/50 text-zinc-300 hover:text-amber-400 rounded-lg text-xs font-semibold transition-all flex items-center gap-2"><i class="fa-solid fa-star"></i> Homepage</button>
+                                        <button onclick="openEditFromTimeline(${ev.id}); event.stopPropagation();" class="px-4 py-2 bg-zinc-800/40 hover:bg-zinc-700/50 text-zinc-300 hover:text-white rounded-lg text-xs font-semibold transition-all border border-zinc-700/50 hover:border-zinc-500 flex items-center gap-2"><i class="fa-solid fa-pen"></i> Edit</button>
+                                        <button onclick="deleteLink(${ev.id}); event.stopPropagation();" class="px-4 py-2 bg-zinc-800/40 hover:bg-rose-900/30 text-zinc-300 hover:text-rose-400 rounded-lg text-xs font-semibold transition-all border border-zinc-700/50 hover:border-rose-700/50 flex items-center gap-2"><i class="fa-solid fa-trash"></i> Delete</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+        });
+        
+        stream.innerHTML = html;
+        
+        // Fetch AI Insights
+        fetchTimelineInsights(false);
+    }
+
+    window.fetchTimelineInsights = async function(force = false) {
+        const start = document.getElementById('timeline-start').value || getTodayString();
+        const end = document.getElementById('timeline-end').value || getTodayString();
+        const box = document.getElementById('timeline-insights-box');
+        const textEl = document.getElementById('timeline-insights-text');
+        const cacheIndicator = document.getElementById('ai-cache-indicator');
+        
+        box.classList.remove('hidden');
+        textEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Neural networks synthesizing insights...';
+        if (cacheIndicator) cacheIndicator.classList.add('hidden');
+        
+        try {
+            const aiRes = await fetch('/api/links/timeline-insights', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({start, end, force})
+            });
+            const aiData = await aiRes.json();
+            if (aiData.insights) {
+                textEl.innerText = aiData.insights;
+                if (aiData.cached && cacheIndicator) {
+                    cacheIndicator.classList.remove('hidden');
+                }
+            } else {
+                textEl.innerText = "Unable to synthesize insights for this period.";
+            }
+        } catch(e) {
+            textEl.innerText = "AI synthesis failed.";
+        }
+    };
+
+    window.refreshTimelineInsights = function() {
+        fetchTimelineInsights(true);
+    };
+
+    let selectedTags = new Set();
+    let hasSearched = false;
+
+    // Initial setup for the native CSS tag swarm
+    window.onload = function() {
+        const swarm = document.getElementById('tags-native');
+        if(swarm) {
+            // Randomize position and animation delay for a floating effect
+            const tags = swarm.querySelectorAll('a');
+            tags.forEach(tag => {
+                const delay = Math.random() * 5;
+                const duration = 5 + Math.random() * 5;
+                tag.style.animation = `floatTag ${duration}s ease-in-out ${delay}s infinite alternate`;
+            });
+        }
+    };
+
+    // Link the sidebar buttons from base.html to our new system
+    window.filterByTag = function(tag) {
+        if (tag === 'all') {
+            resetSearch();
+            return;
+        }
+        // If we are zero-state, just toggling it will auto-search if hasSearched is true.
+        // Actually, let's always auto-search when a sidebar tag is clicked.
+        if (selectedTags.has(tag)) {
+            selectedTags.delete(tag);
+        } else {
+            selectedTags.add(tag);
+        }
+        updateActiveTagsDisplay();
+        executeNeuralQuery();
+    };
+
+    function toggleTag(tag) {
+        if (selectedTags.has(tag)) {
+            selectedTags.delete(tag);
+        } else {
+            selectedTags.add(tag);
+        }
+        updateActiveTagsDisplay();
+        executeNeuralQuery();
+    }
+
+    function removeTag(tag) {
+        selectedTags.delete(tag);
+        updateActiveTagsDisplay();
+        executeNeuralQuery();
+    }
+
+    function updateActiveTagsDisplay() {
+        // Update the search bar tags
+        const container = document.getElementById('activeTagsDisplay');
+        container.innerHTML = '';
+        selectedTags.forEach(tag => {
+            const badge = document.createElement('div');
+            badge.className = 'flex items-center gap-1 bg-cyan-950/80 border border-cyan-700 px-2 py-1 rounded text-cyan-400 font-mono text-[10px] uppercase tracking-wider backdrop-blur-sm cursor-pointer hover:bg-rose-950/80 hover:text-rose-400 hover:border-rose-800 transition-colors';
+            badge.innerHTML = `#${tag} <i class="fa-solid fa-xmark ml-1"></i>`;
+            badge.onclick = (e) => { e.stopPropagation(); removeTag(tag); };
+            container.appendChild(badge);
+        });
+
+        // Sync sidebar button styling
+        document.querySelectorAll('.tag-btn').forEach(btn => {
+            const btnTag = btn.id.replace('btn-tag-', '');
+            if (btnTag === 'all') {
+                if (selectedTags.size === 0) {
+                    btn.className = 'tag-btn px-2 py-1.5 bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 rounded flex-grow text-center text-[10px] transition-all font-medium uppercase tracking-wider';
+                } else {
+                    btn.className = 'tag-btn px-2 py-1.5 bg-zinc-900/40 text-zinc-400 border border-zinc-800/60 rounded flex-grow text-center text-[10px] transition-all font-medium uppercase tracking-wider';
+                }
+            } else {
+                if (selectedTags.has(btnTag)) {
+                    btn.className = 'tag-btn px-2 py-1 bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 rounded text-[10px] transition-colors flex items-center gap-1.5 uppercase tracking-wider';
+                } else {
+                    btn.className = 'tag-btn px-2 py-1 bg-zinc-900/40 text-zinc-400 border border-zinc-800/60 rounded text-[10px] hover:bg-zinc-800 hover:text-zinc-300 transition-colors flex items-center gap-1.5 uppercase tracking-wider';
+                }
+            }
+        });
+    }
+
+    async function executeNeuralQuery() {
+        const term = document.getElementById('searchInput').value.trim();
+        const icon = document.getElementById('searchIcon');
+        const container = document.getElementById('searchContainer');
+        const hero = document.getElementById('heroHeader');
+        const swarm = document.getElementById('tagSwarmContainer');
+        const resultsBox = document.getElementById('resultsContainer');
+        const resultsList = document.getElementById('resultsList');
+        
+        if (!term && selectedTags.size === 0) {
+            resetSearch();
+            return;
+        }
+
+        hasSearched = true;
+
+        // Transition UI to top
+        container.classList.remove('min-h-[70vh]', 'justify-center');
+        container.classList.add('min-h-0', 'mt-8');
+        hero.classList.add('opacity-0', 'h-0', 'overflow-hidden', 'mb-0');
+        swarm.classList.add('opacity-0', 'h-0', 'overflow-hidden', 'mt-0');
+        setTimeout(() => {
+            hero.style.display = 'none';
+            swarm.style.display = 'none';
+        }, 500);
+
+        // Show loading
+        icon.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-cyan-400 text-xl"></i>';
+        document.getElementById('searchInput').disabled = true;
+        
+        resultsBox.classList.remove('hidden');
+        resultsList.innerHTML = `
+            <div class="flex flex-col items-center justify-center py-20 text-cyan-700/50 font-mono text-sm animate-pulse">
+                <i class="fa-solid fa-network-wired text-4xl mb-4"></i>
+                <p>Querying Neural Subsystem...</p>
+            </div>
+        `;
+        resultsBox.classList.remove('opacity-0');
+
+        try {
+            const res = await fetch('/api/links/ai-search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: term, tags: Array.from(selectedTags) })
+            });
+            const data = await res.json();
+            
+            if (res.ok && data.matches) {
+                renderResults(data.matches, data.full_data);
+                
+                // Dynamic tag sidebar filtering
+                if (selectedTags.size > 0) {
+                    let activeTags = new Set();
+                    data.matches.forEach(m => {
+                        let link = data.full_data[m.id];
+                        if (link && link.tags) {
+                            link.tags.split(',').forEach(t => activeTags.add(t.trim().toLowerCase()));
+                        }
+                    });
+                    document.querySelectorAll('.tag-btn').forEach(btn => {
+                        const btnTag = btn.id.replace('btn-tag-', '');
+                        if (btnTag === 'all' || activeTags.has(btnTag) || selectedTags.has(btnTag)) {
+                            btn.style.display = '';
+                        } else {
+                            btn.style.display = 'none';
+                        }
+                    });
+                } else {
+                    document.querySelectorAll('.tag-btn').forEach(btn => btn.style.display = '');
+                }
+                
+            } else {
+                resultsList.innerHTML = `<div class="text-rose-500 p-4 border border-rose-900 rounded bg-rose-950/20 font-mono text-sm">Error: ${data.error || 'Query failed'}</div>`;
+            }
+        } catch (e) {
+            console.error(e);
+            resultsList.innerHTML = `<div class="text-rose-500 p-4 border border-rose-900 rounded bg-rose-950/20 font-mono text-sm">Network failure accessing neural core.</div>`;
+        } finally {
+            icon.innerHTML = '<i class="fa-solid fa-magnifying-glass text-cyan-400/80 text-xl"></i>';
+            document.getElementById('searchInput').disabled = false;
+            document.getElementById('searchInput').focus();
+        }
+    }
+
+    function filterResultsByScore() {
+        const threshold = parseInt(document.getElementById('matchThresholdSlider').value, 10);
+        localStorage.setItem('neuralQueryMatchLimit', threshold);
+        const cards = document.querySelectorAll('.result-card');
+        cards.forEach(card => {
+            const score = parseInt(card.getAttribute('data-score'), 10);
+            if (score >= threshold) {
+                card.style.display = 'flex';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+
+    // Initialize slider from localStorage on load
+    document.addEventListener('DOMContentLoaded', () => {
+        const savedLimit = localStorage.getItem('neuralQueryMatchLimit');
+        if (savedLimit !== null) {
+            const slider = document.getElementById('matchThresholdSlider');
+            const display = document.getElementById('thresholdDisplay');
+            slider.value = savedLimit;
+            display.innerText = savedLimit;
+        }
+    });
+
+    function renderResults(matches, full_data) {
+        const list = document.getElementById('resultsList');
+        list.innerHTML = '';
+
+        if (matches.length === 0) {
+            list.innerHTML = `
+                <div class="text-center py-20 bg-zinc-950/40 rounded-2xl border border-cyan-900/30 border-dashed">
+                    <i class="fa-solid fa-ghost text-4xl text-cyan-900/50 mb-4"></i>
+                    <h3 class="text-lg font-mono text-cyan-700 uppercase tracking-widest">No Matches Found</h3>
+                </div>`;
+            return;
+        }
+
+        matches.forEach((match, index) => {
+            const link = full_data[match.id];
+            if(!link) return;
+            
+            // Relevance color logic
+            let relColor = 'text-emerald-400 border-emerald-900/50 bg-emerald-950/30';
+            if(match.relevance < 75) relColor = 'text-amber-400 border-amber-900/50 bg-amber-950/30';
+            if(match.relevance < 40) relColor = 'text-rose-400 border-rose-900/50 bg-rose-950/30';
+
+            const card = document.createElement('div');
+            // Stagger animation
+            card.style.animationDelay = `${index * 0.1}s`;
+            card.className = 'result-card group relative flex flex-col md:flex-row gap-6 p-6 bg-zinc-950/60 backdrop-blur-xl border border-cyan-900/30 rounded-2xl hover:border-cyan-500/50 transition-all hover:bg-zinc-900/80 shadow-[0_4px_20px_rgba(0,0,0,0.5)] animate-fade-in-up';
+            card.setAttribute('data-score', match.relevance);
+            
+            // Score gauge
+            const scoreHTML = `
+                <div class="flex-shrink-0 flex flex-col items-center justify-center w-16 h-16 rounded-full border-2 ${relColor} shadow-inner">
+                    <span class="text-xl font-black font-mono tracking-tighter">${match.relevance}</span>
+                    <span class="text-[8px] font-mono uppercase tracking-widest opacity-70">Match</span>
+                </div>
+            `;
+
+            // Tags
+            const tagsList = (link.tags || "").split(',').map(t => t.trim()).filter(t => t);
+            const tagsHTML = tagsList.map(t => `<span data-tag="${t}" onclick="enableTagEditing(${link.id}, '#tags-query-${link.id}')" class="cursor-pointer hover:bg-cyan-900/40 px-2 py-0.5 bg-cyan-950/40 text-cyan-500 border border-cyan-900 font-mono text-[9px] uppercase tracking-widest rounded shadow-sm">#${t}</span>`).join('');
+
+            // Favicon
+            const favHTML = link.favicon 
+                ? `<img src="${link.favicon}" class="w-4 h-4 rounded object-contain" onerror="this.style.display='none'">`
+                : `<i class="fa-solid fa-link text-cyan-700 text-xs"></i>`;
+
+            card.innerHTML = `
+                ${scoreHTML}
+                <div class="flex-1 min-w-0 flex flex-col justify-center">
+                    <div class="flex items-center gap-3 mb-1">
+                        <div class="w-6 h-6 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center shadow-inner">${favHTML}</div>
+                        <a href="${link.url}" target="_blank" onclick="trackLinkClick(${link.id})" class="text-lg font-bold text-zinc-100 hover:text-cyan-400 truncate transition-colors">${link.title || link.url}</a>
+                    </div>
+                    <a href="${link.url}" target="_blank" class="text-[10px] text-cyan-700 font-mono truncate hover:underline mb-2 block">${link.url}</a>
+                    <p class="text-sm text-zinc-400 leading-relaxed mb-3">${link.desc || ''}</p>
+                    <div id="tags-query-${link.id}" class="flex flex-wrap gap-1.5 mb-4">${tagsHTML}</div>
+                    
+                    <div class="mt-auto pt-3 border-t border-cyan-900/30 flex items-start gap-2">
+                        <i class="fa-solid fa-microchip text-cyan-600 mt-0.5 text-xs"></i>
+                        <p class="text-xs text-cyan-300/80 font-mono leading-tight typewriter-text">${match.reasoning}</p>
+                    </div>
+                </div>
+                
+                <!-- Actions -->
+                <div class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                    <button data-homepage-id="${link.id}" onclick="event.stopPropagation(); showAddToHomepage(${link.id})" class="px-2.5 py-1.5 bg-zinc-800 hover:bg-amber-900/30 border border-zinc-700 hover:border-amber-700 text-zinc-400 hover:text-amber-400 text-xs rounded-lg transition-colors flex items-center gap-1.5" title="Add to Homepage">
+                        <i class="fa-solid fa-star text-[10px]"></i> Homepage
+                    </button>
+                    <button onclick="openEditModal(${link.id}, \`${link.url.replace(/`/g, '\\`')}\`, \`${(link.title||'').replace(/`/g, '\\`')}\`, \`${(link.desc||'').replace(/`/g, '\\`')}\`, \`${link.tags||''}\`)" title="Edit Record" class="w-8 h-8 rounded bg-zinc-900 border border-zinc-700 text-zinc-400 hover:text-cyan-400 hover:border-cyan-500 transition-colors flex items-center justify-center"><i class="fa-solid fa-pen text-xs"></i></button>
+                    <button onclick="deleteLink(${link.id})" title="Purge Record" class="w-8 h-8 rounded bg-zinc-900 border border-zinc-700 text-zinc-400 hover:text-rose-500 hover:border-rose-500 transition-colors flex items-center justify-center"><i class="fa-solid fa-trash text-xs"></i></button>
+                </div>
+            `;
+            list.appendChild(card);
+            
+            // Trigger typewriter effect
+            const typeEl = card.querySelector('.typewriter-text');
+            const text = typeEl.innerText;
+            typeEl.innerText = '';
+            let i = 0;
+            const typeInterval = setInterval(() => {
+                if(i < text.length) {
+                    typeEl.innerHTML += text.charAt(i);
+                    i++;
+                } else {
+                    clearInterval(typeInterval);
+                }
+            }, 15); // very fast typing
+        });
+        
+        // Re-apply the current slider threshold to newly rendered results
+        filterResultsByScore();
+    }
+
+    function resetSearch() {
+        hasSearched = false;
+        selectedTags.clear();
+        updateActiveTagsDisplay();
+        document.getElementById('searchInput').value = '';
+        
+        // Restore all tags in the sidebar
+        document.querySelectorAll('.tag-btn').forEach(btn => btn.style.display = '');
+        
+        const container = document.getElementById('searchContainer');
+        const hero = document.getElementById('heroHeader');
+        const swarm = document.getElementById('tagSwarmContainer');
+        const resultsBox = document.getElementById('resultsContainer');
+        
+        resultsBox.classList.add('opacity-0');
+        setTimeout(() => {
+            resultsBox.classList.add('hidden');
+            
+            container.classList.add('min-h-[70vh]', 'justify-center');
+            container.classList.remove('min-h-0', 'mt-8');
+            
+            hero.style.display = 'block';
+            swarm.style.display = 'block';
+            
+            // trigger reflow
+            void hero.offsetWidth;
+            
+            hero.classList.remove('opacity-0', 'h-0', 'overflow-hidden', 'mb-0');
+            swarm.classList.remove('opacity-0', 'h-0', 'overflow-hidden', 'mt-0');
+        }, 300);
+    }
+
+    function trackLinkClick(id) { fetch(`/api/links/${id}/click`, { method: 'POST' }); }
+    
+    
+
+    function openEditModal(id, url, title, desc, tags) {
         document.getElementById('edit-id').value = id;
+        document.getElementById('edit-url').value = url || '';
         document.getElementById('edit-title').value = title;
         document.getElementById('edit-desc').value = desc;
         document.getElementById('edit-tags').value = tags && tags !== 'None' ? tags : '';
         document.getElementById('editModal').classList.remove('hidden');
     }
 
-    function closeModal() { document.getElementById('editModal').classList.add('hidden'); }
-
-    function appendTag(newTag) {
-        const input = document.getElementById('edit-tags');
-        let currentTags = input.value.split(',').map(t => t.trim()).filter(t => t !== '');
-        if (!currentTags.includes(newTag)) {
-            currentTags.push(newTag);
-            input.value = currentTags.join(', ');
-        }
-    }
-
     async function saveEdits() {
         const id = document.getElementById('edit-id').value;
         const data = {
+            url: document.getElementById('edit-url').value,
             title: document.getElementById('edit-title').value,
             description: document.getElementById('edit-desc').value,
             tags: document.getElementById('edit-tags').value
         };
         await fetch(`/api/links/${id}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
-        location.reload(); 
+        document.getElementById('editModal').classList.add('hidden');
+        if (document.getElementById('timelineContainer').style.display === 'block') {
+            await fetchTimelineData();
+        } else if(hasSearched) {
+            executeNeuralQuery();
+        }
+    }
+
+    // --- Add to Homepage ---
+    let homepageLinkId = null;
+    
+    async function showAddToHomepage(linkId) {
+        homepageLinkId = linkId;
+        // Load existing groups
+        try {
+            const res = await fetch('/api/homepage-groups');
+            const groups = await res.json();
+            const select = document.getElementById('homepage-group-select');
+            select.innerHTML = groups.map(g => `<option value="${g}">${g}</option>`).join('');
+        } catch(e) { console.error(e); }
+        document.getElementById('homepage-new-group').value = '';
+        const modal = document.getElementById('addToHomepageModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+    
+    function closeHomepageModal() {
+        const modal = document.getElementById('addToHomepageModal');
+        modal.classList.remove('flex');
+        modal.classList.add('hidden');
+    }
+    
+    async function confirmAddToHomepage() {
+        if (!homepageLinkId) return;
+        const newGroup = document.getElementById('homepage-new-group').value.trim();
+        const selectedGroup = document.getElementById('homepage-group-select').value;
+        const group = newGroup || selectedGroup || 'Ungrouped';
+        try {
+            await fetch(`/api/links/${homepageLinkId}/add-to-homepage`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ group })
+            });
+            closeHomepageModal();
+            // Show brief success feedback
+            const btn = document.querySelector(`[data-homepage-id="${homepageLinkId}"]`);
+            if (btn) {
+                btn.innerHTML = '<i class="fa-solid fa-check text-[10px]"></i> Added!';
+                btn.classList.add('text-emerald-400', 'border-emerald-700');
+                setTimeout(() => {
+                    btn.innerHTML = '<i class="fa-solid fa-star text-[10px]"></i> Homepage';
+                    btn.classList.remove('text-emerald-400', 'border-emerald-700');
+                }, 2000);
+            }
+        } catch(e) { console.error('Failed to add to homepage:', e); }
+    }
+
+    // --- Inline Tag Editing ---
+    async function saveInlineTags(linkId, newTags) {
+        try {
+            await fetch(`/api/links/${linkId}/update-tags`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ tags: newTags })
+            });
+        } catch(e) { console.error('Failed to save tags:', e); }
+    }
+    
+    function enableTagEditing(linkId, containerSelector) {
+        const container = document.querySelector(containerSelector);
+        if (!container) return;
+        
+        // Get current tags
+        const tagEls = container.querySelectorAll('span[data-tag]');
+        const currentTags = Array.from(tagEls).map(el => el.dataset.tag);
+        
+        // Replace with editable input
+        container.innerHTML = `
+            <div class="flex items-center gap-2 flex-1">
+                <input type="text" value="${currentTags.join(', ')}" 
+                       class="flex-1 bg-zinc-800 border border-cyan-700/50 px-2 py-1 rounded text-[10px] text-cyan-300 font-mono focus:outline-none focus:border-cyan-500"
+                       onkeydown="if(event.key==='Enter'){event.preventDefault(); finishTagEdit(${linkId}, this.value, '${containerSelector}');}"
+                       onblur="finishTagEdit(${linkId}, this.value, '${containerSelector}')">
+                <span class="text-[9px] text-zinc-600">Enter to save</span>
+            </div>
+        `;
+        container.querySelector('input').focus();
+    }
+    
+    function finishTagEdit(linkId, newValue, containerSelector) {
+        const tags = newValue.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+        saveInlineTags(linkId, tags.join(','));
+        
+        // Re-render tag pills
+        const container = document.querySelector(containerSelector);
+        if (container) {
+            container.innerHTML = tags.length > 0 
+                ? tags.map(t => `<span data-tag="${t}" onclick="enableTagEditing(${linkId}, '${containerSelector}')" class="cursor-pointer px-2 py-0.5 bg-cyan-950/40 text-cyan-500 border border-cyan-900 rounded font-mono text-[9px] uppercase tracking-wider hover:bg-cyan-900/40 transition-colors">#${t}</span>`).join('')
+                : '<span class="text-[10px] text-zinc-600 italic cursor-pointer" onclick="enableTagEditing(' + linkId + ', \'' + containerSelector + '\')">click to add tags</span>';
+        }
     }
 </script>
+
+<style>
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in-up {
+        animation: fadeInUp 0.5s ease-out forwards;
+        opacity: 0;
+    }
+    @keyframes floatTag {
+        0% { transform: translateY(0px) scale(1); }
+        50% { transform: translateY(-8px) scale(1.05); }
+        100% { transform: translateY(4px) scale(0.95); }
+    }
+</style>
 {% endblock %}

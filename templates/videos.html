@@ -1,0 +1,1001 @@
+{% set active_page = 'videos' %}
+{% extends 'base.html' %}
+
+{% block title %}Video Library — LinkForge{% endblock %}
+
+{% block extra_css %}
+    .cat-tree-item { transition: all 0.15s ease; }
+    .cat-tree-item:hover { background: rgba(39, 39, 42, 0.6); }
+    .cat-tree-item.active { background: rgba(6, 182, 212, 0.08); border-color: rgba(6, 182, 212, 0.3); }
+    .video-card { transition: all 0.2s ease; }
+    .video-card:hover { border-color: rgba(6, 182, 212, 0.4); }
+    .thumb-container { position: relative; overflow: hidden; border-radius: 0.75rem; }
+    .thumb-container::after {
+        content: '▶';
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        background: rgba(255,0,0,0.85); color: white;
+        width: 48px; height: 34px; border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 18px; opacity: 0.9; pointer-events: none;
+    }
+{% endblock %}
+
+{% block content %}
+<!-- Search Bar -->
+<div class="mb-6">
+    <div class="relative flex items-center">
+        <i class="fa-solid fa-magnifying-glass absolute left-4 text-zinc-500"></i>
+        <input id="videoSearch" type="text" placeholder="Search entire video library by title, channel, tags, or spoken transcripts..."
+               class="w-full bg-zinc-900/60 border border-zinc-800 rounded-2xl py-3.5 pl-11 pr-10 text-sm text-zinc-200 focus:outline-none focus:border-cyan-500/50 placeholder-zinc-600 shadow-inner"
+               oninput="handleSearchInput(this.value)">
+        <button id="clearSearchBtn" onclick="clearSearchInput()" class="hidden absolute right-4 text-zinc-500 hover:text-zinc-300 transition-colors p-1" title="Clear Search">
+            <i class="fa-solid fa-circle-xmark text-sm"></i>
+        </button>
+    </div>
+</div>
+
+<div class="flex flex-col lg:flex-row gap-6">
+    <!-- Left Panel: Category Tree -->
+    <aside class="lg:w-1/4 flex-shrink-0">
+        <div class="sticky top-8 bg-zinc-900/30 border border-zinc-800/50 rounded-2xl p-4">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xs font-bold uppercase tracking-widest text-zinc-500 flex items-center gap-2">
+                    <i class="fa-solid fa-folder-tree text-rose-400"></i> Categories
+                </h3>
+                <div class="flex items-center gap-2">
+                    <button onclick="toggleAllCategoryExpands()" id="btn-toggle-all-cats" class="text-[10px] text-zinc-400 hover:text-cyan-300 font-semibold flex items-center gap-1 transition-colors px-1.5 py-0.5 rounded bg-zinc-800/60 border border-zinc-700/50" title="Expand / Collapse All">
+                        <i class="fa-solid fa-arrows-up-down text-[9px]"></i> Fold
+                    </button>
+                    <button onclick="showAddCategoryModal(null)" class="text-[10px] text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1 transition-colors px-1.5 py-0.5 rounded bg-cyan-950/40 border border-cyan-800/40" title="Add Main Category">
+                        <i class="fa-solid fa-plus"></i> Add
+                    </button>
+                </div>
+            </div>
+            
+            <!-- New Videos -->
+            <button onclick="filterByCategory('uncategorized')" id="cat-all" class="cat-tree-item active w-full text-left px-3 py-2.5 rounded-xl border border-transparent text-sm font-medium text-zinc-300 flex items-center gap-2 mb-1">
+                <i class="fa-solid fa-sparkles text-cyan-400 w-4 text-center"></i> New Videos
+                <span id="cat-all-count" class="ml-auto text-[10px] text-zinc-400 bg-zinc-800 px-2 py-0.5 rounded font-mono">0</span>
+            </button>
+            
+            <div id="category-tree" class="space-y-1 max-h-[calc(100vh-20rem)] overflow-y-auto custom-scroll">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+    </aside>
+
+    <!-- Right Panel: Video Cards -->
+    <main class="flex-1 min-w-0">
+        <!-- AI Suggestion Batch Bar (Shown in New Videos when suggestions exist) -->
+        <div id="suggestionBatchBar" class="hidden mb-5 p-4 bg-gradient-to-r from-purple-950/50 via-purple-900/30 to-zinc-900/50 border border-purple-800/50 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xl backdrop-blur-sm">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-400 text-lg flex-shrink-0">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </div>
+                <div>
+                    <h4 class="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                        AI Suggested Categories
+                        <span id="pendingSuggestionCountBadge" class="text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/40 px-2 py-0.5 rounded-full font-mono font-bold">0</span>
+                    </h4>
+                    <p class="text-xs text-zinc-400">Review recommendations below or batch-file all high-confidence suggestions.</p>
+                </div>
+            </div>
+            <button onclick="acceptAllSuggestions()" class="px-4 py-2.5 bg-purple-600 hover:bg-purple-500 active:scale-95 text-white text-xs font-bold rounded-xl shadow-lg shadow-purple-900/40 transition-all flex items-center justify-center gap-2 flex-shrink-0">
+                <i class="fa-solid fa-check-double"></i> Accept All Suggestions
+            </button>
+        </div>
+
+        <div id="video-stream" class="space-y-4">
+            <div class="animate-pulse space-y-4">
+                <div class="h-40 bg-zinc-900/30 rounded-2xl border border-zinc-800/50"></div>
+                <div class="h-40 bg-zinc-900/30 rounded-2xl border border-zinc-800/50"></div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Floating Add Video Button -->
+<button onclick="showAddVideoModal()" class="fixed bottom-6 right-6 z-40 w-14 h-14 bg-rose-600 hover:bg-rose-500 rounded-full shadow-2xl flex items-center justify-center text-white text-xl transition-transform hover:scale-110">
+    <i class="fa-solid fa-plus"></i>
+</button>
+
+<!-- Add Video Modal -->
+<div id="addVideoModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center p-4 z-50 backdrop-blur-sm">
+    <div class="bg-zinc-900 p-6 rounded-2xl w-full max-w-lg border border-zinc-700 shadow-2xl">
+        <h2 class="text-xl font-bold mb-5 text-zinc-100 flex items-center gap-2">
+            <i class="fa-brands fa-youtube text-rose-500"></i> Add Video Bookmark
+        </h2>
+        <div class="space-y-4">
+            <div>
+                <label class="text-xs text-zinc-400 ml-1 mb-1 block">YouTube URL</label>
+                <div class="flex gap-2">
+                    <input id="add-video-url" class="flex-1 bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-sm text-zinc-200 focus:outline-none focus:border-rose-500" placeholder="https://www.youtube.com/watch?v=...">
+                    <button onclick="fetchVideoMeta()" class="px-4 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Fetch
+                    </button>
+                </div>
+            </div>
+            <div id="video-preview" class="hidden">
+                <div class="flex gap-4 p-3 bg-zinc-950/60 border border-zinc-800 rounded-xl">
+                    <img id="add-video-thumb" src="" class="w-32 h-20 object-cover rounded-lg">
+                    <div class="flex-1 min-w-0">
+                        <p id="add-video-title-preview" class="text-sm font-medium text-zinc-200 truncate"></p>
+                        <p id="add-video-channel-preview" class="text-xs text-zinc-500 mt-1"></p>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <label class="text-xs text-zinc-400 ml-1 mb-1 block">Title</label>
+                <input id="add-video-title" class="w-full bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-sm text-zinc-200 focus:outline-none focus:border-rose-500">
+            </div>
+            <div class="flex gap-3">
+                <div class="flex-1">
+                    <label class="text-xs text-zinc-400 ml-1 mb-1 block">Channel</label>
+                    <input id="add-video-channel" class="w-full bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-sm text-zinc-200 focus:outline-none focus:border-rose-500">
+                </div>
+                <div class="flex-1">
+                    <label class="text-xs text-zinc-400 ml-1 mb-1 block">Category</label>
+                    <select id="add-video-category" class="w-full bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-sm text-zinc-200 focus:outline-none focus:border-rose-500 appearance-none">
+                        <option value="">Uncategorized</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="text-xs text-zinc-400 ml-1 mb-1 block">Tags (comma-separated)</label>
+                <input id="add-video-tags" class="w-full bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-sm text-zinc-200 focus:outline-none focus:border-rose-500" placeholder="music, tutorial, cooking">
+            </div>
+            <div>
+                <label class="text-xs text-zinc-400 ml-1 mb-1 block">Notes / Description</label>
+                <textarea id="add-video-desc" rows="2" class="w-full bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-sm text-zinc-200 focus:outline-none focus:border-rose-500 resize-none"></textarea>
+            </div>
+        </div>
+        <div class="flex gap-3 mt-6">
+            <button onclick="closeAddVideoModal()" class="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-sm font-medium transition-colors">Cancel</button>
+            <button onclick="saveNewVideo()" class="flex-1 py-3 bg-rose-600 hover:bg-rose-500 text-white text-sm font-bold rounded-lg transition-colors">Save Video</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Video Modal -->
+<div id="editVideoModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center p-4 z-50 backdrop-blur-sm">
+    <div class="bg-zinc-900 p-6 rounded-2xl w-full max-w-lg border border-zinc-700 shadow-2xl">
+        <h2 class="text-xl font-bold mb-5 text-zinc-100 flex items-center gap-2">
+            <i class="fa-solid fa-pen-to-square text-amber-500"></i> Edit Video
+        </h2>
+        <div class="space-y-4">
+            <div>
+                <label class="text-xs text-zinc-400 ml-1 mb-1 block">Title</label>
+                <input id="edit-video-title" class="w-full bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-sm text-zinc-200 focus:outline-none focus:border-amber-500">
+            </div>
+            <div class="flex gap-3">
+                <div class="flex-1">
+                    <label class="text-xs text-zinc-400 ml-1 mb-1 block">Channel</label>
+                    <input id="edit-video-channel" class="w-full bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-sm text-zinc-200 focus:outline-none focus:border-amber-500">
+                </div>
+                <div class="flex-1">
+                    <label class="text-xs text-zinc-400 ml-1 mb-1 block">Category</label>
+                    <select id="edit-video-category" class="w-full bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-sm text-zinc-200 focus:outline-none focus:border-amber-500 appearance-none">
+                        <option value="">Uncategorized</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="text-xs text-zinc-400 ml-1 mb-1 block">Tags (comma-separated)</label>
+                <input id="edit-video-tags" class="w-full bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-sm text-zinc-200 focus:outline-none focus:border-amber-500">
+            </div>
+            <div>
+                <label class="text-xs text-zinc-400 ml-1 mb-1 block">Notes / Description</label>
+                <textarea id="edit-video-desc" rows="2" class="w-full bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-sm text-zinc-200 focus:outline-none focus:border-amber-500 resize-none"></textarea>
+            </div>
+        </div>
+        <div class="flex gap-3 mt-6">
+            <button onclick="closeEditVideoModal()" class="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-sm font-medium transition-colors">Cancel</button>
+            <button onclick="saveVideoEdit()" class="flex-1 py-3 bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold rounded-lg transition-colors">Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Change Category & Create Subcategory Modal -->
+<div id="changeCategoryModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center p-4 z-50 backdrop-blur-sm">
+    <div class="bg-zinc-900 p-6 rounded-2xl w-full max-w-md border border-zinc-700 shadow-2xl">
+        <h2 class="text-lg font-bold mb-2 text-zinc-100 flex items-center gap-2">
+            <i class="fa-solid fa-folder-tree text-purple-400"></i> Route Video to Category
+        </h2>
+        <p id="change-cat-video-title" class="text-xs text-zinc-400 mb-4 line-clamp-1 italic"></p>
+        
+        <div class="space-y-4">
+            <div>
+                <label class="text-xs text-zinc-400 ml-1 mb-1 block font-medium">Choose Existing Category</label>
+                <select id="change-category-select" class="w-full bg-zinc-800 border border-zinc-700 p-3 rounded-xl text-sm text-zinc-200 focus:outline-none focus:border-purple-500 appearance-none">
+                    <option value="">(Select Category)</option>
+                </select>
+            </div>
+
+            <div class="relative flex py-1 items-center">
+                <div class="flex-grow border-t border-zinc-800"></div>
+                <span class="flex-shrink mx-3 text-zinc-500 text-[10px] uppercase font-bold tracking-widest">or create new</span>
+                <div class="flex-grow border-t border-zinc-800"></div>
+            </div>
+
+            <div class="bg-zinc-950/60 p-4 rounded-xl border border-zinc-800/80 space-y-3">
+                <div>
+                    <label class="text-xs text-zinc-300 font-medium ml-1 mb-1 block">
+                        New Main Category
+                    </label>
+                    <input id="new-quick-maincat-name" placeholder="e.g. Computing, Automotive..." class="w-full bg-zinc-800 border border-zinc-700 p-2.5 rounded-lg text-sm text-zinc-200 focus:outline-none focus:border-purple-500">
+                </div>
+
+                <div>
+                    <label class="text-xs text-zinc-300 font-medium ml-1 mb-1 block">
+                        New Sub-Category <span class="text-zinc-500 font-normal">(optional)</span>
+                    </label>
+                    <input id="new-quick-subcat-name" placeholder="e.g. History, Tutorials..." class="w-full bg-zinc-800 border border-zinc-700 p-2.5 rounded-lg text-sm text-zinc-200 focus:outline-none focus:border-purple-500">
+                    <p class="text-[11px] text-zinc-500 mt-1.5 ml-1 leading-tight">
+                        • Create a main and sub-category simultaneously (e.g. <em>Computing > History</em>), or create a sub-category under a selected category above.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex gap-3 mt-6">
+            <button onclick="closeChangeCategoryModal()" class="flex-1 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl text-xs font-medium transition-colors">Cancel</button>
+            <button onclick="applyCategoryChange()" class="flex-1 py-2.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl transition-colors shadow-lg shadow-purple-900/30">Move & Learn</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add Category Modal -->
+<div id="addCategoryModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center p-4 z-50 backdrop-blur-sm">
+    <div class="bg-zinc-900 p-6 rounded-2xl w-full max-w-sm border border-zinc-700 shadow-2xl">
+        <h2 id="cat-modal-title" class="text-lg font-bold mb-4 text-zinc-100 flex items-center gap-2">
+            <i class="fa-solid fa-folder-plus text-cyan-400"></i> New Category
+        </h2>
+        <input type="hidden" id="new-cat-parent-id">
+        <div class="space-y-4">
+            <div>
+                <label class="text-xs text-zinc-400 ml-1 mb-1 block">Category Name</label>
+                <input id="new-cat-name" class="w-full bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-sm text-zinc-200 focus:outline-none focus:border-cyan-500" placeholder="e.g. Science Fiction, Coding">
+            </div>
+        </div>
+        <div class="flex gap-3 mt-6">
+            <button onclick="closeAddCategoryModal()" class="flex-1 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs font-medium transition-colors">Cancel</button>
+            <button onclick="saveNewCategory()" class="flex-1 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded-lg transition-colors">Create</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentCategoryId = 'uncategorized';
+    let allCategories = [];
+    let searchTimeout = null;
+    let editingVideoId = null;
+    let quickChangeVideoId = null;
+
+    function escapeHTML(str) {
+        if (!str) return '';
+        const p = document.createElement('p');
+        p.textContent = str;
+        return p.innerHTML;
+    }
+
+    // --- Category Management & Expand/Collapse ---
+    let expandedCategoryIds = new Set();
+    try {
+        const stored = localStorage.getItem('df_expanded_video_cats');
+        if (stored) {
+            expandedCategoryIds = new Set(JSON.parse(stored));
+        }
+    } catch(e) {}
+
+    window.saveCategoryExpandState = function() {
+        try {
+            localStorage.setItem('df_expanded_video_cats', JSON.stringify(Array.from(expandedCategoryIds)));
+        } catch(e) {}
+    };
+
+    window.toggleCategoryExpand = function(catId) {
+        if (expandedCategoryIds.has(catId)) {
+            expandedCategoryIds.delete(catId);
+        } else {
+            expandedCategoryIds.clear();
+            expandedCategoryIds.add(catId);
+        }
+        window.saveCategoryExpandState();
+        renderCategoryTree();
+    };
+
+    window.toggleAllCategoryExpands = function() {
+        const parentCatsWithChildren = allCategories.filter(c => (c.children || []).length > 0);
+        const allExpanded = parentCatsWithChildren.every(c => expandedCategoryIds.has(c.id));
+        if (allExpanded) {
+            expandedCategoryIds.clear();
+        } else {
+            parentCatsWithChildren.forEach(c => expandedCategoryIds.add(c.id));
+        }
+        window.saveCategoryExpandState();
+        renderCategoryTree();
+    };
+
+    async function loadCategories() {
+        try {
+            const res = await fetch('/api/video-categories');
+            allCategories = await res.json();
+            renderCategoryTree();
+            populateCategorySelects();
+        } catch(e) { console.error('Failed to load categories:', e); }
+    }
+
+    function renderCategoryTree() {
+        const tree = document.getElementById('category-tree');
+        const allVideosBtn = document.getElementById('cat-all');
+        if (allVideosBtn) {
+            if (currentCategoryId === 'uncategorized') {
+                allVideosBtn.classList.add('active');
+            } else {
+                allVideosBtn.classList.remove('active');
+            }
+            allVideosBtn.setAttribute('ondragover', 'window.allowDrop(event)');
+            allVideosBtn.setAttribute('ondragleave', 'window.leaveDrop(event)');
+            allVideosBtn.setAttribute('ondrop', 'window.handleVideoDropAll(event)');
+        }
+
+        // If current category is a subcategory, auto-expand its parent
+        if (currentCategoryId && currentCategoryId !== 'uncategorized') {
+            allCategories.forEach(cat => {
+                if ((cat.children || []).some(sub => sub.id === currentCategoryId)) {
+                    expandedCategoryIds.add(cat.id);
+                }
+            });
+        }
+
+        tree.innerHTML = allCategories.map(cat => {
+            const children = cat.children || [];
+            const hasChildren = children.length > 0;
+            const isExpanded = expandedCategoryIds.has(cat.id);
+            const totalVideos = cat.total_video_count ?? 0;
+            const isEmpty = !hasChildren && totalVideos === 0;
+
+            return `
+            <div class="mb-0.5">
+                <div class="cat-tree-item flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-transparent cursor-pointer group ${currentCategoryId === cat.id ? 'active' : ''}"
+                     onclick="filterByCategory(${cat.id})"
+                     ondragover="window.allowDrop(event)"
+                     ondragleave="window.leaveDrop(event)"
+                     ondrop="window.handleVideoDrop(event, ${cat.id})">
+                    <div class="flex items-center gap-2 min-w-0 flex-1">
+                        <i class="fa-solid fa-folder text-amber-500/70 w-4 text-center text-xs flex-shrink-0"></i>
+                        <span class="text-sm text-zinc-300 truncate">${escapeHTML(cat.name)}</span>
+                    </div>
+                    
+                    <div class="flex items-center gap-1.5 flex-shrink-0">
+                        ${hasChildren ? `
+                            <div onclick="event.stopPropagation(); window.toggleCategoryExpand(${cat.id})"
+                                 class="flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono transition-all select-none cursor-pointer ${isExpanded ? 'bg-cyan-950/80 text-cyan-300 border border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.25)]' : 'bg-zinc-800/80 text-zinc-400 border border-zinc-700/60 hover:border-cyan-500/50 hover:text-cyan-300 hover:bg-cyan-950/40'}"
+                                 title="${isExpanded ? 'Contract subcategories' : 'Expand ' + children.length + ' subcategories'}">
+                                <i class="fa-solid ${isExpanded ? 'fa-chevron-down text-cyan-400' : 'fa-chevron-right text-zinc-500'} text-[8px] transition-transform duration-200"></i>
+                                <span>${children.length}</span>
+                            </div>
+                        ` : ''}
+
+                        <button onclick="event.stopPropagation(); showAddCategoryModal(${cat.id})" class="text-[10px] text-cyan-500 hover:text-cyan-300 p-1 opacity-0 group-hover:opacity-100 transition-opacity rounded hover:bg-zinc-800" title="Add Sub-Category"><i class="fa-solid fa-plus"></i></button>
+                        ${isEmpty ? `
+                            <button onclick="event.stopPropagation(); deleteCategory(${cat.id}, '${escapeHTML(cat.name)}')" class="text-[10px] text-rose-500 hover:text-rose-400 p-1 opacity-0 group-hover:opacity-100 transition-opacity rounded hover:bg-rose-950/30" title="Delete Empty Category"><i class="fa-solid fa-trash"></i></button>
+                        ` : ''}
+                    </div>
+                </div>
+                ${hasChildren ? `
+                    <div class="ml-4 pl-1 border-l border-zinc-800/80 space-y-0.5 mt-0.5 transition-all duration-300 ${isExpanded ? 'block' : 'hidden'}">
+                        ${children.map(sub => {
+                            const isSubEmpty = (sub.video_count ?? 0) === 0;
+                            return `
+                            <div class="cat-tree-item flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border border-transparent cursor-pointer group ${currentCategoryId === sub.id ? 'active' : ''}"
+                                 onclick="filterByCategory(${sub.id})"
+                                 ondragover="window.allowDrop(event)"
+                                 ondragleave="window.leaveDrop(event)"
+                                 ondrop="window.handleVideoDrop(event, ${sub.id})">
+                                <div class="flex items-center gap-2 min-w-0 flex-1">
+                                    <i class="fa-solid fa-folder-open text-zinc-600 w-3.5 text-center text-[10px] flex-shrink-0"></i>
+                                    <span class="text-xs text-zinc-400 truncate">${escapeHTML(sub.name)}</span>
+                                </div>
+                                ${isSubEmpty ? `
+                                    <button onclick="event.stopPropagation(); deleteCategory(${sub.id}, '${escapeHTML(sub.name)}')" class="text-[10px] text-rose-500 hover:text-rose-400 p-1 opacity-0 group-hover:opacity-100 transition-opacity rounded hover:bg-rose-950/30 flex-shrink-0" title="Delete Empty Sub-Category"><i class="fa-solid fa-trash"></i></button>
+                                ` : ''}
+                            </div>
+                            `;
+                        }).join('')}
+                    </div>
+                ` : ''}
+            </div>
+            `;
+        }).join('');
+    }
+
+    function populateCategorySelects() {
+        const options = ['<option value="">Uncategorized</option>'];
+        const quickOptions = ['<option value="">(Select Category)</option>'];
+        
+        allCategories.forEach(cat => {
+            options.push(`<option value="${cat.id}">${escapeHTML(cat.name)}</option>`);
+            quickOptions.push(`<option value="${cat.id}">📁 ${escapeHTML(cat.name)}</option>`);
+            (cat.children || []).forEach(sub => {
+                options.push(`<option value="${sub.id}">&nbsp;&nbsp;↳ ${escapeHTML(sub.name)}</option>`);
+                quickOptions.push(`<option value="${sub.id}">&nbsp;&nbsp;&nbsp;&nbsp;↳ ${escapeHTML(cat.name)} > ${escapeHTML(sub.name)}</option>`);
+            });
+        });
+        
+        const html = options.join('');
+        document.getElementById('add-video-category').innerHTML = html;
+        document.getElementById('edit-video-category').innerHTML = html;
+        if (document.getElementById('change-category-select')) {
+            document.getElementById('change-category-select').innerHTML = quickOptions.join('');
+        }
+    }
+
+    function filterByCategory(catId) {
+        currentCategoryId = catId;
+        
+        // Auto-clear search query when navigating categories
+        const searchInput = document.getElementById('videoSearch');
+        if (searchInput) searchInput.value = '';
+        const clearBtn = document.getElementById('clearSearchBtn');
+        if (clearBtn) clearBtn.classList.add('hidden');
+        
+        // Auto-expand the clicked category and contract all other categories
+        expandedCategoryIds.clear();
+        if (catId !== 'uncategorized') {
+            const isMainCat = allCategories.some(c => c.id === catId);
+            if (isMainCat) {
+                const mainCat = allCategories.find(c => c.id === catId);
+                if (mainCat && (mainCat.children || []).length > 0) {
+                    expandedCategoryIds.add(catId);
+                }
+            } else {
+                // If it's a subcategory, expand its parent
+                allCategories.forEach(parent => {
+                    if ((parent.children || []).some(sub => sub.id === catId)) {
+                        expandedCategoryIds.add(parent.id);
+                    }
+                });
+            }
+        }
+        window.saveCategoryExpandState();
+        
+        document.querySelectorAll('.cat-tree-item').forEach(el => el.classList.remove('active'));
+        if (catId === 'uncategorized') {
+            document.getElementById('cat-all').classList.add('active');
+        }
+        renderCategoryTree();
+        loadVideos();
+    }
+
+    function handleSearchInput(val) {
+        const clearBtn = document.getElementById('clearSearchBtn');
+        if (clearBtn) {
+            if (val.trim()) clearBtn.classList.remove('hidden');
+            else clearBtn.classList.add('hidden');
+        }
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(loadVideos, 300);
+    }
+
+    function clearSearchInput() {
+        const searchInput = document.getElementById('videoSearch');
+        if (searchInput) searchInput.value = '';
+        const clearBtn = document.getElementById('clearSearchBtn');
+        if (clearBtn) clearBtn.classList.add('hidden');
+        loadVideos();
+    }
+
+    function showAddCategoryModal(parentId) {
+        document.getElementById('new-cat-parent-id').value = parentId || '';
+        document.getElementById('cat-modal-title').textContent = parentId ? 'New Sub-Category' : 'New Main Category';
+        document.getElementById('new-cat-name').value = '';
+        const modal = document.getElementById('addCategoryModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.getElementById('new-cat-name').focus();
+    }
+
+    function closeAddCategoryModal() {
+        const modal = document.getElementById('addCategoryModal');
+        modal.classList.remove('flex');
+        modal.classList.add('hidden');
+    }
+
+    async function saveNewCategory() {
+        const name = document.getElementById('new-cat-name').value.trim();
+        if (!name) return;
+        const parentId = document.getElementById('new-cat-parent-id').value || null;
+        try {
+            await fetch('/api/video-categories', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ name, parent_id: parentId ? parseInt(parentId) : null })
+            });
+            closeAddCategoryModal();
+            await loadCategories();
+        } catch(e) { console.error('Failed to create category:', e); }
+    }
+
+    async function deleteCategory(id, name) {
+        if (!confirm(`Delete category "${name}"? Videos in it will become uncategorized.`)) return;
+        try {
+            await fetch(`/api/video-categories/${id}`, { method: 'DELETE' });
+            if (currentCategoryId === id) currentCategoryId = 'uncategorized';
+            await loadCategories();
+            loadVideos();
+        } catch(e) { console.error('Failed to delete category:', e); }
+    }
+
+    // --- Video Stream & Triage Management ---
+    async function loadVideos() {
+        const stream = document.getElementById('video-stream');
+        const searchQuery = document.getElementById('videoSearch').value.trim();
+        
+        let url = '/api/videos?';
+        if (searchQuery) {
+            // Global search across entire library & transcripts
+            url += `q=${encodeURIComponent(searchQuery)}&`;
+        } else if (currentCategoryId) {
+            url += `category_id=${currentCategoryId}&`;
+        }
+        
+        try {
+            const res = await fetch(url);
+            const videos = await res.json();
+            
+            if (!searchQuery && currentCategoryId === 'uncategorized') {
+                document.getElementById('cat-all-count').textContent = videos.length;
+            }
+
+            // Handle Batch Suggestions Triage Bar
+            const pendingSuggestions = videos.filter(v => v.category_id === null && v.suggested_category_id !== null);
+            const batchBar = document.getElementById('suggestionBatchBar');
+            if (batchBar) {
+                if (!searchQuery && currentCategoryId === 'uncategorized' && pendingSuggestions.length > 0) {
+                    batchBar.classList.remove('hidden');
+                    document.getElementById('pendingSuggestionCountBadge').textContent = pendingSuggestions.length;
+                } else {
+                    batchBar.classList.add('hidden');
+                }
+            }
+            
+            if (videos.length === 0) {
+                stream.innerHTML = `
+                    <div class="text-zinc-500 p-8 text-center border border-dashed border-zinc-800 rounded-2xl">
+                        <i class="fa-brands fa-youtube text-3xl text-zinc-700 mb-3 block"></i>
+                        <p class="text-sm">${searchQuery ? `No videos match "${escapeHTML(searchQuery)}" in titles, tags, or transcripts.` : 'No videos in this category yet.'}</p>
+                        <p class="text-xs text-zinc-600 mt-1">${searchQuery ? 'Try another keyword or search term.' : 'Click the <span class="text-rose-400">+</span> button to add a video.'}</p>
+                    </div>`;
+                return;
+            }
+
+            let searchHeaderHtml = '';
+            if (searchQuery) {
+                searchHeaderHtml = `
+                    <div class="mb-4 p-3 bg-zinc-900/60 border border-zinc-800 rounded-xl flex items-center justify-between text-xs">
+                        <span class="text-zinc-400">
+                            <i class="fa-solid fa-magnifying-glass text-cyan-400 mr-1.5"></i>
+                            Found <strong class="text-zinc-200">${videos.length}</strong> matching video${videos.length === 1 ? '' : 's'} across <strong class="text-cyan-400">Entire Library</strong> for "<span class="text-zinc-200">${escapeHTML(searchQuery)}</span>"
+                        </span>
+                        <button onclick="document.getElementById('videoSearch').value=''; loadVideos();" class="text-xs text-zinc-500 hover:text-zinc-300 flex items-center gap-1 font-medium transition-colors">
+                            <i class="fa-solid fa-xmark"></i> Clear
+                        </button>
+                    </div>`;
+            }
+
+            stream.innerHTML = searchHeaderHtml + videos.map(v => {
+                const tags = (v.tags || '').split(',').map(t => t.trim()).filter(Boolean);
+                const safeUrl = escapeHTML(v.url);
+                const safeTitle = escapeHTML(v.title || 'Untitled Video');
+                const thumbSrc = escapeHTML(v.thumbnail_url || '');
+                const hasSuggestion = (v.category_id === null && v.suggested_category_id !== null);
+                
+                return `
+                    <div class="video-card bg-zinc-900/40 border ${hasSuggestion ? 'border-purple-800/60 shadow-[0_0_20px_rgba(168,85,247,0.08)]' : 'border-zinc-800/60'} rounded-2xl p-5 shadow-lg relative"
+                         draggable="true" 
+                         ondragstart="window.handleVideoDragStart && window.handleVideoDragStart(event, ${v.id})"
+                         ondragend="window.handleVideoDragEnd && window.handleVideoDragEnd(event)">
+                        <div class="flex flex-col sm:flex-row gap-5">
+                            ${thumbSrc ? `
+                                <a href="${safeUrl}" target="_blank" class="flex-shrink-0">
+                                    <div class="thumb-container w-full sm:w-56 h-32">
+                                        <img src="${thumbSrc}" class="w-full h-full object-cover" onerror="this.parentElement.style.display='none'">
+                                    </div>
+                                </a>
+                            ` : ''}
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-1 flex-wrap">
+                                    <span class="text-[10px] text-zinc-400 bg-zinc-800/80 px-2 py-0.5 rounded border border-zinc-700/60 font-mono">
+                                        <i class="fa-solid fa-folder text-amber-500 mr-1"></i>${escapeHTML(v.category_path || 'New Videos')}
+                                    </span>
+                                    ${v.channel_name ? `<span class="text-xs text-zinc-500 flex items-center gap-1"><i class="fa-brands fa-youtube text-rose-500"></i> ${escapeHTML(v.channel_name)}</span>` : ''}
+                                </div>
+                                <a href="${safeUrl}" target="_blank" class="text-base font-semibold text-zinc-100 hover:text-cyan-400 transition-colors line-clamp-2">${safeTitle}</a>
+                                ${v.description ? `
+                                    <div class="mt-2.5 flex items-start gap-2">
+                                        <i class="fa-solid fa-microchip text-cyan-500 text-xs mt-0.5"></i>
+                                        <p class="text-xs text-zinc-400 leading-relaxed line-clamp-2">${escapeHTML(v.description)}</p>
+                                    </div>
+                                ` : ''}
+                                ${v.transcript_match ? `
+                                    <div class="mt-2.5 p-2.5 bg-zinc-950/80 border border-zinc-800 rounded-xl text-xs flex items-start gap-2">
+                                        <i class="fa-solid fa-closed-captioning text-rose-400 text-sm mt-0.5 flex-shrink-0"></i>
+                                        <div class="min-w-0">
+                                            <span class="text-[10px] uppercase font-bold text-rose-400 tracking-wider block">Spoken Dialogue Match:</span>
+                                            <span class="text-zinc-300 italic font-mono text-[11px] leading-relaxed block">${escapeHTML(v.transcript_match)}</span>
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+
+                        ${hasSuggestion ? `
+                            <!-- AI Category Suggestion Badge -->
+                            <div class="mt-4 p-3 rounded-xl bg-purple-950/40 border border-purple-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div class="flex items-center gap-2.5 min-w-0">
+                                    <div class="w-7 h-7 rounded-lg bg-purple-900/60 border border-purple-700/60 flex items-center justify-center text-purple-300 flex-shrink-0 text-xs shadow-inner">
+                                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <div class="flex items-center gap-2 flex-wrap">
+                                            <span class="text-[10px] uppercase font-bold tracking-wider text-purple-400">Suggested:</span>
+                                            <span class="text-xs font-bold text-purple-200 truncate">${escapeHTML(v.suggested_category_name || 'Category')}</span>
+                                        </div>
+                                        ${v.suggested_reasoning ? `<p class="text-[11px] text-zinc-400 truncate mt-0.5" title="${escapeHTML(v.suggested_reasoning)}">${escapeHTML(v.suggested_reasoning)}</p>` : ''}
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2 flex-shrink-0">
+                                    <button onclick="acceptSingleSuggestion(${v.id})" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-semibold shadow-md transition-colors flex items-center gap-1.5">
+                                        <i class="fa-solid fa-check"></i> Accept
+                                    </button>
+                                    <button onclick="openChangeCategoryModal(${v.id}, '${escapeHTML(safeTitle)}')" class="px-2.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs font-medium border border-zinc-700 transition-colors" title="Change Category">
+                                        <i class="fa-solid fa-folder-tree"></i> Change
+                                    </button>
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <div class="flex items-center justify-between mt-4 pt-3 border-t border-zinc-800/50">
+                            <div class="flex flex-wrap gap-1.5" id="video-tags-${v.id}">
+                                ${tags.map(t => `<span class="px-2 py-0.5 bg-cyan-950/40 text-cyan-500 border border-cyan-900 rounded font-mono text-[9px] uppercase tracking-wider">#${escapeHTML(t)}</span>`).join('')}
+                                ${tags.length === 0 ? '<span class="text-[10px] text-zinc-600 italic">no tags</span>' : ''}
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button onclick="openEditVideo(${v.id})" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-400 hover:text-amber-400 text-xs rounded-lg transition-colors flex items-center gap-1.5">
+                                    <i class="fa-solid fa-pen text-[10px]"></i> Edit
+                                </button>
+                                <button onclick="deleteVideo(${v.id})" class="px-3 py-1.5 bg-zinc-800 hover:bg-rose-900/50 border border-zinc-700 hover:border-rose-700 text-zinc-400 hover:text-rose-400 text-xs rounded-lg transition-colors flex items-center gap-1.5">
+                                    <i class="fa-solid fa-trash text-[10px]"></i> Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>`;
+            }).join('');
+        } catch(e) {
+            console.error('Failed to load videos:', e);
+            stream.innerHTML = `<div class="text-xs text-red-400 p-4 bg-red-900/20 rounded-xl border border-red-900/50 text-center">Failed to load videos.</div>`;
+        }
+    }
+
+    // --- AI Suggestion Actions ---
+    async function acceptSingleSuggestion(id) {
+        try {
+            await fetch(`/api/videos/${id}/accept-suggestion`, { method: 'POST' });
+            await loadCategories();
+            loadVideos();
+        } catch(e) { console.error('Failed to accept suggestion:', e); }
+    }
+
+    async function acceptAllSuggestions() {
+        try {
+            const res = await fetch('/api/videos/accept-all-suggestions', { method: 'POST' });
+            const data = await res.json();
+            await loadCategories();
+            loadVideos();
+        } catch(e) { console.error('Failed to accept all suggestions:', e); }
+    }
+
+    function openChangeCategoryModal(id, title) {
+        quickChangeVideoId = id;
+        document.getElementById('change-cat-video-title').textContent = title || '';
+        document.getElementById('new-quick-maincat-name').value = '';
+        document.getElementById('new-quick-subcat-name').value = '';
+        document.getElementById('change-category-select').value = '';
+        const modal = document.getElementById('changeCategoryModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeChangeCategoryModal() {
+        const modal = document.getElementById('changeCategoryModal');
+        modal.classList.remove('flex');
+        modal.classList.add('hidden');
+    }
+
+    async function applyCategoryChange() {
+        if (!quickChangeVideoId) return;
+        const selectVal = document.getElementById('change-category-select').value;
+        let newMainCat = document.getElementById('new-quick-maincat-name').value.trim();
+        let newSubCat = document.getElementById('new-quick-subcat-name').value.trim();
+        
+        let targetCatId = selectVal ? parseInt(selectVal) : null;
+
+        // Smart delimiter parsing if user typed "Computing - History", "Computing > History", etc. in the main field
+        if (newMainCat && !newSubCat) {
+            const separators = [' - ', ' > ', ' / ', ' -> ', ' – '];
+            for (const sep of separators) {
+                if (newMainCat.includes(sep)) {
+                    const parts = newMainCat.split(sep);
+                    newMainCat = parts[0].trim();
+                    newSubCat = parts.slice(1).join(sep).trim();
+                    break;
+                }
+            }
+        }
+
+        // Case 1: Brand new Main Category specified
+        if (newMainCat) {
+            try {
+                // Check if a main category with this name already exists
+                let existingMain = allCategories.find(c => c.name.toLowerCase() === newMainCat.toLowerCase() && c.parent_id === null);
+                let mainCatId = null;
+
+                if (existingMain) {
+                    mainCatId = existingMain.id;
+                } else {
+                    const res = await fetch('/api/video-categories', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ name: newMainCat, parent_id: null })
+                    });
+                    const data = await res.json();
+                    mainCatId = data.id;
+                }
+
+                if (mainCatId) {
+                    targetCatId = mainCatId;
+                    expandedCategoryIds.add(mainCatId);
+                    
+                    // If subcategory was also entered, create it under this main category
+                    if (newSubCat) {
+                        const subRes = await fetch('/api/video-categories', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({ name: newSubCat, parent_id: mainCatId })
+                        });
+                        const subData = await subRes.json();
+                        if (subData.id) {
+                            targetCatId = subData.id;
+                        }
+                    }
+                }
+            } catch(e) {
+                console.error('Failed to create main/sub category:', e);
+            }
+        } 
+        // Case 2: No new main category, but subcategory specified with an existing selected category
+        else if (newSubCat) {
+            try {
+                const subRes = await fetch('/api/video-categories', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ name: newSubCat, parent_id: targetCatId })
+                });
+                const subData = await subRes.json();
+                if (subData.id) {
+                    targetCatId = subData.id;
+                    if (targetCatId) expandedCategoryIds.add(targetCatId);
+                }
+            } catch(e) {
+                console.error('Failed to create subcategory under existing:', e);
+            }
+        }
+
+        if (targetCatId) {
+            try {
+                window.saveCategoryExpandState();
+                await fetch(`/api/videos/${quickChangeVideoId}/move`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ category_id: targetCatId })
+                });
+                closeChangeCategoryModal();
+                await loadCategories();
+                loadVideos();
+            } catch(e) { console.error('Failed to move video:', e); }
+        } else {
+            alert('Please select an existing category or enter a category name.');
+        }
+    }
+
+    // --- Drag and Drop Handlers ---
+    let draggedVideoId = null;
+
+    window.handleVideoDragStart = function(ev, videoId) {
+        draggedVideoId = videoId;
+        ev.dataTransfer.setData("text/plain", "video:" + videoId);
+        ev.dataTransfer.effectAllowed = "move";
+    };
+
+    window.handleVideoDragEnd = function(ev) {
+        draggedVideoId = null;
+        document.querySelectorAll('.cat-tree-item').forEach(el => el.classList.remove('ring-2', 'ring-cyan-400'));
+    };
+
+    window.allowDrop = function(ev) {
+        ev.preventDefault();
+        ev.currentTarget.classList.add('ring-2', 'ring-cyan-400');
+    };
+
+    window.leaveDrop = function(ev) {
+        ev.currentTarget.classList.remove('ring-2', 'ring-cyan-400');
+    };
+
+    window.handleVideoDrop = async function(ev, catId) {
+        ev.preventDefault();
+        ev.currentTarget.classList.remove('ring-2', 'ring-cyan-400');
+        const raw = ev.dataTransfer.getData("text/plain") || "";
+        const vId = draggedVideoId || (raw.startsWith("video:") ? raw.replace("video:", "") : raw);
+        if (vId) {
+            try {
+                await fetch(`/api/videos/${vId}/move`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ category_id: catId })
+                });
+                loadVideos();
+            } catch(e) { console.error('Failed to move video via drop:', e); }
+        }
+    };
+
+    window.handleVideoDropAll = async function(ev) {
+        ev.preventDefault();
+        ev.currentTarget.classList.remove('ring-2', 'ring-cyan-400');
+        const raw = ev.dataTransfer.getData("text/plain") || "";
+        const vId = draggedVideoId || (raw.startsWith("video:") ? raw.replace("video:", "") : raw);
+        if (vId) {
+            try {
+                await fetch(`/api/videos/${vId}/move`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ category_id: null })
+                });
+                loadVideos();
+            } catch(e) { console.error('Failed to unassign video via drop:', e); }
+        }
+    };
+
+    // --- Add Video ---
+    function showAddVideoModal() {
+        document.getElementById('add-video-url').value = '';
+        document.getElementById('add-video-title').value = '';
+        document.getElementById('add-video-channel').value = '';
+        document.getElementById('add-video-tags').value = '';
+        document.getElementById('add-video-desc').value = '';
+        document.getElementById('video-preview').classList.add('hidden');
+        if (currentCategoryId && currentCategoryId !== 'uncategorized') {
+            document.getElementById('add-video-category').value = currentCategoryId;
+        }
+        const modal = document.getElementById('addVideoModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeAddVideoModal() {
+        const modal = document.getElementById('addVideoModal');
+        modal.classList.remove('flex');
+        modal.classList.add('hidden');
+    }
+
+    async function fetchVideoMeta() {
+        const url = document.getElementById('add-video-url').value.trim();
+        if (!url) return;
+        try {
+            const res = await fetch(`/api/videos/oembed?url=${encodeURIComponent(url)}`);
+            if (!res.ok) throw new Error('Not found');
+            const data = await res.json();
+            document.getElementById('add-video-title').value = data.title || '';
+            document.getElementById('add-video-channel').value = data.channel_name || '';
+            if (data.thumbnail_url) {
+                document.getElementById('add-video-thumb').src = data.thumbnail_url;
+                document.getElementById('add-video-title-preview').textContent = data.title || '';
+                document.getElementById('add-video-channel-preview').textContent = data.channel_name || '';
+                document.getElementById('video-preview').classList.remove('hidden');
+            }
+        } catch(e) {
+            console.error('oEmbed fetch failed:', e);
+            alert('Could not fetch video metadata. Please fill in manually.');
+        }
+    }
+
+    async function saveNewVideo() {
+        const url = document.getElementById('add-video-url').value.trim();
+        if (!url) { alert('Please enter a YouTube URL.'); return; }
+        const catVal = document.getElementById('add-video-category').value;
+        try {
+            await fetch('/api/videos', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    url,
+                    title: document.getElementById('add-video-title').value,
+                    channel_name: document.getElementById('add-video-channel').value,
+                    thumbnail_url: document.getElementById('add-video-thumb')?.src || '',
+                    tags: document.getElementById('add-video-tags').value,
+                    description: document.getElementById('add-video-desc').value,
+                    category_id: catVal ? parseInt(catVal) : null
+                })
+            });
+            closeAddVideoModal();
+            loadVideos();
+        } catch(e) { console.error('Failed to save video:', e); }
+    }
+
+    // --- Edit Video ---
+    let allVideosCache = [];
+
+    async function openEditVideo(id) {
+        editingVideoId = id;
+        try {
+            const res = await fetch('/api/videos');
+            allVideosCache = await res.json();
+            const video = allVideosCache.find(v => v.id === id);
+            if (!video) return;
+
+            document.getElementById('edit-video-title').value = video.title || '';
+            document.getElementById('edit-video-channel').value = video.channel_name || '';
+            document.getElementById('edit-video-tags').value = video.tags || '';
+            document.getElementById('edit-video-desc').value = video.description || '';
+            document.getElementById('edit-video-category').value = video.category_id || '';
+
+            const modal = document.getElementById('editVideoModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        } catch(e) { console.error('Failed to open edit:', e); }
+    }
+
+    function closeEditVideoModal() {
+        const modal = document.getElementById('editVideoModal');
+        modal.classList.remove('flex');
+        modal.classList.add('hidden');
+    }
+
+    async function saveVideoEdit() {
+        if (!editingVideoId) return;
+        const video = allVideosCache.find(v => v.id === editingVideoId) || {};
+        const catVal = document.getElementById('edit-video-category').value;
+        try {
+            await fetch(`/api/videos/${editingVideoId}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    title: document.getElementById('edit-video-title').value,
+                    channel_name: document.getElementById('edit-video-channel').value,
+                    tags: document.getElementById('edit-video-tags').value,
+                    description: document.getElementById('edit-video-desc').value,
+                    thumbnail_url: video.thumbnail_url,
+                    duration: video.duration,
+                    category_id: catVal ? parseInt(catVal) : null
+                })
+            });
+            closeEditVideoModal();
+            loadVideos();
+        } catch(e) { console.error('Failed to save edit:', e); }
+    }
+
+    async function deleteVideo(id) {
+        if (!confirm('Delete this video bookmark permanently?')) return;
+        try {
+            await fetch(`/api/videos/${id}`, { method: 'DELETE' });
+            loadVideos();
+        } catch(e) { console.error('Failed to delete video:', e); }
+    }
+
+    // --- Init ---
+    loadCategories();
+    loadVideos();
+</script>
+{% endblock %}

@@ -76,7 +76,7 @@
 
             notes.forEach(note => {
                 const el = document.createElement('div');
-                const safeContent = note.content ? note.content.replace(/</g, "&lt;").replace(/>/g, "&gt;") : "";
+                const safeContent = escapeHTML(note.content);
                 
                 if (note.category === 'todo') {
                     el.className = `group relative p-4 rounded-2xl transition-all duration-300 card-enter border ${note.is_done ? 'bg-zinc-900/20 border-transparent opacity-50' : 'bg-zinc-900/80 border-zinc-800 shadow-md hover:border-amber-500/30'}`;

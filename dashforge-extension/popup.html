@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>LinkForge Settings</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            width: 320px;
+            padding: 16px;
+            background-color: #09090b;
+            color: #f4f4f5;
+            margin: 0;
+            user-select: none;
+        }
+        h2 {
+            margin: 0 0 4px 0;
+            font-size: 15px;
+            color: #22d3ee;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .status-text {
+            font-size: 11px;
+            color: #a1a1aa;
+            margin: 0 0 14px 0;
+            line-height: 1.4;
+        }
+        .field-group {
+            margin-bottom: 12px;
+        }
+        label {
+            display: block;
+            font-size: 11px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #d4d4d8;
+        }
+        .input-desc {
+            font-size: 10px;
+            color: #71717a;
+            margin-bottom: 6px;
+        }
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            box-sizing: border-box;
+            background: #18181b;
+            border: 1px solid #27272a;
+            color: #fff;
+            padding: 8px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            transition: border-color 0.2s ease;
+        }
+        input[type="text"]:focus, input[type="number"]:focus {
+            outline: none;
+            border-color: #06b6d4;
+            box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.4);
+        }
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #18181b;
+            padding: 8px 10px;
+            border: 1px solid #27272a;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+        .toggle-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #e4e4e7;
+        }
+        .toggle-desc {
+            font-size: 10px;
+            color: #71717a;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 36px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #27272a;
+            transition: .2s;
+            border-radius: 20px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 14px;
+            width: 14px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .2s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #06b6d4;
+        }
+        input:checked + .slider:before {
+            transform: translateX(16px);
+        }
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        button {
+            width: 100%;
+            background: linear-gradient(135deg, #0891b2, #0284c7);
+            color: white;
+            border: none;
+            padding: 9px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 12px;
+            transition: opacity 0.2s ease, transform 0.1s ease;
+            box-shadow: 0 2px 10px rgba(8, 145, 178, 0.3);
+        }
+        button:hover {
+            opacity: 0.95;
+        }
+        button:active {
+            transform: scale(0.99);
+        }
+        #status {
+            margin-top: 8px;
+            font-size: 11px;
+            color: #34d399;
+            display: none;
+            text-align: center;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <h2>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        LinkForge Passive Memory
+    </h2>
+    <p class="status-text">Silently watches reading habits and logs meaningful articles and videos to your Neural Grid.</p>
+    
+    <div class="field-group">
+        <label for="serverUrl">LinkForge Server URL</label>
+        <input type="text" id="serverUrl" placeholder="http://192.168.0.77:5006">
+    </div>
+
+    <div class="toggle-row">
+        <div>
+            <div class="toggle-label">Countdown Timer</div>
+            <div class="toggle-desc">Show seconds counting down on badge</div>
+        </div>
+        <label class="switch">
+            <input type="checkbox" id="showTimer" checked>
+            <span class="slider"></span>
+        </label>
+    </div>
+
+    <div class="grid-2">
+        <div>
+            <label for="pageDelay">Article Delay</label>
+            <div class="input-desc">Seconds to read</div>
+            <input type="number" id="pageDelay" min="1" max="300" value="30">
+        </div>
+        <div>
+            <label for="ytDelay">YouTube Delay</label>
+            <div class="input-desc">Seconds watched</div>
+            <input type="number" id="ytDelay" min="1" max="600" value="15">
+        </div>
+    </div>
+    
+    <button id="saveBtn">Save Settings</button>
+    <div id="status">✓ Configuration Saved!</div>
+
+    <div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid #27272a; display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: #71717a;">
+        <span>Ignored Pages: <strong id="deniedCount" style="color: #22d3ee;">0</strong></span>
+        <a id="openWebAdminBtn" href="#" target="_blank" style="font-size: 10px; color: #38bdf8; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; font-weight: 600; background: #18181b; border: 1px solid #3f3f46; padding: 3px 9px; border-radius: 6px; transition: all 0.2s;">
+            Manage in Web Admin ↗
+        </a>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

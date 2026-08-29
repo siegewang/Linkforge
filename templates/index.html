@@ -7,7 +7,6 @@
     .group-section { break-inside: avoid; margin-bottom: 1.5rem; }
     .card-hover { transition: all 0.2s ease-out; }
     .card-hover:hover { transform: scale(1.05); filter: brightness(1.1); }
-    .dragging { opacity: 0.3; }
 {% endblock %}
 
 {% block content %}
@@ -15,6 +14,15 @@
     <div class="lg:w-3/4">
         <div id="top-links-container"></div>
         
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="text-lg font-bold text-zinc-300 flex items-center gap-2">
+                <i class="fa-solid fa-bookmark text-amber-400"></i> My Bookmarks
+            </h2>
+            <button onclick="showAddGroupModal()" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 text-xs font-medium rounded-xl transition-colors flex items-center gap-2">
+                <i class="fa-solid fa-plus"></i> Add Group
+            </button>
+        </div>
+
         <div id="content" class="dashboard-grid">
             <div class="animate-pulse flex space-x-4 p-6 bg-zinc-900/30 rounded-3xl border border-zinc-800/50">
                 <div class="flex-1 space-y-4 py-1">
@@ -39,12 +47,47 @@
         </div>
     </div>
 </div>
+
+<!-- Add Group Modal -->
+<div id="addGroupModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center p-4 z-50 backdrop-blur-sm">
+    <div class="bg-zinc-900 p-6 rounded-2xl w-full max-w-sm border border-zinc-700 shadow-2xl">
+        <h2 class="text-lg font-bold mb-4 text-zinc-100 flex items-center gap-2">
+            <i class="fa-solid fa-folder-plus text-amber-500"></i> New Bookmark Group
+        </h2>
+        <div class="mb-4">
+            <label class="text-xs text-zinc-400 ml-1 mb-1 block">Group Name</label>
+            <input id="new-group-name" class="w-full bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-sm text-zinc-200 focus:outline-none focus:border-amber-500" placeholder="e.g. Research, Tools, News...">
+        </div>
+        <div class="flex gap-3">
+            <button onclick="closeAddGroupModal()" class="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-sm font-medium transition-colors">Cancel</button>
+            <button onclick="createGroup()" class="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-black text-sm font-bold rounded-lg transition-colors">Create</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Link Modal -->
+<div id="editLinkModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center p-4 z-50 backdrop-blur-sm">
+    <div class="bg-zinc-900 p-6 rounded-2xl w-full max-w-sm border border-zinc-700 shadow-2xl">
+        <h2 class="text-lg font-bold mb-4 text-zinc-100 flex items-center gap-2">
+            <i class="fa-solid fa-pen-to-square text-amber-500"></i> Edit Link
+        </h2>
+        <div class="mb-4">
+            <label class="text-xs text-zinc-400 ml-1 mb-1 block">Title / Text</label>
+            <input id="edit-link-title" class="w-full bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-sm text-zinc-200 focus:outline-none focus:border-amber-500 mb-3" placeholder="Link Title">
+            
+            <label class="text-xs text-zinc-400 ml-1 mb-1 block">Custom Icon URL</label>
+            <input id="edit-link-icon" class="w-full bg-zinc-800 border border-zinc-700/60 p-3 rounded-lg text-sm text-zinc-200 focus:outline-none focus:border-amber-500" placeholder="https://...">
+        </div>
+        <div class="flex gap-3">
+            <button onclick="closeEditLinkModal()" class="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-sm font-medium transition-colors">Cancel</button>
+            <button onclick="saveEditedLink()" class="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-black text-sm font-bold rounded-lg transition-colors">Save</button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    let draggedCard = null;
-
     function trackLinkClick(id) {
         fetch(`/api/links/${id}/click`, { method: 'POST' });
     }
@@ -68,14 +111,15 @@
                     let hostname = '';
                     try { hostname = new URL(link.url).hostname; } catch(e) {}
                     
-                    const safeTitle = link.title ? link.title.replace(/"/g, '&quot;') : link.url;
+                    const safeTitle = escapeHTML(link.title || link.url);
+                    const safeUrl = escapeHTML(link.url);
                     const fallbackIcon = hostname ? `https://www.google.com/s2/favicons?domain=${hostname}&sz=128` : 'https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/generic.png';
-                    const iconSrc = link.favicon || fallbackIcon;
+                    const iconSrc = escapeHTML(link.favicon || fallbackIcon);
 
                     htmlString += `
-                        <a href="${link.url}" target="_blank" onclick="trackLinkClick(${link.id})" title="${safeTitle}"
+                        <a href="${safeUrl}" target="_blank" onclick="trackLinkClick(${link.id})" title="${safeTitle}"
                            class="flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-cyan-500/50 w-14 h-14 rounded-2xl transition-all shadow-md group">
-                            <img src="${iconSrc}" class="w-8 h-8 object-contain group-hover:scale-110 transition-transform" onerror="this.src='${fallbackIcon}'">
+                            <img src="${iconSrc}" class="w-8 h-8 object-contain group-hover:scale-110 transition-transform" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(link.title || hostname || 'Link')}&background=27272a&color=fff&rounded=true&bold=true';">
                         </a>
                     `;
                 });
@@ -88,85 +132,310 @@
         }
     }
 
-    async function loadDashboard() {
+    let lastHomepageDataStr = '';
+
+    async function loadHomepageBookmarks() {
+        if (draggedGroupName || draggedHbId) return; // Don't interrupt user during drag-and-drop
         const content = document.getElementById('content');
         try {
-            const res = await fetch('/api/containers');
-            if (!res.ok) throw new Error("Failed to reach Python backend.");
+            const res = await fetch('/api/homepage-bookmarks', { cache: 'no-store' });
+            if (!res.ok) throw new Error("Failed to load homepage bookmarks.");
             
-            const apps = await res.json();
+            const rawData = await res.json();
+            const currentDataStr = JSON.stringify(rawData);
+            if (currentDataStr === lastHomepageDataStr && content.children.length > 0 && !content.querySelector('.animate-pulse')) {
+                return; // Data hasn't changed, skip re-rendering to prevent UI jitter
+            }
+            lastHomepageDataStr = currentDataStr;
+
+            let groupsList = [];
+            if (Array.isArray(rawData)) {
+                groupsList = rawData;
+            } else {
+                groupsList = Object.keys(rawData).map(k => ({ name: k, bookmarks: rawData[k] }));
+            }
             
-            if (apps.length === 0) {
-                content.innerHTML = `<div class="text-zinc-500 p-6 text-center border border-dashed border-zinc-800 rounded-3xl">No apps configured yet. Go to Admin to add some!</div>`;
+            if (groupsList.length === 0) {
+                content.innerHTML = `
+                    <div class="text-zinc-500 p-8 text-center border border-dashed border-zinc-800 rounded-3xl">
+                        <i class="fa-solid fa-bookmark text-3xl text-zinc-700 mb-3 block"></i>
+                        <p class="text-sm">No bookmarks on your homepage yet.</p>
+                        <p class="text-xs text-zinc-600 mt-1">Use the <span class="text-cyan-500">"⭐ Add to Homepage"</span> button on any bookmark in Neural Links to pin it here.</p>
+                    </div>
+                `;
                 return;
             }
 
-            const groups = {};
-            apps.forEach(app => {
-                const g = app.group || 'Ungrouped';
-                if(!groups[g]) groups[g] = [];
-                groups[g].push(app);
-            });
-            
-            content.innerHTML = Object.keys(groups).map(group => `
-                <div class="group-section bg-zinc-900/30 border border-zinc-800/50 p-6 rounded-3xl"
-                     data-group="${group}" ondragover="handleDragOver(event)" ondrop="handleDrop(event)">
-                    <h2 class="text-sm font-bold uppercase tracking-widest mb-6 text-zinc-500 flex items-center gap-3">${group}</h2>
-                    <div class="grid grid-cols-3 sm:grid-cols-4 gap-4">
-                        ${groups[group].map(app => `
-                            <div class="flex flex-col items-center">
-                                <a href="${app.url}" target="${app.url === '#' ? '' : '_blank'}"
-                                   draggable="true" ondragstart="handleDragStart(event)" ondragend="handleDragEnd(event)"
-                                   class="app-card ${app.color_class} w-16 h-16 md:w-20 md:h-20 rounded-2xl flex items-center justify-center card-hover shadow-lg"
-                                   data-key="${app.key}" onclick="${app.url === '#' ? 'return false' : ''}">
-                                    <img src="${app.icon}" class="w-10 h-10 md:w-12 md:h-12 object-contain" onerror="this.src='https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/generic.png'">
-                                </a>
-                                <span class="text-[11px] md:text-xs font-medium mt-3 text-zinc-400 truncate w-full text-center">${app.title}</span>
-                            </div>
-                        `).join('')}
+            content.innerHTML = groupsList.map(gObj => {
+                const group = gObj.name;
+                const bms = gObj.bookmarks || [];
+                return `
+                <div class="group-section bg-zinc-900/30 border border-zinc-800/50 p-6 rounded-3xl transition-all duration-200"
+                     data-group-name="${encodeURIComponent(group)}"
+                     data-raw-group="${escapeHTML(group)}"
+                     ondragover="window.handleHomepageDragOver(event)"
+                     ondragenter="window.handleHomepageDragEnter(event)"
+                     ondragleave="window.handleHomepageDragLeave(event)"
+                     ondrop="window.handleHomepageDrop(event, this)">
+                    <div class="flex items-center justify-between mb-5 cursor-grab active:cursor-grabbing select-none p-1.5 -m-1.5 rounded-xl hover:bg-zinc-800/40 transition-colors group/header"
+                         draggable="true" 
+                         ondragstart="window.handleGroupDragStart(event, this)"
+                         ondragend="window.handleGroupDragEnd(event)">
+                        <h2 class="text-sm font-bold uppercase tracking-widest text-zinc-500 flex items-center gap-2 select-none pointer-events-none">
+                            <span class="text-zinc-500 group-hover/header:text-amber-400 transition-colors flex items-center gap-1.5">
+                                <i class="fa-solid fa-grip-vertical text-xs"></i>
+                                <span class="text-zinc-400 group-hover/header:text-amber-300 font-semibold tracking-wider">${escapeHTML(group)}</span>
+                            </span>
+                        </h2>
+                        ${bms.length === 0 ? 
+                            `<button onclick="event.stopPropagation(); window.deleteGroup(\`${escapeHTML(group)}\`)" class="w-7 h-7 rounded-full bg-zinc-800 hover:bg-rose-500/20 text-zinc-500 hover:text-rose-500 flex items-center justify-center transition-colors pointer-events-auto" title="Delete Empty Group"><i class="fa-solid fa-trash text-xs"></i></button>` 
+                            : ''}
+                    </div>
+                    <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4 min-h-[5rem]">
+                        ${bms.map(bm => {
+                            let hostname = '';
+                            try { hostname = new URL(bm.url).hostname; } catch(e) {}
+                            const fallbackIcon = hostname ? 
+                                `https://www.google.com/s2/favicons?domain=${hostname}&sz=128` : 
+                                'https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/generic.png';
+                            const iconSrc = escapeHTML(bm.favicon || fallbackIcon);
+                            const safeTitle = escapeHTML(bm.title || bm.url);
+                            const safeUrl = escapeHTML(bm.url);
+                            const truncTitle = (bm.title || hostname || 'Link').length > 16 ? (bm.title || hostname || 'Link').slice(0, 14) + '...' : (bm.title || hostname || 'Link');
+                            return `
+                                <div class="flex flex-col items-center group/card relative"
+                                     draggable="true" 
+                                     ondragstart="window.handleHomepageDragStart(event, ${bm.hb_id})">
+                                    <a href="${safeUrl}" target="_blank" onclick="trackLinkClick(${bm.id})"
+                                       class="bg-zinc-900/90 hover:bg-zinc-800/90 border border-zinc-800/80 hover:border-amber-500/50 w-16 h-16 md:w-20 md:h-20 rounded-2xl flex items-center justify-center card-hover shadow-md transition-all">
+                                        <img src="${iconSrc}" class="w-10 h-10 md:w-12 md:h-12 object-contain" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(bm.title || hostname || 'Link')}&background=27272a&color=fff&rounded=true&bold=true';">
+                                    </a>
+                                    <span class="text-[11px] md:text-xs font-medium mt-2 text-zinc-400 truncate w-full text-center cursor-pointer hover:text-cyan-400 transition-colors" 
+                                          title="Click to edit: ${safeTitle}" 
+                                          onclick="window.openEditLinkModal(${bm.id}, \`${safeTitle}\`, \`${iconSrc}\`)">
+                                        ${escapeHTML(truncTitle)}
+                                    </span>
+                                    <button onclick="removeFromHomepage(${bm.hb_id})" class="absolute -top-1 -right-1 w-5 h-5 bg-zinc-800 hover:bg-rose-600 border border-zinc-700 hover:border-rose-500 rounded-full text-zinc-500 hover:text-white text-[9px] items-center justify-center transition-all hidden group-hover/card:flex" title="Remove from homepage">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                            `;
+                        }).join('')}
                     </div>
                 </div>
-            `).join('');
+                `;
+            }).join('');
         } catch (error) {
-            console.error("Dashboard Failed:", error);
+            console.error("Homepage Bookmarks Failed:", error);
             content.innerHTML = `
                 <div class="bg-red-950/20 border border-red-900/50 p-6 rounded-3xl text-center">
                     <i class="fa-solid fa-triangle-exclamation text-red-500 text-3xl mb-3"></i>
-                    <h3 class="text-red-400 font-bold mb-1">Failed to load applications</h3>
-                    <p class="text-zinc-500 text-sm">Check your Python server console.</p>
+                    <h3 class="text-red-400 font-bold mb-1">Failed to load bookmarks</h3>
+                    <p class="text-zinc-500 text-sm">Check your server console.</p>
                 </div>`;
         }
     }
 
-    function handleDragStart(e) { draggedCard = e.currentTarget.parentElement; e.currentTarget.classList.add('dragging'); }
-    function handleDragEnd(e) { e.currentTarget.classList.remove('dragging'); }
-    function handleDragOver(e) {
-        e.preventDefault();
-        const container = e.currentTarget.querySelector('.grid');
-        const afterElement = getDragAfterElement(container, e.clientX, e.clientY);
-        if (afterElement == null) container.appendChild(draggedCard);
-        else container.insertBefore(draggedCard, afterElement);
+    async function removeFromHomepage(hbId) {
+        if (!confirm('Remove this bookmark from the homepage?')) return;
+        try {
+            await fetch(`/api/homepage-bookmarks/${hbId}`, { method: 'DELETE' });
+            loadHomepageBookmarks();
+        } catch(e) { console.error('Failed to remove:', e); }
     }
-    function getDragAfterElement(container, x, y) {
-        const draggables = [...container.querySelectorAll('.flex-col:not(.dragging)')];
-        return draggables.reduce((closest, child) => {
-            const box = child.getBoundingClientRect();
-            const offset = (x - box.left - box.width / 2) + (y - box.top - box.height / 2);
-            if (offset < 0 && offset > closest.offset) return { offset: offset, element: child };
-            else return closest;
-        }, { offset: Number.NEGATIVE_INFINITY }).element;
+
+    function showAddGroupModal() {
+        const modal = document.getElementById('addGroupModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.getElementById('new-group-name').value = '';
+        document.getElementById('new-group-name').focus();
     }
-    async function handleDrop(e) {
-        e.preventDefault();
-        const items = [];
-        document.querySelectorAll('.group-section').forEach((section, gIdx) => {
-            const group = section.dataset.group;
-            section.querySelectorAll('.app-card').forEach((card, cIdx) => {
-                items.push({ key: card.dataset.key, group: group, order: (gIdx * 1000) + cIdx });
+
+    function closeAddGroupModal() {
+        const modal = document.getElementById('addGroupModal');
+        modal.classList.remove('flex');
+        modal.classList.add('hidden');
+    }
+
+    async function createGroup() {
+        const name = document.getElementById('new-group-name').value.trim();
+        if (!name) return;
+        try {
+            await fetch('/api/homepage-groups', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ group_name: name })
             });
-        });
-        await fetch('/api/save-order', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ items }) });
+            closeAddGroupModal();
+            loadHomepageBookmarks();
+        } catch(e) { console.error('Failed to create group:', e); }
     }
+    
+    // --- Drag and Drop Homepage Bookmarks and Groups ---
+    let draggedHbId = null;
+    let draggedGroupName = null;
+    let draggedGroupEl = null;
+
+    window.handleHomepageDragStart = function(ev, hbId) {
+        ev.stopPropagation();
+        draggedHbId = hbId;
+        draggedGroupName = null;
+        draggedGroupEl = null;
+        ev.dataTransfer.setData("text/plain", "bookmark:" + hbId);
+        ev.dataTransfer.effectAllowed = "move";
+    };
+
+    window.handleGroupDragStart = function(ev, handleEl) {
+        ev.stopPropagation();
+        const section = handleEl.closest('.group-section');
+        const rawGroup = section ? (section.getAttribute('data-raw-group') || decodeURIComponent(section.getAttribute('data-group-name'))) : '';
+        draggedGroupName = rawGroup;
+        draggedGroupEl = section;
+        draggedHbId = null;
+        ev.dataTransfer.setData("text/plain", "group:" + rawGroup);
+        ev.dataTransfer.effectAllowed = "move";
+        if (section) {
+            setTimeout(() => {
+                section.classList.add('opacity-40', 'scale-[0.98]');
+            }, 0);
+        }
+    };
+
+    window.handleGroupDragEnd = function(ev) {
+        if (draggedGroupEl) {
+            draggedGroupEl.classList.remove('opacity-40', 'scale-[0.98]');
+        }
+        document.querySelectorAll('.group-section').forEach(el => {
+            el.classList.remove('border-amber-400', 'ring-2', 'ring-amber-500/40', 'bg-zinc-900/60');
+        });
+        draggedGroupName = null;
+        draggedGroupEl = null;
+    };
+
+    window.handleHomepageDragOver = function(ev) {
+        ev.preventDefault();
+        ev.dataTransfer.dropEffect = "move";
+    };
+
+    window.handleHomepageDragEnter = function(ev) {
+        const section = ev.target.closest('.group-section');
+        if (section && (draggedGroupName || draggedHbId)) {
+            section.classList.add('border-amber-400', 'ring-2', 'ring-amber-500/40', 'bg-zinc-900/60');
+        }
+    };
+
+    window.handleHomepageDragLeave = function(ev) {
+        const section = ev.target.closest('.group-section');
+        if (section && !section.contains(ev.relatedTarget)) {
+            section.classList.remove('border-amber-400', 'ring-2', 'ring-amber-500/40', 'bg-zinc-900/60');
+        }
+    };
+
+    window.handleHomepageDrop = async function(ev, sectionEl) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        
+        const section = sectionEl.closest('.group-section');
+        if (section) {
+            section.classList.remove('border-amber-400', 'ring-2', 'ring-amber-500/40', 'bg-zinc-900/60');
+        }
+        
+        const targetGroup = section ? (section.getAttribute('data-raw-group') || decodeURIComponent(section.getAttribute('data-group-name'))) : '';
+        const rawData = ev.dataTransfer.getData("text/plain") || "";
+        
+        // Group reordering
+        if (rawData.startsWith("group:") || draggedGroupName) {
+            const sourceGroup = draggedGroupName || rawData.replace("group:", "");
+            if (sourceGroup && targetGroup && sourceGroup !== targetGroup) {
+                const allGroupElements = Array.from(document.querySelectorAll('.group-section'));
+                const allGroups = allGroupElements.map(el => el.getAttribute('data-raw-group') || decodeURIComponent(el.getAttribute('data-group-name')));
+                
+                const fromIdx = allGroups.indexOf(sourceGroup);
+                const toIdx = allGroups.indexOf(targetGroup);
+                
+                if (fromIdx > -1 && toIdx > -1) {
+                    allGroups.splice(fromIdx, 1);
+                    allGroups.splice(toIdx, 0, sourceGroup);
+                    
+                    try {
+                        await fetch('/api/homepage-groups/reorder', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({ groups: allGroups })
+                        });
+                        loadHomepageBookmarks();
+                    } catch(e) { console.error('Failed to reorder groups:', e); }
+                }
+            }
+            draggedGroupName = null;
+            draggedGroupEl = null;
+            return;
+        }
+
+        // Bookmark moving
+        if (rawData.startsWith("bookmark:") || draggedHbId) {
+            const hbIdToMove = draggedHbId || rawData.replace("bookmark:", "");
+            if (targetGroup) {
+                try {
+                    await fetch(`/api/homepage-bookmarks/${hbIdToMove}/move`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ group: targetGroup })
+                    });
+                    loadHomepageBookmarks();
+                } catch(e) { console.error('Failed to move bookmark:', e); }
+            }
+            draggedHbId = null;
+        }
+    };
+    
+    window.deleteGroup = async function(groupName) {
+        if (!confirm(`Delete empty group "${groupName}"?`)) return;
+        try {
+            await fetch(`/api/homepage-groups/${encodeURIComponent(groupName)}`, { method: 'DELETE' });
+            loadHomepageBookmarks();
+        } catch(e) { console.error('Failed to delete group:', e); }
+    };
+    
+    // --- Edit Link Modal ---
+    let currentEditLinkId = null;
+    
+    window.openEditLinkModal = function(linkId, title, iconSrc) {
+        currentEditLinkId = linkId;
+        document.getElementById('edit-link-title').value = title;
+        document.getElementById('edit-link-icon').value = iconSrc.includes('google.com/s2/favicons') ? '' : iconSrc;
+        const modal = document.getElementById('editLinkModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    };
+    
+    window.closeEditLinkModal = function() {
+        const modal = document.getElementById('editLinkModal');
+        modal.classList.remove('flex');
+        modal.classList.add('hidden');
+    };
+    
+    window.saveEditedLink = async function() {
+        if (!currentEditLinkId) return;
+        const title = document.getElementById('edit-link-title').value.trim();
+        const icon = document.getElementById('edit-link-icon').value.trim();
+        
+        const payload = {
+            title: title,
+            favicon: icon
+        };
+        
+        try {
+            await fetch(`/api/links/${currentEditLinkId}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            closeEditLinkModal();
+            loadHomepageBookmarks();
+        } catch(e) { console.error('Failed to update link:', e); }
+    };
 
     async function loadAgenda() {
         const container = document.getElementById('agenda-container');
@@ -176,14 +445,14 @@
             
             const data = await res.json();
             if (data.status === 'setup_required') { container.innerHTML = `<div class="text-center p-4 bg-zinc-900 rounded-xl border border-zinc-800"><i class="fa-solid fa-calendar-xmark text-2xl text-zinc-600 mb-2 block"></i><p class="text-xs text-zinc-400">Go to <a href="/admin" class="text-indigo-400 hover:underline">Admin</a> to add your Google Calendar iCal link.</p></div>`; return; }
-            if (data.status === 'error') { container.innerHTML = `<div class="text-xs text-red-400 p-3 bg-red-900/20 rounded-lg border border-red-900/50">${data.message}</div>`; return; }
+            if (data.status === 'error') { container.innerHTML = `<div class="text-xs text-red-400 p-3 bg-red-900/20 rounded-lg border border-red-900/50">${escapeHTML(data.message)}</div>`; return; }
             if (data.events.length === 0) { container.innerHTML = `<p class="text-xs text-zinc-500 text-center mt-10">No upcoming events this week.</p>`; return; }
             
             container.innerHTML = data.events.map(event => {
                 const date = new Date(event.start);
                 const timeString = event.all_day ? 'All Day' : date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                 const dateString = date.toLocaleDateString([], {weekday: 'short', month: 'short', day: 'numeric'});
-                return `<div class="bg-zinc-900/80 p-3.5 rounded-2xl border border-zinc-800 hover:border-indigo-500/30 transition-colors"><div class="text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-1">${dateString} • ${timeString}</div><div class="text-sm font-medium text-zinc-200 leading-tight">${event.summary}</div></div>`;
+                return `<div class="bg-zinc-900/80 p-3.5 rounded-2xl border border-zinc-800 hover:border-indigo-500/30 transition-colors"><div class="text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-1">${escapeHTML(dateString)} • ${escapeHTML(timeString)}</div><div class="text-sm font-medium text-zinc-200 leading-tight">${escapeHTML(event.summary)}</div></div>`;
             }).join('');
         } catch (err) { 
             container.innerHTML = `<div class="text-xs text-red-500 p-3 text-center border border-red-900/50 rounded-xl">Error fetching calendar.</div>`; 
@@ -191,7 +460,27 @@
     }
     
     loadTopLinks();
-    loadDashboard();
+    loadHomepageBookmarks();
     loadAgenda();
+
+    // Auto-refresh when user switches back to LinkForge tab/window
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            loadHomepageBookmarks();
+            loadTopLinks();
+        }
+    });
+
+    window.addEventListener('focus', () => {
+        loadHomepageBookmarks();
+        loadTopLinks();
+    });
+
+    // Gentle 3.5s background check for instant updates when adding links from other tabs/extension
+    setInterval(() => {
+        if (document.visibilityState === 'visible' && !draggedGroupName && !draggedHbId) {
+            loadHomepageBookmarks();
+        }
+    }, 3500);
 </script>
 {% endblock %}

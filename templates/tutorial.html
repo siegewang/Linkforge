@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkForge — Full YouTube Tutorial & Walkthrough</title>
+    <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #07090e;
+            color: #f1f5f9;
+        }
+
+        .cinema-glow {
+            box-shadow: 0 0 80px -15px rgba(6, 182, 212, 0.25), 0 0 30px -10px rgba(99, 102, 241, 0.2);
+        }
+
+        .cursor-pointer-sim {
+            transition: all 0.7s cubic-bezier(0.25, 1, 0.5, 1);
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6));
+        }
+
+        .speaking-wave {
+            animation: waveBounce 1.2s infinite ease-in-out;
+        }
+        @keyframes waveBounce {
+            0%, 100% { height: 4px; }
+            50% { height: 18px; }
+        }
+
+        .speaking-glow {
+            box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
+            border-color: #22d3ee;
+        }
+
+        .yt-red-progress {
+            background: #ff0000;
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.7);
+        }
+
+        .scene-fade-in {
+            animation: sceneFade 0.4s ease-out forwards;
+        }
+        @keyframes sceneFade {
+            from { opacity: 0; transform: scale(0.985); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .custom-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    </style>
+</head>
+<body class="min-h-screen p-3 md:p-6 lg:p-10 flex flex-col items-center justify-center">
+
+    <!-- YouTube-Grade Video Container (16:9 Aspect Ratio Focus) -->
+    <div class="w-full max-w-6xl bg-slate-950 border border-slate-800/90 rounded-3xl overflow-hidden shadow-2xl cinema-glow flex flex-col">
+
+        <!-- Top YouTube-Style Video Header -->
+        <div class="px-6 py-4 bg-slate-900/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-red-600 via-rose-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-red-900/30">
+                    <i class="fa-solid fa-circle-play text-white text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-base font-bold text-white flex items-center gap-2">
+                        LinkForge: The Complete Beginner's Masterclass
+                        <span class="text-[10px] bg-red-600/20 text-red-400 border border-red-500/40 px-2 py-0.5 rounded-full font-semibold">HD 1080p</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Presented by Alex • Step-by-step visual demonstration with voiceover</p>
+                </div>
+            </div>
+
+            <!-- Voice Persona & Natural Audio Settings -->
+            <div class="flex items-center gap-2">
+                <div class="flex items-center gap-1.5 bg-slate-800/90 border border-slate-700/80 px-3 py-1.5 rounded-xl">
+                    <i class="fa-solid fa-microphone-lines text-cyan-400 text-xs"></i>
+                    <span class="text-xs text-slate-300 font-medium hidden sm:inline">Voice:</span>
+                    <select id="voice-persona-select" onchange="changeVoicePersona(this.value)" class="bg-transparent text-xs text-cyan-300 focus:outline-none cursor-pointer font-medium">
+                        <!-- Populated by JavaScript with high-grade natural voices -->
+                        <option value="default">Natural Studio Host (Auto-Detect)</option>
+                    </select>
+                </div>
+
+                <button id="mute-btn" onclick="toggleMute()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5">
+                    <i id="mute-icon" class="fa-solid fa-volume-high text-cyan-400"></i>
+                    <span id="mute-text">Sound ON</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- 16:9 Cinema Stage (Video Screen) -->
+        <div class="relative bg-slate-950 aspect-video w-full flex flex-col justify-between p-4 md:p-8 overflow-hidden select-none border-b border-slate-900">
+            
+            <!-- Ambient Stage Backlight & Grid -->
+            <div class="absolute inset-0 opacity-15 pointer-events-none bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:28px_28px]"></div>
+            <div class="absolute -top-24 -left-24 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="absolute -bottom-24 -right-24 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+            <!-- Top Overlay: Chapter Badge & Live Action Label -->
+            <div class="flex items-center justify-between relative z-20">
+                <div class="flex items-center gap-2">
+                    <span id="scene-chapter-badge" class="px-3 py-1 bg-cyan-950/80 text-cyan-400 border border-cyan-700/60 rounded-xl text-xs font-bold font-mono uppercase tracking-wider backdrop-blur-md">
+                        Chapter 1 / 7
+                    </span>
+                    <span id="scene-title-badge" class="text-sm font-semibold text-slate-200 bg-slate-900/80 px-3 py-1 rounded-xl border border-slate-800 backdrop-blur-md">
+                        Meet Your New Digital Hub
+                    </span>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <span class="px-2.5 py-1 bg-red-950/70 border border-red-800/80 text-red-400 text-[11px] font-bold rounded-lg flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> LIVE DEMO
+                    </span>
+                    <span id="timestamp-counter" class="text-xs font-mono text-slate-400 bg-slate-900/80 px-2.5 py-1 rounded-lg border border-slate-800">
+                        00:00 / 03:40
+                    </span>
+                </div>
+            </div>
+
+            <!-- Main Interactive Live Action Viewport (App Demonstration Stage) -->
+            <div id="live-stage" class="relative z-10 my-auto flex items-center justify-center w-full max-w-4xl mx-auto scene-fade-in transition-all duration-500">
+                <!-- Injected via JavaScript -->
+            </div>
+
+            <!-- Simulated Mouse Cursor on Screen -->
+            <div id="screen-mouse-cursor" class="absolute z-40 pointer-events-none cursor-pointer-sim flex flex-col items-start gap-1" style="top: 50%; left: 50%; opacity: 0;">
+                <svg class="w-6 h-6 text-white fill-cyan-400 stroke-slate-950 stroke-2 filter drop-shadow-xl" viewBox="0 0 24 24">
+                    <path d="M3 3l7 18 3-7 7-3L3 3z"/>
+                </svg>
+                <span id="cursor-action-tip" class="px-2 py-0.5 bg-slate-900/90 text-cyan-300 border border-cyan-500/50 rounded-md text-[10px] font-mono shadow-xl backdrop-blur-md">
+                    Clicking...
+                </span>
+            </div>
+
+            <!-- Picture-In-Picture (PIP) Presenter Avatar & Audio Visualizer Box -->
+            <div class="absolute bottom-6 right-6 z-30 flex items-center gap-3 bg-slate-900/95 border border-cyan-500/40 rounded-2xl p-2.5 shadow-2xl backdrop-blur-xl transition-all duration-300 group hover:border-cyan-400">
+                <!-- Avatar Graphic -->
+                <div class="relative">
+                    <div id="presenter-avatar-box" class="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-gradient-to-tr from-cyan-600 via-indigo-600 to-purple-600 p-0.5 transition-all shadow-md">
+                        <div class="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center overflow-hidden relative">
+                            <!-- Friendly Tech Presenter SVG -->
+                            <svg class="w-10 h-10 text-cyan-300" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+                            </svg>
+                            <!-- Animated Lip-sync / Host Icon -->
+                            <div id="presenter-talking-badge" class="absolute bottom-1 right-1 w-3 h-3 rounded-full bg-cyan-400 border border-slate-950 flex items-center justify-center animate-ping opacity-0"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Presenter Bio & Audio Waves -->
+                <div class="flex flex-col pr-1">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-white">Alex <span class="text-[10px] text-cyan-400 font-normal">(Host)</span></span>
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                    </div>
+                    <!-- Real-Time Voice Waveform Animation -->
+                    <div class="flex items-center gap-1 h-5 mt-1" id="voice-waves-container">
+                        <div class="w-1 bg-cyan-400 rounded-full h-1"></div>
+                        <div class="w-1 bg-cyan-400 rounded-full h-1"></div>
+                        <div class="w-1 bg-cyan-400 rounded-full h-1"></div>
+                        <div class="w-1 bg-cyan-400 rounded-full h-1"></div>
+                        <div class="w-1 bg-cyan-400 rounded-full h-1"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Subtitle / Closed Caption (CC) Display Overlay -->
+            <div class="relative z-20 bg-slate-900/90 border border-slate-800/90 rounded-2xl p-3.5 shadow-2xl backdrop-blur-md max-w-3xl">
+                <div class="flex items-start gap-2.5">
+                    <div class="w-6 h-6 rounded-lg bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-400 text-xs flex-shrink-0 mt-0.5">
+                        <i class="fa-solid fa-closed-captioning"></i>
+                    </div>
+                    <p id="closed-caption-text" class="text-xs md:text-sm text-slate-100 font-medium leading-relaxed">
+                        Welcome to LinkForge! Click Play to start the guided video tutorial.
+                    </p>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- YouTube Video Controls & Scrubber Bar -->
+        <div class="px-6 py-4 bg-slate-900 border-t border-slate-800 flex flex-col gap-3">
+            
+            <!-- YouTube Red Scrubber Timeline -->
+            <div class="flex items-center gap-3">
+                <span id="time-current-str" class="text-xs font-mono text-slate-400 w-12 text-right">00:00</span>
+                <div class="relative flex-1 group cursor-pointer py-1.5" onclick="seekVideo(event)">
+                    <div class="h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-700/60 group-hover:h-3 transition-all">
+                        <div id="yt-progress-bar" class="h-full yt-red-progress rounded-full transition-all duration-150" style="width: 0%"></div>
+                    </div>
+                </div>
+                <span id="time-total-str" class="text-xs font-mono text-slate-400 w-12">03:40</span>
+            </div>
+
+            <!-- Transport Bar (Play, Next, Speed, Fullscreen) -->
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <button onclick="prevChapter()" class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center justify-center text-sm transition-all shadow" title="Previous Chapter">
+                        <i class="fa-solid fa-backward-step"></i>
+                    </button>
+                    
+                    <button id="master-play-btn" onclick="togglePlay()" class="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs flex items-center gap-2 transition-all shadow-lg shadow-red-900/40">
+                        <i id="master-play-icon" class="fa-solid fa-play"></i>
+                        <span id="master-play-text">Play Video</span>
+                    </button>
+
+                    <button onclick="nextChapter()" class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center justify-center text-sm transition-all shadow" title="Next Chapter">
+                        <i class="fa-solid fa-forward-step"></i>
+                    </button>
+
+                    <button onclick="restartVideo()" class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center justify-center text-sm transition-all shadow ml-1" title="Restart Video">
+                        <i class="fa-solid fa-arrow-rotate-left"></i>
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <!-- Speed Selector -->
+                    <div class="flex items-center gap-1.5 bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-xl text-xs">
+                        <span class="text-slate-400">Speed:</span>
+                        <select id="playback-speed" onchange="setSpeed(this.value)" class="bg-transparent text-slate-200 font-semibold focus:outline-none cursor-pointer">
+                            <option value="1.0">1.0x Normal</option>
+                            <option value="1.15" selected>1.15x</option>
+                            <option value="1.3">1.3x Fast</option>
+                        </select>
+                    </div>
+
+                    <!-- Jump Chapter Dropdown -->
+                    <select id="chapter-selector" onchange="jumpToChapter(parseInt(this.value))" class="bg-slate-800 border border-slate-700 text-slate-200 text-xs px-3 py-2 rounded-xl focus:outline-none focus:border-cyan-500 cursor-pointer hidden md:inline-block">
+                        <option value="0">1. Introduction & Overview</option>
+                        <option value="1">2. Homepage & Top 9 Links</option>
+                        <option value="2">3. Browser Extension & Instant Save</option>
+                        <option value="3">4. Neural Links & AI Search</option>
+                        <option value="4">5. Video Library & Transcripts</option>
+                        <option value="5">6. Scratchpad Notes & Settings</option>
+                        <option value="6">7. Full Automated Protection</option>
+                    </select>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- YouTube Chapter Playlist Grid -->
+        <div class="p-6 bg-slate-950 border-t border-slate-800">
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                <i class="fa-solid fa-list-ol text-red-500"></i> Video Timeline & Chapters
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-left" id="playlist-container">
+                <!-- Rendered dynamically -->
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Interactive Script & Speech Synthesis Engine -->
+    <script>
+        const TUTORIAL_CHAPTERS = [
+            {
+                id: 0,
+                title: "Introduction & Overview",
+                duration: 25,
+                icon: "fa-solid fa-house",
+                subtext: "Your personal knowledge sanctuary",
+                narration: "Hey everyone, welcome to LinkForge! If you're tired of losing important articles, bookmarks, or YouTube videos you watched days ago, LinkForge is built for you. It's your personal, private digital home on the web. Let's take a look at how it works!",
+                cursorMove: { x: 50, y: 50, tip: "Welcome to LinkForge" },
+                render: () => `
+                    <div class="flex flex-col items-center gap-5 max-w-lg text-center">
+                        <div class="w-20 h-20 rounded-3xl bg-gradient-to-tr from-cyan-500 via-indigo-500 to-purple-600 flex items-center justify-center text-white text-3xl shadow-2xl shadow-cyan-900/50">
+                            <i class="fa-solid fa-bolt-lightning"></i>
+                        </div>
+                        <h2 class="text-2xl md:text-3xl font-extrabold text-white tracking-tight">Your Smart Knowledge Dashboard</h2>
+                        <p class="text-xs md:text-sm text-slate-300 leading-relaxed">
+                            Organize bookmarks, save offline articles automatically, transcribe YouTube videos, and search everything naturally with AI.
+                        </p>
+                        <div class="flex flex-wrap justify-center gap-2">
+                            <span class="px-3 py-1 rounded-full bg-cyan-950/80 border border-cyan-700 text-cyan-300 text-xs font-semibold">🔒 100% Private</span>
+                            <span class="px-3 py-1 rounded-full bg-emerald-950/80 border border-emerald-700 text-emerald-300 text-xs font-semibold">⚡ Automatic Saving</span>
+                            <span class="px-3 py-1 rounded-full bg-purple-950/80 border border-purple-700 text-purple-300 text-xs font-semibold">🧠 Plain English Search</span>
+                        </div>
+                    </div>
+                `
+            },
+            {
+                id: 1,
+                title: "Homepage & Top 9 Links",
+                duration: 35,
+                icon: "fa-solid fa-layer-group",
+                subtext: "Most visited links & custom groups",
+                narration: "Here is your Homepage. At the very top, the Most Visited Links bar automatically keeps your top nine favorite websites ready to click. Below, your bookmarks are organized into clean groups that you can drag, drop, and customize anytime.",
+                cursorMove: { x: 25, y: 35, tip: "Clicking Top Bookmark" },
+                render: () => `
+                    <div class="w-full max-w-2xl bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-2xl text-left">
+                        <!-- Top Bar Mockup -->
+                        <div class="mb-5 pb-4 border-b border-slate-800">
+                            <div class="text-[11px] font-bold text-cyan-400 uppercase tracking-wider mb-2.5 flex items-center gap-2">
+                                <i class="fa-solid fa-fire text-amber-400"></i> Most Visited Links (Learns Your Favorites)
+                            </div>
+                            <div class="flex gap-2.5 overflow-x-auto pb-1">
+                                <div class="w-11 h-11 rounded-xl bg-slate-800 border-2 border-cyan-500/60 flex items-center justify-center text-blue-400 font-bold text-sm shadow-lg scale-105">m</div>
+                                <div class="w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-orange-500 text-base shadow"><i class="fa-brands fa-reddit"></i></div>
+                                <div class="w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-purple-400 text-base shadow"><i class="fa-brands fa-steam"></i></div>
+                                <div class="w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-red-500 text-base shadow"><i class="fa-brands fa-youtube"></i></div>
+                                <div class="w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-emerald-400 text-base shadow"><i class="fa-solid fa-chart-line"></i></div>
+                            </div>
+                        </div>
+                        <!-- Bookmarks Groups -->
+                        <div>
+                            <div class="text-[11px] font-bold text-amber-400 uppercase tracking-wider mb-2.5 flex items-center gap-2">
+                                <i class="fa-solid fa-folder-tree text-amber-500"></i> Custom Categories & Drag-and-Drop
+                            </div>
+                            <div class="grid grid-cols-3 gap-2.5">
+                                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-2.5">
+                                    <div class="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center text-amber-400 text-xs">📁</div>
+                                    <span class="text-xs text-slate-200 font-semibold truncate">Daily News</span>
+                                </div>
+                                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-2.5">
+                                    <div class="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center text-amber-400 text-xs">📁</div>
+                                    <span class="text-xs text-slate-200 font-semibold truncate">Tech Tools</span>
+                                </div>
+                                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-2.5">
+                                    <div class="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center text-amber-400 text-xs">📁</div>
+                                    <span class="text-xs text-slate-200 font-semibold truncate">Entertainment</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `
+            },
+            {
+                id: 2,
+                title: "Browser Extension & Instant Save",
+                duration: 40,
+                icon: "fa-solid fa-puzzle-piece",
+                subtext: "Passive capture & instant controls",
+                narration: "With the LinkForge extension installed on Brave or Firefox, saving is effortless. As you read articles or watch videos, it quietly saves them in the background. Want to save a page right this second? Tap the green checkmark. On a private page? Tap the red X to ignore it forever.",
+                cursorMove: { x: 70, y: 70, tip: "Tapping ✔ Save Now" },
+                render: () => `
+                    <div class="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-2xl text-left">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-2.5 mb-3">
+                            <div class="flex items-center gap-2">
+                                <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                                <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                                <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                                <span class="text-[11px] text-slate-400 font-mono ml-2">https://tech-news.org/quantum-chips</span>
+                            </div>
+                            <span class="text-[10px] bg-cyan-950 text-cyan-400 px-2 py-0.5 rounded font-mono">Brave / Firefox</span>
+                        </div>
+                        <h3 class="text-sm font-bold text-white mb-1">Breakthrough in Room-Temperature Superconductors</h3>
+                        <p class="text-xs text-slate-400 mb-4 line-clamp-2">Scientists announce new advances in magnetic levitation materials during annual laboratory conference...</p>
+                        
+                        <!-- Floating Controls Overlay -->
+                        <div class="p-3 bg-slate-950 border-2 border-cyan-500/50 rounded-xl flex items-center justify-between shadow-2xl">
+                            <div class="flex items-center gap-2.5">
+                                <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
+                                <span class="text-xs text-cyan-300 font-mono font-medium">Auto-saving in 15s...</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <button class="px-3 py-1 bg-emerald-950 border border-emerald-600 text-emerald-300 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-emerald-900">
+                                    <i class="fa-solid fa-check"></i> Save Now
+                                </button>
+                                <button class="px-3 py-1 bg-rose-950 border border-rose-600 text-rose-300 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-rose-900">
+                                    <i class="fa-solid fa-xmark"></i> Ignore
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `
+            },
+            {
+                id: 3,
+                title: "Neural Links & AI Search",
+                duration: 40,
+                icon: "fa-solid fa-brain",
+                subtext: "Search full articles in plain English",
+                narration: "Have you ever remembered reading something great weeks ago, but forgot the website name? In Neural Links, just type your question in plain English. LinkForge reads through the entire full text of your saved articles and gives you instant AI matching summaries.",
+                cursorMove: { x: 50, y: 30, tip: "Typing search query..." },
+                render: () => `
+                    <div class="w-full max-w-2xl bg-slate-900 border border-cyan-500/40 rounded-2xl p-5 shadow-2xl text-left">
+                        <div class="relative mb-4">
+                            <input type="text" value="Where did I read about battery recycling plants?" readonly class="w-full bg-slate-950 border-2 border-cyan-500/60 p-3.5 pl-11 rounded-xl text-xs md:text-sm text-cyan-200 font-medium">
+                            <i class="fa-solid fa-magnifying-glass absolute left-4 top-4 text-cyan-400 text-sm"></i>
+                        </div>
+                        
+                        <!-- AI Result Card -->
+                        <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 flex gap-4">
+                            <div class="w-14 h-14 rounded-xl bg-emerald-950/80 border border-emerald-600/80 flex flex-col items-center justify-center flex-shrink-0">
+                                <span class="text-base font-bold text-emerald-400 font-mono">98%</span>
+                                <span class="text-[9px] text-emerald-500 uppercase font-bold font-mono">Match</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h4 class="text-xs md:text-sm font-bold text-white truncate">Closed-Loop Sustainable Battery Refining</h4>
+                                <p class="text-xs text-slate-400 mt-1">
+                                    <strong class="text-cyan-400">AI Summary:</strong> Discusses new European recycling facilities that reclaim 95% of cobalt and nickel from electric vehicles.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                `
+            },
+            {
+                id: 4,
+                title: "Video Library & Transcripts",
+                duration: 35,
+                icon: "fa-solid fa-clapperboard",
+                subtext: "Organize videos & search spoken words",
+                narration: "LinkForge has a built-in Video Library. Whenever you watch YouTube, LinkForge downloads spoken transcripts so you can search for exact words spoken in a video. You can create main categories and subcategories in seconds to keep your library organized.",
+                cursorMove: { x: 35, y: 55, tip: "Creating Sub-Category" },
+                render: () => `
+                    <div class="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl text-left flex gap-4">
+                        <!-- Category Sidebar -->
+                        <div class="w-1/3 bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs space-y-1.5">
+                            <div class="text-[10px] font-bold text-slate-500 uppercase">Categories</div>
+                            <div class="p-2 rounded-lg bg-purple-950/60 text-purple-300 font-semibold flex items-center gap-2 truncate border border-purple-800/60">
+                                <i class="fa-solid fa-folder text-purple-400"></i> Computing
+                            </div>
+                            <div class="pl-5 py-1 text-slate-400 flex items-center gap-1.5 truncate text-[11px]">
+                                ↳ History
+                            </div>
+                            <div class="p-2 rounded-lg hover:bg-slate-800 text-slate-400 flex items-center gap-2 truncate">
+                                <i class="fa-solid fa-folder"></i> Science
+                            </div>
+                        </div>
+                        <!-- Video Card -->
+                        <div class="flex-1 bg-slate-950 border border-slate-800 rounded-xl p-3.5">
+                            <div class="aspect-video bg-slate-900 rounded-lg flex items-center justify-center relative mb-2.5 overflow-hidden border border-slate-800">
+                                <i class="fa-brands fa-youtube text-red-500 text-4xl"></i>
+                                <span class="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] font-mono px-2 py-0.5 rounded">14:20</span>
+                            </div>
+                            <h4 class="text-xs font-bold text-white truncate">The Evolution of Microprocessors</h4>
+                            <span class="text-[10px] text-purple-300 bg-purple-950/80 px-2.5 py-1 rounded-full mt-1.5 inline-block font-semibold border border-purple-800/60">📁 Computing > History</span>
+                        </div>
+                    </div>
+                `
+            },
+            {
+                id: 5,
+                title: "Scratchpad Notes & Settings",
+                duration: 30,
+                icon: "fa-solid fa-note-sticky",
+                subtext: "Quick notes & customizable sidebar",
+                narration: "Need to write down a quick note, shopping list, or project idea? The Scratchpad is right there for you. You can organize your notes, mark them as done, and if you ever want a simpler sidebar, you can easily toggle the Scratchpad menu in Settings.",
+                cursorMove: { x: 50, y: 60, tip: "Marking Note Complete" },
+                render: () => `
+                    <div class="w-full max-w-lg bg-slate-900 border border-amber-500/40 rounded-2xl p-5 shadow-2xl text-left">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-2.5 mb-3">
+                            <h3 class="text-xs font-bold text-amber-400 uppercase tracking-wide flex items-center gap-2">
+                                <i class="fa-solid fa-note-sticky"></i> Scratchpad
+                            </h3>
+                            <span class="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-mono">Quick Thoughts</span>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between text-xs">
+                                <span class="text-slate-100 font-medium">📌 Read article on solid-state battery tech</span>
+                                <span class="text-[10px] bg-amber-950 text-amber-300 px-2 py-0.5 rounded border border-amber-800">Tech</span>
+                            </div>
+                            <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between text-xs opacity-60">
+                                <span class="text-slate-400 line-through">✓ Back up personal bookmarks</span>
+                                <span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded">Done</span>
+                            </div>
+                        </div>
+                    </div>
+                `
+            },
+            {
+                id: 6,
+                title: "Full Automated Protection",
+                duration: 35,
+                icon: "fa-solid fa-shield-halved",
+                subtext: "Complete backups & total peace of mind",
+                narration: "Finally, you get complete peace of mind. LinkForge automatically creates backups containing your entire database, spreadsheet CSV files for all tables, and offline article files. Your knowledge is always safe, protected, and 100% in your control.",
+                cursorMove: { x: 50, y: 50, tip: "Backup Verified [OK]" },
+                render: () => `
+                    <div class="flex flex-col items-center gap-4 max-w-md text-center">
+                        <div class="w-16 h-16 rounded-2xl bg-emerald-500/10 border-2 border-emerald-500/40 flex items-center justify-center text-emerald-400 text-2xl shadow-xl shadow-emerald-950/50">
+                            <i class="fa-solid fa-shield-halved"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-white">Automated Full Protection</h3>
+                        <div class="w-full bg-slate-900 border border-slate-800 rounded-xl p-4 text-left text-xs space-y-2">
+                            <div class="flex items-center justify-between text-slate-200">
+                                <span>📦 Complete SQLite Database</span>
+                                <span class="text-emerald-400 font-mono font-bold">100% Synced</span>
+                            </div>
+                            <div class="flex items-center justify-between text-slate-200">
+                                <span>📊 11 Table CSV Exports</span>
+                                <span class="text-emerald-400 font-mono font-bold">Ready</span>
+                            </div>
+                            <div class="flex items-center justify-between text-slate-200">
+                                <span>🖼️ Offline Article Archives</span>
+                                <span class="text-emerald-400 font-mono font-bold">1,873 Files</span>
+                            </div>
+                        </div>
+                    </div>
+                `
+            }
+        ];
+
+        let currentIdx = 0;
+        let isPlaying = false;
+        let synth = window.speechSynthesis;
+        let activeUtterance = null;
+        let tickInterval = null;
+        let chapterSec = 0;
+        let selectedSpeed = 1.15;
+        let isMuted = false;
+        let availableVoices = [];
+        let chosenVoice = null;
+
+        function loadVoices() {
+            if (!('speechSynthesis' in window)) return;
+            availableVoices = synth.getVoices();
+            const voiceSelect = document.getElementById('voice-persona-select');
+            
+            if (availableVoices.length > 0) {
+                voiceSelect.innerHTML = '';
+                
+                // Prioritize natural sounding English voices
+                const englishVoices = availableVoices.filter(v => v.lang.startsWith('en'));
+                const displayList = englishVoices.length > 0 ? englishVoices : availableVoices;
+
+                displayList.forEach((v, idx) => {
+                    const opt = document.createElement('option');
+                    opt.value = v.name;
+                    const isNatural = v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Jenny') || v.name.includes('Guy');
+                    opt.textContent = `${v.name} (${v.lang})${isNatural ? ' ⭐ Natural' : ''}`;
+                    if (isNatural && !chosenVoice) {
+                        chosenVoice = v;
+                        opt.selected = true;
+                    }
+                    voiceSelect.appendChild(opt);
+                });
+
+                if (!chosenVoice && displayList.length > 0) {
+                    chosenVoice = displayList[0];
+                }
+            }
+        }
+
+        function changeVoicePersona(voiceName) {
+            chosenVoice = availableVoices.find(v => v.name === voiceName) || null;
+            if (isPlaying && !isMuted) {
+                speakCurrent();
+            }
+        }
+
+        function initPlaylistGrid() {
+            const container = document.getElementById('playlist-container');
+            container.innerHTML = TUTORIAL_CHAPTERS.map((ch, idx) => `
+                <button onclick="jumpToChapter(${idx})" id="playlist-card-${idx}" class="p-3.5 rounded-2xl border border-slate-800 bg-slate-900/60 hover:bg-slate-800/80 transition-all text-left flex items-start gap-3 group">
+                    <div class="w-8 h-8 rounded-xl bg-slate-800 group-hover:bg-red-600/20 text-slate-400 group-hover:text-red-400 text-xs flex items-center justify-center flex-shrink-0 transition-colors">
+                        <i class="${ch.icon}"></i>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <span class="text-[10px] font-mono text-slate-500 block">0${idx+1}.</span>
+                        <h4 class="text-xs font-bold text-slate-200 truncate group-hover:text-white">${ch.title}</h4>
+                        <p class="text-[10px] text-slate-400 truncate mt-0.5">${ch.subtext}</p>
+                    </div>
+                </button>
+            `).join('');
+        }
+
+        function renderScene() {
+            const ch = TUTORIAL_CHAPTERS[currentIdx];
+            document.getElementById('scene-chapter-badge').textContent = `Chapter ${currentIdx + 1} / ${TUTORIAL_CHAPTERS.length}`;
+            document.getElementById('scene-title-badge').textContent = ch.title;
+            document.getElementById('live-stage').innerHTML = ch.render();
+            document.getElementById('closed-caption-text').textContent = ch.narration;
+            document.getElementById('chapter-selector').value = currentIdx;
+
+            // Animate Mouse Cursor Simulation
+            const cursor = document.getElementById('screen-mouse-cursor');
+            const tip = document.getElementById('cursor-action-tip');
+            if (ch.cursorMove) {
+                cursor.style.opacity = "1";
+                cursor.style.left = `${ch.cursorMove.x}%`;
+                cursor.style.top = `${ch.cursorMove.y}%`;
+                tip.textContent = ch.cursorMove.tip;
+            } else {
+                cursor.style.opacity = "0";
+            }
+
+            // Highlight Playlist button
+            document.querySelectorAll('#playlist-container button').forEach((btn, idx) => {
+                if (idx === currentIdx) {
+                    btn.classList.add('border-red-500/60', 'bg-red-950/30');
+                    btn.querySelector('h4').classList.add('text-red-400');
+                } else {
+                    btn.classList.remove('border-red-500/60', 'bg-red-950/30');
+                    btn.querySelector('h4').classList.remove('text-red-400');
+                }
+            });
+
+            updateTimeUI();
+        }
+
+        function formatClock(sec) {
+            const m = Math.floor(sec / 60);
+            const s = Math.floor(sec % 60);
+            return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+
+        function getTotalSeconds() {
+            return TUTORIAL_CHAPTERS.reduce((acc, c) => acc + c.duration, 0);
+        }
+
+        function getElapsedSeconds() {
+            let sum = 0;
+            for (let i = 0; i < currentIdx; i++) {
+                sum += TUTORIAL_CHAPTERS[i].duration;
+            }
+            return sum + chapterSec;
+        }
+
+        function updateTimeUI() {
+            const total = getTotalSeconds();
+            const elapsed = getElapsedSeconds();
+            const pct = Math.min(100, (elapsed / total) * 100);
+
+            document.getElementById('yt-progress-bar').style.width = `${pct}%`;
+            document.getElementById('time-current-str').textContent = formatClock(elapsed);
+            document.getElementById('time-total-str').textContent = formatClock(total);
+            document.getElementById('timestamp-counter').textContent = `${formatClock(elapsed)} / ${formatClock(total)}`;
+        }
+
+        function setWaveAnimation(active) {
+            const waves = document.querySelectorAll('#voice-waves-container div');
+            const talkingBadge = document.getElementById('presenter-talking-badge');
+            const avatarBox = document.getElementById('presenter-avatar-box');
+
+            if (active) {
+                waves.forEach(w => w.classList.add('speaking-wave'));
+                talkingBadge.style.opacity = "1";
+                avatarBox.classList.add('speaking-glow');
+            } else {
+                waves.forEach(w => w.classList.remove('speaking-wave'));
+                talkingBadge.style.opacity = "0";
+                avatarBox.classList.remove('speaking-glow');
+            }
+        }
+
+        function speakCurrent() {
+            if (!('speechSynthesis' in window)) return;
+            synth.cancel();
+
+            if (isMuted) {
+                setWaveAnimation(false);
+                return;
+            }
+
+            const ch = TUTORIAL_CHAPTERS[currentIdx];
+            activeUtterance = new SpeechSynthesisUtterance(ch.narration);
+            activeUtterance.rate = selectedSpeed;
+            activeUtterance.pitch = 1.05; // Slightly warmer human pitch
+            
+            if (chosenVoice) {
+                activeUtterance.voice = chosenVoice;
+            }
+
+            activeUtterance.onstart = () => {
+                setWaveAnimation(true);
+            };
+
+            activeUtterance.onend = () => {
+                setWaveAnimation(false);
+                if (isPlaying) {
+                    if (currentIdx < TUTORIAL_CHAPTERS.length - 1) {
+                        nextChapter();
+                    } else {
+                        pauseVideo();
+                    }
+                }
+            };
+
+            synth.speak(activeUtterance);
+        }
+
+        function playVideo() {
+            isPlaying = true;
+            document.getElementById('master-play-icon').className = "fa-solid fa-pause";
+            document.getElementById('master-play-text').textContent = "Pause Video";
+
+            speakCurrent();
+
+            clearInterval(tickInterval);
+            tickInterval = setInterval(() => {
+                chapterSec += 1;
+                updateTimeUI();
+                if (chapterSec >= TUTORIAL_CHAPTERS[currentIdx].duration && isMuted) {
+                    if (currentIdx < TUTORIAL_CHAPTERS.length - 1) {
+                        nextChapter();
+                    } else {
+                        pauseVideo();
+                    }
+                }
+            }, 1000);
+        }
+
+        function pauseVideo() {
+            isPlaying = false;
+            document.getElementById('master-play-icon').className = "fa-solid fa-play";
+            document.getElementById('master-play-text').textContent = "Resume Video";
+            if (synth) synth.cancel();
+            setWaveAnimation(false);
+            clearInterval(tickInterval);
+        }
+
+        function togglePlay() {
+            if (isPlaying) {
+                pauseVideo();
+            } else {
+                playVideo();
+            }
+        }
+
+        function jumpToChapter(index) {
+            currentIdx = Math.max(0, Math.min(TUTORIAL_CHAPTERS.length - 1, index));
+            chapterSec = 0;
+            renderScene();
+            if (isPlaying) {
+                playVideo();
+            }
+        }
+
+        function nextChapter() {
+            if (currentIdx < TUTORIAL_CHAPTERS.length - 1) {
+                jumpToChapter(currentIdx + 1);
+            }
+        }
+
+        function prevChapter() {
+            if (currentIdx > 0) {
+                jumpToChapter(currentIdx - 1);
+            }
+        }
+
+        function restartVideo() {
+            jumpToChapter(0);
+            playVideo();
+        }
+
+        function toggleMute() {
+            isMuted = !isMuted;
+            const icon = document.getElementById('mute-icon');
+            const text = document.getElementById('mute-text');
+            if (isMuted) {
+                icon.className = "fa-solid fa-volume-xmark text-rose-400";
+                text.textContent = "Sound MUTED";
+                if (synth) synth.cancel();
+                setWaveAnimation(false);
+            } else {
+                icon.className = "fa-solid fa-volume-high text-cyan-400";
+                text.textContent = "Sound ON";
+                if (isPlaying) speakCurrent();
+            }
+        }
+
+        function setSpeed(spd) {
+            selectedSpeed = parseFloat(spd) || 1.15;
+            if (isPlaying && !isMuted) {
+                speakCurrent();
+            }
+        }
+
+        function seekVideo(event) {
+            const rect = event.currentTarget.getBoundingClientRect();
+            const clickPos = (event.clientX - rect.left) / rect.width;
+            const totalSec = getTotalSeconds();
+            const targetSec = clickPos * totalSec;
+
+            let accumulated = 0;
+            for (let i = 0; i < TUTORIAL_CHAPTERS.length; i++) {
+                if (targetSec <= accumulated + TUTORIAL_CHAPTERS[i].duration) {
+                    currentIdx = i;
+                    chapterSec = targetSec - accumulated;
+                    break;
+                }
+                accumulated += TUTORIAL_CHAPTERS[i].duration;
+            }
+            renderScene();
+            if (isPlaying) playVideo();
+        }
+
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.onvoiceschanged = loadVoices;
+        }
+
+        // Initialize App
+        loadVoices();
+        initPlaylistGrid();
+        renderScene();
+    </script>
+</body>
+</html>

@@ -12,6 +12,26 @@ data/
 *.db
 *.sqlite3
 
+# Temp/patch files
+patch_*.py
+temp.js
+temp_*.py
+temp_*.json
+*.txt
+test_*.py
+add_timeline_routes.py
+enrich_old_links.py
+cleanup_archives.py
+fetch_models.py
+fix_*.py
+logs.py
+outer_error.txt
+restart.py
+script.js
+trigger*.py
+update_tabs.py
+extract_js.py
+
 # OS generated files
 .DS_Store
 Thumbs.db
