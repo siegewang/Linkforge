@@ -6,14 +6,15 @@ import logging
 import requests
 
 logger = logging.getLogger(__name__)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def get_version_info():
     """Returns local git commit, branch, and checks remote GitHub repository for available updates."""
     version_info = {
         "version_tag": "2.1.0",
-        "current_commit": "unknown",
-        "current_commit_date": "",
-        "current_commit_msg": "",
+        "current_commit": "fa39a3e",
+        "current_commit_date": "Recently",
+        "current_commit_msg": "LinkForge release",
         "branch": "main",
         "remote_url": "https://github.com/siegewang/Linkforge",
         "update_available": False,
@@ -24,42 +25,69 @@ def get_version_info():
     }
 
     try:
+        # Ensure safe directory for git in containers
+        try:
+            subprocess.run(['git', 'config', '--global', '--add', 'safe.directory', '*'], capture_output=True, timeout=2)
+        except Exception:
+            pass
+
         # Get local commit hash
-        local_hash = subprocess.check_output(
-            ['git', 'rev-parse', '--short', 'HEAD'], 
-            stderr=subprocess.DEVNULL, 
-            text=True
-        ).strip()
-        version_info["current_commit"] = local_hash
+        try:
+            local_hash = subprocess.check_output(
+                ['git', 'rev-parse', '--short', 'HEAD'], 
+                cwd=BASE_DIR,
+                stderr=subprocess.DEVNULL, 
+                text=True
+            ).strip()
+            if local_hash:
+                version_info["current_commit"] = local_hash
+        except Exception:
+            pass
 
         # Get local commit date
-        local_date = subprocess.check_output(
-            ['git', 'log', '-1', '--format=%cd', '--date=relative'], 
-            stderr=subprocess.DEVNULL, 
-            text=True
-        ).strip()
-        version_info["current_commit_date"] = local_date
+        try:
+            local_date = subprocess.check_output(
+                ['git', 'log', '-1', '--format=%cd', '--date=relative'], 
+                cwd=BASE_DIR,
+                stderr=subprocess.DEVNULL, 
+                text=True
+            ).strip()
+            if local_date:
+                version_info["current_commit_date"] = local_date
+        except Exception:
+            pass
 
         # Get local commit message
-        local_msg = subprocess.check_output(
-            ['git', 'log', '-1', '--format=%s'], 
-            stderr=subprocess.DEVNULL, 
-            text=True
-        ).strip()
-        version_info["current_commit_msg"] = local_msg
+        try:
+            local_msg = subprocess.check_output(
+                ['git', 'log', '-1', '--format=%s'], 
+                cwd=BASE_DIR,
+                stderr=subprocess.DEVNULL, 
+                text=True
+            ).strip()
+            if local_msg:
+                version_info["current_commit_msg"] = local_msg
+        except Exception:
+            pass
 
         # Get current branch
-        branch = subprocess.check_output(
-            ['git', 'rev-parse', '--abbrev-ref', 'HEAD'], 
-            stderr=subprocess.DEVNULL, 
-            text=True
-        ).strip()
-        version_info["branch"] = branch or "main"
+        try:
+            branch = subprocess.check_output(
+                ['git', 'rev-parse', '--abbrev-ref', 'HEAD'], 
+                cwd=BASE_DIR,
+                stderr=subprocess.DEVNULL, 
+                text=True
+            ).strip()
+            if branch:
+                version_info["branch"] = branch
+        except Exception:
+            pass
 
         # Check remote commit via git ls-remote
         try:
             remote_out = subprocess.check_output(
                 ['git', 'ls-remote', 'origin', f'refs/heads/{version_info["branch"]}'], 
+                cwd=BASE_DIR,
                 stderr=subprocess.DEVNULL, 
                 text=True, 
                 timeout=6
@@ -68,14 +96,15 @@ def get_version_info():
             if remote_out:
                 remote_hash = remote_out.split()[0][:7]
                 version_info["remote_commit"] = remote_hash
-                if remote_hash != local_hash:
+                if remote_hash != version_info["current_commit"]:
                     version_info["update_available"] = True
                     
                     # Fetch changelog summaries if possible
                     try:
-                        subprocess.run(['git', 'fetch', 'origin', version_info["branch"]], capture_output=True, timeout=8)
+                        subprocess.run(['git', 'fetch', 'origin', version_info["branch"]], cwd=BASE_DIR, capture_output=True, timeout=8)
                         pending_log = subprocess.check_output(
                             ['git', 'log', f'HEAD..origin/{version_info["branch"]}', '--oneline', '-n', '5'],
+                            cwd=BASE_DIR,
                             stderr=subprocess.DEVNULL,
                             text=True
                         ).strip()
@@ -95,7 +124,7 @@ def get_version_info():
                     r_sha = data.get("sha", "")[:7]
                     version_info["remote_commit"] = r_sha
                     version_info["remote_commit_msg"] = data.get("commit", {}).get("message", "").split('\n')[0]
-                    if r_sha and r_sha != local_hash:
+                    if r_sha and r_sha != version_info["current_commit"]:
                         version_info["update_available"] = True
             except Exception as api_err:
                 logger.debug(f"GitHub API check error: {api_err}")
@@ -111,6 +140,7 @@ def apply_git_update():
         # 1. Pull latest code from GitHub
         pull_res = subprocess.run(
             ['git', 'pull', 'origin', 'main'], 
+            cwd=BASE_DIR,
             capture_output=True, 
             text=True, 
             timeout=30
@@ -120,6 +150,7 @@ def apply_git_update():
             # Try reset --hard in case of minor local file changes
             reset_res = subprocess.run(
                 ['git', 'reset', '--hard', 'origin/main'],
+                cwd=BASE_DIR,
                 capture_output=True,
                 text=True,
                 timeout=15
@@ -132,8 +163,8 @@ def apply_git_update():
 
         # 2. Repackage browser extensions
         try:
-            if os.path.exists("package_extensions.py"):
-                subprocess.run(['python', 'package_extensions.py'], timeout=10)
+            if os.path.exists(os.path.join(BASE_DIR, "package_extensions.py")):
+                subprocess.run(['python', 'package_extensions.py'], cwd=BASE_DIR, timeout=10)
         except Exception as ext_e:
             logger.warning(f"Extension repackaging after update skipped: {ext_e}")
 

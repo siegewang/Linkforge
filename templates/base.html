@@ -78,6 +78,17 @@
                     <a href="/settings" class="px-4 py-3.5 rounded-xl border text-sm font-medium transition-all flex items-center gap-3 shadow-sm group {% if active_page == 'settings' %}bg-zinc-800 border-zinc-700 text-white{% else %}bg-zinc-900/40 hover:bg-zinc-800 border-zinc-800/60 text-zinc-400 hover:text-white{% endif %}">
                         <i class="fa-solid fa-sliders text-zinc-400 w-5 text-center group-hover:scale-110 transition-transform"></i> Settings
                     </a>
+
+                    <!-- Sidebar Live Update Available Notification Badge -->
+                    <div id="sidebar-update-badge" class="hidden mt-2">
+                        <a href="/settings" class="px-3.5 py-3 rounded-xl border border-emerald-500/60 bg-gradient-to-r from-emerald-950/90 via-cyan-950/90 to-emerald-950/90 text-emerald-300 hover:text-white text-xs font-bold transition-all flex items-center justify-between shadow-[0_0_20px_rgba(16,185,129,0.25)] animate-pulse group">
+                            <span class="flex items-center gap-2">
+                                <i class="fa-solid fa-cloud-arrow-down text-emerald-400 group-hover:scale-110 transition-transform"></i>
+                                UPDATE AVAILABLE
+                            </span>
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                        </a>
+                    </div>
                 </nav>
 
                 {% if active_page == 'bookmarks' and tag_swarm %}
@@ -281,6 +292,25 @@
             document.getElementById('edit-icon-preview').src = url;
             document.getElementById('icon-picker-results').classList.add('hidden');
         }
+
+        // Check for available GitHub updates and display sidebar badge
+        async function checkGlobalUpdateBadge() {
+            try {
+                const res = await fetch('/api/system/version');
+                if (res.ok) {
+                    const data = await res.json();
+                    const badge = document.getElementById('sidebar-update-badge');
+                    if (badge) {
+                        if (data.update_available) {
+                            badge.classList.remove('hidden');
+                        } else {
+                            badge.classList.add('hidden');
+                        }
+                    }
+                }
+            } catch(e) {}
+        }
+        checkGlobalUpdateBadge();
 
         // Register Progressive Web App Service Worker
         if ('serviceWorker' in navigator) {
