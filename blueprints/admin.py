@@ -8,6 +8,8 @@ from services.backup import (
     optimize_existing_archives, prune_aged_archive_images
 )
 
+from services.nuke import nuke_system_data
+
 admin_bp = Blueprint('admin', __name__)
 
 @admin_bp.route("/admin")
@@ -25,6 +27,19 @@ def admin_data():
 @admin_bp.route("/admin/extensions")
 def admin_extensions():
     return render_template("admin_extensions.html", sub_page="extensions", active_page="admin")
+
+@admin_bp.route("/admin/nuke")
+def admin_nuke():
+    return render_template("admin_nuke.html", sub_page="nuke", active_page="admin")
+
+@admin_bp.route("/api/admin/nuke", methods=["POST"])
+def api_admin_nuke():
+    try:
+        options = request.json or {}
+        report = nuke_system_data(options)
+        return jsonify({"status": "success", "report": report})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @admin_bp.route("/api/admin/auto-backup/config", methods=["GET", "POST"])
 def auto_backup_config():

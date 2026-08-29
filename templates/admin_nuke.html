@@ -1,0 +1,349 @@
+{% set active_page = 'admin' %}
+{% set sub_page = 'nuke' %}
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mb-8 bg-zinc-900/40 p-6 md:p-8 rounded-[2rem] border border-zinc-800/60 shadow-2xl backdrop-blur-sm">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl md:text-4xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-rose-400 via-rose-200 to-amber-300">
+                System Administration
+            </h1>
+            <p class="text-zinc-500 text-sm mt-1.5 font-medium">Granular data purging, test data cleanup, and factory reset tools.</p>
+        </div>
+    </div>
+</div>
+
+<!-- Sub Navigation Tabs -->
+<div class="flex flex-wrap gap-2 border-b border-zinc-800 mb-8 pb-4">
+    <a href="/admin" class="px-5 py-2.5 rounded-xl text-sm font-bold transition-all {% if sub_page == 'apps' %}bg-zinc-800 text-white border border-zinc-700{% else %}text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50{% endif %}">
+        <i class="fa-solid fa-grid-2 mr-2"></i> Applications
+    </a>
+    <a href="/admin/calendar" class="px-5 py-2.5 rounded-xl text-sm font-bold transition-all {% if sub_page == 'calendar' %}bg-indigo-900/30 text-indigo-400 border border-indigo-500/30{% else %}text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50{% endif %}">
+        <i class="fa-regular fa-calendar mr-2"></i> Calendar
+    </a>
+    <a href="/admin/data" class="px-5 py-2.5 rounded-xl text-sm font-bold transition-all {% if sub_page == 'data' %}bg-emerald-900/30 text-emerald-400 border border-emerald-500/30{% else %}text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50{% endif %}">
+        <i class="fa-solid fa-database mr-2"></i> Data & AI
+    </a>
+    <a href="/admin/extensions" class="px-5 py-2.5 rounded-xl text-sm font-bold transition-all {% if sub_page == 'extensions' %}bg-cyan-900/30 text-cyan-400 border border-cyan-500/30{% else %}text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50{% endif %}">
+        <i class="fa-solid fa-puzzle-piece mr-2"></i> Extensions
+    </a>
+    <a href="/admin/nuke" class="px-5 py-2.5 rounded-xl text-sm font-bold transition-all {% if sub_page == 'nuke' %}bg-rose-950/80 text-rose-400 border border-rose-500/50 shadow-[0_0_20px_rgba(244,63,94,0.2)]{% else %}text-zinc-500 hover:text-rose-400 hover:bg-rose-950/20{% endif %}">
+        <i class="fa-solid fa-triangle-exclamation mr-2 text-rose-500"></i> Nuke Data
+    </a>
+</div>
+
+<div class="max-w-4xl space-y-6">
+
+    <!-- Warning Banner -->
+    <div class="p-6 bg-gradient-to-r from-rose-950/40 via-zinc-900/90 to-rose-950/40 border border-rose-500/40 rounded-3xl shadow-xl flex items-start gap-4">
+        <div class="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 text-xl flex-shrink-0 mt-0.5">
+            <i class="fa-solid fa-radiation"></i>
+        </div>
+        <div class="flex-1">
+            <h2 class="text-base font-bold text-rose-200">Selective Data Purge & Instance Reset</h2>
+            <p class="text-xs text-zinc-400 mt-1 leading-relaxed">
+                Use this tool to clean restored test data, wipe bookmarks, or reset this LinkForge instance. You can selectively choose what to erase using the toggles below while safely preserving your <strong>AI intelligence configurations and system settings</strong>.
+            </p>
+            <div class="flex flex-wrap gap-2.5 mt-3.5">
+                <button type="button" onclick="presetCleanRestoredData()" class="px-3.5 py-1.5 bg-rose-900/40 hover:bg-rose-900/70 border border-rose-500/50 text-rose-300 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-broom"></i> Preset: Clean Restored Data (Keep AI Settings)
+                </button>
+                <button type="button" onclick="presetFactoryReset()" class="px-3.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-trash-can"></i> Preset: Full Factory Reset
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Granular Nuke Toggles Container -->
+    <div class="bg-zinc-900/80 border border-zinc-800 rounded-3xl p-6 shadow-2xl space-y-4">
+        <h3 class="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-sliders text-cyan-400"></i> Data Purge Toggles
+        </h3>
+
+        <!-- Toggle 1: Links & Neural Timeline -->
+        <div class="p-4 rounded-2xl bg-zinc-950 border border-zinc-800/80 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3.5">
+                <div class="w-10 h-10 rounded-xl bg-cyan-950/60 border border-cyan-700/60 flex items-center justify-center text-cyan-400 text-base flex-shrink-0">
+                    <i class="fa-solid fa-link"></i>
+                </div>
+                <div>
+                    <h4 class="text-sm font-bold text-zinc-200">Bookmarks & Neural Links</h4>
+                    <p class="text-xs text-zinc-500">Deletes all saved links, tags, descriptions, and AI timeline query summaries.</p>
+                </div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                <input type="checkbox" id="toggle_nuke_links" checked class="sr-only peer">
+                <div class="w-12 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-zinc-400 peer-checked:after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-600"></div>
+            </label>
+        </div>
+
+        <!-- Toggle 2: Offline Article Archives -->
+        <div class="p-4 rounded-2xl bg-zinc-950 border border-zinc-800/80 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3.5">
+                <div class="w-10 h-10 rounded-xl bg-emerald-950/60 border border-emerald-700/60 flex items-center justify-center text-emerald-400 text-base flex-shrink-0">
+                    <i class="fa-solid fa-file-lines"></i>
+                </div>
+                <div>
+                    <h4 class="text-sm font-bold text-zinc-200">Offline Article Archives & WebP Images</h4>
+                    <p class="text-xs text-zinc-500">Wipes all cached readability HTML pages and downloaded article images in data/archives.</p>
+                </div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                <input type="checkbox" id="toggle_nuke_archives" checked class="sr-only peer">
+                <div class="w-12 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-zinc-400 peer-checked:after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-600"></div>
+            </label>
+        </div>
+
+        <!-- Toggle 3: Video Library & YouTube Captions -->
+        <div class="p-4 rounded-2xl bg-zinc-950 border border-zinc-800/80 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3.5">
+                <div class="w-10 h-10 rounded-xl bg-purple-950/60 border border-purple-700/60 flex items-center justify-center text-purple-400 text-base flex-shrink-0">
+                    <i class="fa-solid fa-clapperboard"></i>
+                </div>
+                <div>
+                    <h4 class="text-sm font-bold text-zinc-200">Video Library & YouTube Transcripts</h4>
+                    <p class="text-xs text-zinc-500">Deletes all saved YouTube videos, custom video categories, sub-categories, and AI routing history.</p>
+                </div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                <input type="checkbox" id="toggle_nuke_videos" checked class="sr-only peer">
+                <div class="w-12 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-zinc-400 peer-checked:after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-600"></div>
+            </label>
+        </div>
+
+        <!-- Toggle 4: Scratchpad Notes -->
+        <div class="p-4 rounded-2xl bg-zinc-950 border border-zinc-800/80 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3.5">
+                <div class="w-10 h-10 rounded-xl bg-amber-950/60 border border-amber-700/60 flex items-center justify-center text-amber-400 text-base flex-shrink-0">
+                    <i class="fa-solid fa-note-sticky"></i>
+                </div>
+                <div>
+                    <h4 class="text-sm font-bold text-zinc-200">Scratchpad Quick Notes</h4>
+                    <p class="text-xs text-zinc-500">Deletes all quick notes, shopping lists, and to-do items from the Scratchpad.</p>
+                </div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                <input type="checkbox" id="toggle_nuke_notes" checked class="sr-only peer">
+                <div class="w-12 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-zinc-400 peer-checked:after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-600"></div>
+            </label>
+        </div>
+
+        <!-- Toggle 5: Homepage Pinned Bookmarks -->
+        <div class="p-4 rounded-2xl bg-zinc-950 border border-zinc-800/80 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3.5">
+                <div class="w-10 h-10 rounded-xl bg-blue-950/60 border border-blue-700/60 flex items-center justify-center text-blue-400 text-base flex-shrink-0">
+                    <i class="fa-solid fa-layer-group"></i>
+                </div>
+                <div>
+                    <h4 class="text-sm font-bold text-zinc-200">Homepage Pinned Bookmarks & Custom Groups</h4>
+                    <p class="text-xs text-zinc-500">Clears custom bookmark groups and pinned shortcuts from the homepage.</p>
+                </div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                <input type="checkbox" id="toggle_nuke_homepage" checked class="sr-only peer">
+                <div class="w-12 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-zinc-400 peer-checked:after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-600"></div>
+            </label>
+        </div>
+
+        <!-- Toggle 6: Denied URLs Blacklist -->
+        <div class="p-4 rounded-2xl bg-zinc-950 border border-zinc-800/80 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3.5">
+                <div class="w-10 h-10 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-400 text-base flex-shrink-0">
+                    <i class="fa-solid fa-ban"></i>
+                </div>
+                <div>
+                    <h4 class="text-sm font-bold text-zinc-200">Ignored / Aborted URLs Blacklist</h4>
+                    <p class="text-xs text-zinc-500">Clears the extension denylist table so previously blocked URLs can be captured again.</p>
+                </div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                <input type="checkbox" id="toggle_nuke_denied" checked class="sr-only peer">
+                <div class="w-12 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-zinc-400 peer-checked:after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-600"></div>
+            </label>
+        </div>
+
+        <!-- Toggle 7: Stored System Backups -->
+        <div class="p-4 rounded-2xl bg-zinc-950 border border-zinc-800/80 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3.5">
+                <div class="w-10 h-10 rounded-xl bg-red-950/60 border border-red-700/60 flex items-center justify-center text-red-400 text-base flex-shrink-0">
+                    <i class="fa-solid fa-box-archive"></i>
+                </div>
+                <div>
+                    <h4 class="text-sm font-bold text-zinc-200">Stored System Backup ZIPs</h4>
+                    <p class="text-xs text-zinc-500">Deletes existing backup ZIP archives stored in data/backups. (Default: NO)</p>
+                </div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                <input type="checkbox" id="toggle_nuke_backups" class="sr-only peer">
+                <div class="w-12 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-zinc-400 peer-checked:after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-600"></div>
+            </label>
+        </div>
+
+        <!-- ⭐ Special Protected Setting: RETAIN AI SETTINGS -->
+        <div class="p-5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-zinc-950 to-emerald-950/40 border-2 border-emerald-500/50 flex items-center justify-between gap-4 shadow-lg">
+            <div class="flex items-center gap-3.5">
+                <div class="w-11 h-11 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-lg flex-shrink-0">
+                    <i class="fa-solid fa-shield-heart"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h4 class="text-sm font-bold text-emerald-300">Retain System & AI Intelligence Settings</h4>
+                        <span class="px-2 py-0.5 rounded-full bg-emerald-950 border border-emerald-700 text-emerald-400 text-[10px] font-mono uppercase font-bold">Recommended</span>
+                    </div>
+                    <p class="text-xs text-zinc-400 mt-0.5">Preserves all switches (Smart Master Switch, YouTube transcripts, AI routing preferences, and sidebar visibility toggles).</p>
+                </div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                <input type="checkbox" id="toggle_retain_settings" checked class="sr-only peer">
+                <div class="w-14 h-7 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[4px] after:bg-zinc-400 peer-checked:after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-emerald-600"></div>
+            </label>
+        </div>
+
+    </div>
+
+    <!-- Action Execution Bar -->
+    <div class="p-6 bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div class="flex items-center gap-2 text-xs text-zinc-400">
+            <i class="fa-solid fa-circle-info text-cyan-400"></i>
+            <span>This action permanently purges the selected datasets and cannot be undone.</span>
+        </div>
+
+        <button type="button" onclick="openNukeModal()" class="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-rose-900/40 flex items-center justify-center gap-2.5 transition-all">
+            <i class="fa-solid fa-triangle-exclamation"></i> Execute Nuke & Reset
+        </button>
+    </div>
+
+</div>
+
+<!-- Confirmation Modal -->
+<div id="nukeConfirmModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center p-4 z-50 backdrop-blur-md">
+    <div class="bg-zinc-900 border-2 border-rose-600 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl text-center space-y-4">
+        <div class="w-16 h-16 rounded-3xl bg-rose-500/20 border border-rose-500/50 flex items-center justify-center text-rose-500 text-3xl mx-auto shadow-lg">
+            <i class="fa-solid fa-skull-crossbones"></i>
+        </div>
+        
+        <h3 class="text-xl font-bold text-white">Confirm Data Nuke</h3>
+        <p class="text-xs text-zinc-400 leading-relaxed">
+            You are about to permanently erase the selected datasets from this LinkForge instance. To confirm, please type <strong class="text-rose-400 font-mono">NUKE</strong> below:
+        </p>
+
+        <input type="text" id="nukeConfirmationInput" placeholder="Type NUKE here" onkeyup="checkConfirmation(this.value)" class="w-full bg-zinc-950 border border-zinc-700 text-rose-300 font-mono text-center font-bold p-3 rounded-xl focus:outline-none focus:border-rose-500 uppercase tracking-widest text-sm">
+
+        <div class="flex gap-3 pt-2">
+            <button type="button" onclick="closeNukeModal()" class="flex-1 px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl text-xs font-semibold transition-colors">
+                Cancel
+            </button>
+            <button type="button" id="btn-confirm-nuke" disabled onclick="executeNuke()" class="flex-1 px-4 py-2.5 bg-rose-600 hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-rose-900/30 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-trash"></i> Confirm Nuke
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Progress Toast / Result Modal -->
+<div id="nukeResultModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center p-4 z-50 backdrop-blur-md">
+    <div class="bg-zinc-900 border border-emerald-500/40 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl text-center space-y-4">
+        <div class="w-16 h-16 rounded-3xl bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center text-emerald-400 text-3xl mx-auto shadow-lg">
+            <i class="fa-solid fa-circle-check"></i>
+        </div>
+        
+        <h3 class="text-xl font-bold text-white">Nuke Operation Complete!</h3>
+        <div id="nuke-report-details" class="p-4 bg-zinc-950 border border-zinc-800 rounded-2xl text-xs text-zinc-300 text-left space-y-1.5 font-mono">
+            <!-- Populated via JS -->
+        </div>
+
+        <button type="button" onclick="window.location.href='/'" class="w-full px-6 py-3 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-900/30 transition-all">
+            Return to Clean Home Dashboard ➔
+        </button>
+    </div>
+</div>
+
+<script>
+    function presetCleanRestoredData() {
+        document.getElementById('toggle_nuke_links').checked = true;
+        document.getElementById('toggle_nuke_archives').checked = true;
+        document.getElementById('toggle_nuke_videos').checked = true;
+        document.getElementById('toggle_nuke_notes').checked = true;
+        document.getElementById('toggle_nuke_homepage').checked = true;
+        document.getElementById('toggle_nuke_denied').checked = true;
+        document.getElementById('toggle_nuke_backups').checked = false;
+        document.getElementById('toggle_retain_settings').checked = true;
+    }
+
+    function presetFactoryReset() {
+        document.getElementById('toggle_nuke_links').checked = true;
+        document.getElementById('toggle_nuke_archives').checked = true;
+        document.getElementById('toggle_nuke_videos').checked = true;
+        document.getElementById('toggle_nuke_notes').checked = true;
+        document.getElementById('toggle_nuke_homepage').checked = true;
+        document.getElementById('toggle_nuke_denied').checked = true;
+        document.getElementById('toggle_nuke_backups').checked = true;
+        document.getElementById('toggle_retain_settings').checked = false;
+    }
+
+    function openNukeModal() {
+        document.getElementById('nukeConfirmationInput').value = '';
+        document.getElementById('btn-confirm-nuke').disabled = true;
+        document.getElementById('nukeConfirmModal').classList.remove('hidden');
+        document.getElementById('nukeConfirmModal').classList.add('flex');
+    }
+
+    function closeNukeModal() {
+        document.getElementById('nukeConfirmModal').classList.remove('flex');
+        document.getElementById('nukeConfirmModal').classList.add('hidden');
+    }
+
+    function checkConfirmation(val) {
+        const btn = document.getElementById('btn-confirm-nuke');
+        btn.disabled = (val.trim().toUpperCase() !== 'NUKE');
+    }
+
+    async function executeNuke() {
+        closeNukeModal();
+        
+        const payload = {
+            nuke_links: document.getElementById('toggle_nuke_links').checked,
+            nuke_archives: document.getElementById('toggle_nuke_archives').checked,
+            nuke_videos: document.getElementById('toggle_nuke_videos').checked,
+            nuke_notes: document.getElementById('toggle_nuke_notes').checked,
+            nuke_homepage: document.getElementById('toggle_nuke_homepage').checked,
+            nuke_denied: document.getElementById('toggle_nuke_denied').checked,
+            nuke_backups: document.getElementById('toggle_nuke_backups').checked,
+            retain_settings: document.getElementById('toggle_retain_settings').checked
+        };
+
+        try {
+            const res = await fetch('/api/admin/nuke', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            
+            if (res.ok && data.status === 'success') {
+                const rep = data.report;
+                const detailsContainer = document.getElementById('nuke-report-details');
+                detailsContainer.innerHTML = `
+                    <div class="flex justify-between"><span>Deleted Links:</span><span class="text-rose-400 font-bold">${rep.deleted_links}</span></div>
+                    <div class="flex justify-between"><span>Deleted Offline Archives:</span><span class="text-rose-400 font-bold">${rep.deleted_archives}</span></div>
+                    <div class="flex justify-between"><span>Deleted Videos:</span><span class="text-rose-400 font-bold">${rep.deleted_videos}</span></div>
+                    <div class="flex justify-between"><span>Deleted Categories:</span><span class="text-rose-400 font-bold">${rep.deleted_categories}</span></div>
+                    <div class="flex justify-between"><span>Deleted Notes:</span><span class="text-rose-400 font-bold">${rep.deleted_notes}</span></div>
+                    <div class="flex justify-between"><span>Deleted Denied URLs:</span><span class="text-rose-400 font-bold">${rep.deleted_denied_urls}</span></div>
+                    <div class="flex justify-between"><span>AI & System Settings:</span><span class="text-emerald-400 font-bold">${rep.retained_settings ? 'Retained (Safe)' : 'Reset to Default'}</span></div>
+                `;
+
+                document.getElementById('nukeResultModal').classList.remove('hidden');
+                document.getElementById('nukeResultModal').classList.add('flex');
+            } else {
+                alert("Nuke failed: " + (data.message || "Unknown error"));
+            }
+        } catch(e) {
+            console.error("Nuke request error:", e);
+            alert("An error occurred executing nuke operation.");
+        }
+    }
+</script>
+{% endblock %}
