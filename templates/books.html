@@ -207,7 +207,7 @@
 
 {% block extra_js %}
 <script>
-    let activeGenreQuery = 'bestsellers trending popular fiction';
+    let activeGenreQuery = 'subject:bestseller';
     let searchDebounceTimer = null;
     let progressPollInterval = null;
     let currentBooksList = [];
@@ -217,7 +217,7 @@
     document.addEventListener('DOMContentLoaded', async () => {
         await loadGenres();
         await loadMyLibrary();
-        await searchBooks('bestsellers trending popular fiction');
+        await searchBooks('subject:bestseller');
     });
 
     async function loadGenres() {
@@ -370,7 +370,7 @@
                 document.querySelectorAll('.genre-pill').forEach(b => b.classList.remove('active'));
                 searchBooks(val.trim());
             } else if (!val.trim()) {
-                searchBooks('bestsellers trending popular fiction');
+                searchBooks('subject:bestseller');
             }
         }, 350);
     }
@@ -388,7 +388,7 @@
         const filterInput = document.getElementById('inline-filter-input');
         if (filterInput) filterInput.value = '';
         document.getElementById('clear-search-btn').classList.add('hidden');
-        searchBooks('bestsellers trending popular fiction');
+        searchBooks('subject:bestseller');
     }
 
     function applyClientFilterAndSort() {
