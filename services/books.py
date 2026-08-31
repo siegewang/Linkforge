@@ -211,7 +211,7 @@ def search_books(query: str, shelfmark_base_url: str = "https://stacks.okapitek.
     """Search books via Hardcover & OpenLibrary APIs with rich metadata, covers, and Shelfmark deep-links."""
     query = (query or '').strip()
     if not query:
-        query = "bestsellers trending popular fiction"
+        query = "subject:bestseller"
 
     clean_shelfmark = (shelfmark_base_url or "https://stacks.okapitek.uk/").rstrip('/')
     books = []
@@ -228,7 +228,8 @@ def search_books(query: str, shelfmark_base_url: str = "https://stacks.okapitek.
 
     try:
         encoded_query = urllib.parse.quote_plus(query)
-        url = f"https://openlibrary.org/search.json?q={encoded_query}&limit=100&fields=key,title,author_name,first_publish_year,cover_i,isbn,subject,publisher,language,ratings_average,ratings_count,edition_count,ia"
+        sort_param = "&sort=readinglog" if query.startswith("subject:") else ""
+        url = f"https://openlibrary.org/search.json?q={encoded_query}&limit=100{sort_param}&fields=key,title,author_name,first_publish_year,cover_i,isbn,subject,publisher,language,ratings_average,ratings_count,edition_count,ia"
         
         r = requests.get(url, headers=HEADERS, timeout=8)
         if r.status_code == 200:
@@ -356,14 +357,14 @@ def search_books(query: str, shelfmark_base_url: str = "https://stacks.okapitek.
 def get_curated_book_genres() -> list:
     """Return pre-set popular genre topics for instant 1-click discovery."""
     return [
-        {"name": "🔥 Popular & Trending", "query": "bestsellers trending popular fiction"},
-        {"name": "🤖 Sci-Fi & Cyberpunk", "query": "science fiction cyberpunk space opera"},
-        {"name": "💻 Tech & Programming", "query": "python computer science software programming linux"},
-        {"name": "🧠 AI & Deep Learning", "query": "artificial intelligence machine learning neural networks"},
-        {"name": "⚔️ Fantasy & Myth", "query": "epic fantasy dragons worldbuilding mythology"},
-        {"name": "🕵️ Thriller & Mystery", "query": "detective psychological thriller mystery crime"},
-        {"name": "🏛️ History & Science", "query": "world history astrophysics quantum physics biology"},
-        {"name": "🚀 Business & Startups", "query": "entrepreneurship startups leadership economics"},
+        {"name": "🔥 Popular & Trending", "query": "subject:bestseller"},
+        {"name": "🤖 Sci-Fi & Cyberpunk", "query": "subject:science_fiction"},
+        {"name": "💻 Tech & Programming", "query": "subject:computer_programming"},
+        {"name": "🧠 AI & Deep Learning", "query": "subject:artificial_intelligence"},
+        {"name": "⚔️ Fantasy & Myth", "query": "subject:fantasy"},
+        {"name": "🕵️ Thriller & Mystery", "query": "subject:thriller"},
+        {"name": "🏛️ History & Biography", "query": "subject:history"},
+        {"name": "🚀 Business & Money", "query": "subject:business"},
     ]
 
 def resolve_book_download_url(title: str, author: str, ia_id: str = None) -> tuple:
