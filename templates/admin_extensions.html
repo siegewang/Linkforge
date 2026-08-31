@@ -45,12 +45,44 @@
             </a>
         </div>
         
-        <div class="mt-8 bg-zinc-950 p-4 rounded-xl border border-zinc-800">
-            <h3 class="text-sm font-bold text-zinc-300 mb-2"><i class="fa-solid fa-circle-info mr-2 text-zinc-500"></i> Installation Instructions</h3>
-            <ul class="text-xs text-zinc-400 space-y-2 pl-6 list-disc">
-                <li><strong>Chrome/Brave:</strong> Unzip the file, go to <code class="bg-zinc-800 px-1 rounded text-zinc-300">chrome://extensions</code>, enable "Developer Mode" (top right), and click "Load unpacked". Select the unzipped folder.</li>
-                <li><strong>Firefox:</strong> Simply drag and drop the downloaded <code>.xpi</code> file anywhere into an open Firefox window to permanently install it.</li>
-            </ul>
+        <div class="mt-8 bg-zinc-950 p-5 rounded-2xl border border-zinc-800 space-y-4">
+            <h3 class="text-sm font-bold text-zinc-200 flex items-center gap-2">
+                <i class="fa-solid fa-circle-info text-cyan-400"></i> Browser Extension Installation & Verification Guide
+            </h3>
+            
+            <div class="space-y-3 text-xs text-zinc-300">
+                <div class="p-3 bg-zinc-900/60 rounded-xl border border-zinc-800/80">
+                    <span class="font-bold text-blue-400 flex items-center gap-1.5 mb-1">
+                        <i class="fa-brands fa-chrome"></i> Chrome / Brave / Edge:
+                    </span>
+                    <ol class="list-decimal pl-5 space-y-1 text-zinc-400">
+                        <li>Download and unzip <code class="bg-zinc-800 px-1 py-0.5 rounded text-zinc-200 font-mono">dashforge-chrome.zip</code>.</li>
+                        <li>Navigate to <code class="bg-zinc-800 px-1 py-0.5 rounded text-zinc-200 font-mono">chrome://extensions</code> in your browser.</li>
+                        <li>Enable <strong>Developer Mode</strong> (toggle in top-right corner).</li>
+                        <li>Click <strong>Load unpacked</strong> and select the extracted folder.</li>
+                    </ol>
+                </div>
+
+                <div class="p-3 bg-zinc-900/60 rounded-xl border border-zinc-800/80">
+                    <span class="font-bold text-orange-400 flex items-center gap-1.5 mb-1">
+                        <i class="fa-brands fa-firefox-browser"></i> Firefox Installation & Verification:
+                    </span>
+                    <ul class="space-y-2 text-zinc-400 mt-1">
+                        <li>
+                            <strong class="text-zinc-200">Method 1 — Instant Testing (Any Firefox):</strong>
+                            <div class="text-zinc-400 mt-0.5">Go to <code class="bg-zinc-800 px-1 py-0.5 rounded text-zinc-200 font-mono">about:debugging#/runtime/this-firefox</code>, click <strong>Load Temporary Add-on...</strong>, and select the downloaded <code class="bg-zinc-800 px-1 py-0.5 rounded text-zinc-200 font-mono">dashforge-firefox.xpi</code> (or <code class="bg-zinc-800 px-1 py-0.5 rounded text-zinc-200 font-mono">manifest.json</code>).</div>
+                        </li>
+                        <li>
+                            <strong class="text-zinc-200">Method 2 — Permanent Local Install (Firefox Dev Edition / Nightly / ESR):</strong>
+                            <div class="text-zinc-400 mt-0.5">Go to <code class="bg-zinc-800 px-1 py-0.5 rounded text-zinc-200 font-mono">about:config</code>, set <code class="bg-zinc-800 px-1 py-0.5 rounded text-zinc-200 font-mono">xpinstall.signatures.required</code> to <code class="text-cyan-400">false</code>, then drag & drop the <code class="bg-zinc-800 px-1 py-0.5 rounded text-zinc-200 font-mono">.xpi</code> file into Firefox.</div>
+                        </li>
+                        <li>
+                            <strong class="text-zinc-200">Method 3 — Official Mozilla Signing (Standard Firefox Release):</strong>
+                            <div class="text-zinc-400 mt-0.5">Mozilla requires signing for permanent installation in regular Firefox. Upload to <a href="https://addons.mozilla.org/developers/addon/submit/distribution" target="_blank" class="text-cyan-400 hover:underline">AMO Developer Hub</a> (choose <em>"On your own / Self-distribution"</em>) or run <code class="bg-zinc-800 px-1 py-0.5 rounded text-zinc-200 font-mono">npx web-ext sign --api-key=... --api-secret=...</code> for an instantly signed <code class="bg-zinc-800 px-1 py-0.5 rounded text-zinc-200 font-mono">.xpi</code>.</div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
         </div>
     </div>
 </div>

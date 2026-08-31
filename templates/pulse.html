@@ -1,0 +1,433 @@
+{% set active_page = 'pulse' %}
+{% extends 'base.html' %}
+
+{% block extra_css %}
+.pulse-card {
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.2s ease;
+}
+.pulse-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 16px 32px -8px rgba(6, 182, 212, 0.15), 0 0 0 1px rgba(6, 182, 212, 0.4);
+}
+.pulse-card-img {
+    transition: transform 0.4s ease;
+}
+.pulse-card:hover .pulse-card-img {
+    transform: scale(1.04);
+}
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-7xl mx-auto pb-16">
+    <!-- Header Hero Banner -->
+    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-900/90 via-zinc-900/60 to-zinc-950/90 border border-zinc-800/80 p-6 md:p-8 shadow-2xl backdrop-blur-xl">
+        <div class="absolute -right-24 -top-24 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -left-24 -bottom-24 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+            <div>
+                <div class="flex items-center gap-3 mb-2">
+                    <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/30 text-white font-bold text-lg">
+                        <i class="fa-solid fa-bolt-lightning animate-pulse"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h1 class="text-2xl md:text-3xl font-extrabold text-white tracking-tight">LinkForge Pulse</h1>
+                            <span class="px-2.5 py-0.5 text-xs font-bold bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 rounded-full flex items-center gap-1.5 shadow-sm">
+                                <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span> Live Feed
+                            </span>
+                        </div>
+                        <p class="text-xs md:text-sm text-zinc-400 mt-0.5">Your personal curated discovery stream • Click any story to read & passively log</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls: Search Input, Refresh, Manage Topics -->
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 text-xs"></i>
+                    <input id="pulse-search-input" oninput="filterPulseCards()" type="text" placeholder="Filter stories..." class="bg-zinc-950/80 border border-zinc-800/80 text-zinc-200 text-xs rounded-xl pl-9 pr-3 py-2.5 w-48 sm:w-60 focus:outline-none focus:border-cyan-500 transition-colors">
+                </div>
+
+                <button onclick="refreshPulseFeed()" id="pulse-refresh-btn" class="px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700/80 border border-zinc-700/70 text-zinc-200 hover:text-cyan-300 text-xs font-semibold rounded-xl transition-all flex items-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-arrows-rotate" id="pulse-refresh-icon"></i>
+                    <span>Refresh Feed</span>
+                </button>
+
+                <button onclick="openPulseTopicsModal()" class="px-3.5 py-2.5 bg-zinc-800 hover:bg-zinc-700/80 border border-zinc-700/70 text-zinc-300 hover:text-indigo-300 text-xs font-medium rounded-xl transition-all flex items-center gap-1.5">
+                    <i class="fa-solid fa-sliders"></i>
+                    <span class="hidden sm:inline">Topics</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Topic Pills Horizontal Scroll Bar -->
+        <div id="pulse-topics-bar" class="flex items-center gap-2 overflow-x-auto custom-scroll pt-6 border-t border-zinc-800/60 mt-6 relative z-10 text-xs">
+            <button onclick="selectPulseTopic('✨ For You')" class="pulse-topic-pill active px-4 py-2 bg-cyan-500/20 border border-cyan-500/50 text-cyan-200 rounded-xl font-semibold shrink-0 flex items-center gap-2 transition-all">
+                <span>✨ For You</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Media-Rich Vertically Scrolling Cards Grid -->
+    <div id="pulse-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
+        <!-- Skeleton Loaders -->
+        <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-3xl p-5 animate-pulse space-y-4 h-[360px] flex flex-col justify-between">
+            <div class="w-full h-48 bg-zinc-800 rounded-2xl"></div>
+            <div class="space-y-2"><div class="h-4 bg-zinc-800 rounded w-full"></div><div class="h-4 bg-zinc-800 rounded w-2/3"></div></div>
+            <div class="h-3 bg-zinc-800 rounded w-1/3"></div>
+        </div>
+        <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-3xl p-5 animate-pulse space-y-4 h-[360px] flex flex-col justify-between">
+            <div class="w-full h-48 bg-zinc-800 rounded-2xl"></div>
+            <div class="space-y-2"><div class="h-4 bg-zinc-800 rounded w-full"></div><div class="h-4 bg-zinc-800 rounded w-2/3"></div></div>
+            <div class="h-3 bg-zinc-800 rounded w-1/3"></div>
+        </div>
+        <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-3xl p-5 animate-pulse space-y-4 h-[360px] flex flex-col justify-between">
+            <div class="w-full h-48 bg-zinc-800 rounded-2xl"></div>
+            <div class="space-y-2"><div class="h-4 bg-zinc-800 rounded w-full"></div><div class="h-4 bg-zinc-800 rounded w-2/3"></div></div>
+            <div class="h-3 bg-zinc-800 rounded w-1/3"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Manage Pulse Topics Modal -->
+<div id="managePulseTopicsModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center p-4 z-50 backdrop-blur-sm">
+    <div class="bg-zinc-900 p-6 rounded-2xl w-full max-w-md border border-zinc-700 shadow-2xl">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-base font-bold text-zinc-100 flex items-center gap-2">
+                <i class="fa-solid fa-sliders text-cyan-400"></i> Manage Discover Topics & Feeds
+            </h2>
+            <button onclick="closePulseTopicsModal()" class="text-zinc-500 hover:text-zinc-300"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div class="mb-4">
+            <button onclick="autoDiscoverPulseTopics(this)" id="ai-auto-topics-btn" class="w-full py-2.5 px-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-purple-950/40 transition-all flex items-center justify-center gap-2">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                <span>AI Auto-Detect Categories from My Library</span>
+            </button>
+            <p class="text-[10px] text-zinc-400 text-center mt-1.5">Automatically organizes your Discover feed around what you bookmark & watch</p>
+        </div>
+
+        <div class="space-y-3 mb-5 max-h-52 overflow-y-auto custom-scroll pr-1" id="pulse-topics-list-container">
+            <div class="text-xs text-zinc-500 text-center py-2">Loading configured topics...</div>
+        </div>
+
+        <div class="border-t border-zinc-800 pt-4">
+            <h3 class="text-xs font-bold text-zinc-300 uppercase tracking-wider mb-2">Add Custom Topic or RSS Feed</h3>
+            <div class="space-y-2 mb-4">
+                <input id="new-pulse-topic-name" class="w-full bg-zinc-800 border border-zinc-700/60 px-3 py-2 rounded-lg text-xs text-zinc-200 focus:outline-none focus:border-cyan-500" placeholder="Topic Name (e.g. Space Exploration, Raspberry Pi)">
+                <input id="new-pulse-topic-keywords" class="w-full bg-zinc-800 border border-zinc-700/60 px-3 py-2 rounded-lg text-xs text-zinc-200 focus:outline-none focus:border-cyan-500" placeholder="Keywords to search (e.g. nasa spacex astronomy telescope)">
+                <input id="new-pulse-topic-url" class="w-full bg-zinc-800 border border-zinc-700/60 px-3 py-2 rounded-lg text-xs text-zinc-200 focus:outline-none focus:border-cyan-500" placeholder="Optional Custom RSS URL (e.g. https://.../feed.xml)">
+            </div>
+            <div class="flex gap-2">
+                <button onclick="closePulseTopicsModal()" class="flex-1 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs font-medium transition-colors">Close</button>
+                <button onclick="submitNewPulseTopic()" class="flex-1 py-2 bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white text-xs font-bold rounded-lg shadow-lg shadow-cyan-500/20 transition-all flex items-center justify-center gap-1">
+                    <i class="fa-solid fa-plus"></i> Add Topic
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let activePulseTopic = '✨ For You';
+    let allPulseItems = [];
+    let pulseTopicsData = [];
+
+    function escapeHTML(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+
+    async function loadPulsePageFeed(topic = activePulseTopic) {
+        activePulseTopic = topic;
+        const grid = document.getElementById('pulse-grid');
+        try {
+            const url = topic && topic !== 'All' ? `/api/pulse?topic=${encodeURIComponent(topic)}&limit=60` : '/api/pulse?limit=60';
+            const res = await fetch(url);
+            if (!res.ok) throw new Error("API status " + res.status);
+            const data = await res.json();
+            
+            if (data.status === 'success') {
+                pulseTopicsData = data.topics || [];
+                allPulseItems = data.items || [];
+                renderPulseTopicsBar(pulseTopicsData);
+                renderPulseCards(allPulseItems);
+            }
+        } catch (e) {
+            console.error('Failed to load pulse feed:', e);
+            grid.innerHTML = `
+                <div class="col-span-full py-16 text-center bg-zinc-900/40 rounded-3xl border border-zinc-800 text-zinc-400 text-sm">
+                    <i class="fa-solid fa-cloud-bolt text-cyan-500 text-3xl mb-3 block"></i>
+                    Discover feed temporarily unavailable. Click <b>Refresh Feed</b> to fetch new stories.
+                </div>
+            `;
+        }
+    }
+
+    function renderPulseTopicsBar(topics) {
+        const bar = document.getElementById('pulse-topics-bar');
+        if (!bar) return;
+
+        let html = '';
+        topics.forEach(t => {
+            const isActive = t.name === activePulseTopic;
+            const activeClass = isActive 
+                ? 'bg-cyan-500/20 border-cyan-500/60 text-cyan-200 shadow-sm shadow-cyan-500/20' 
+                : 'bg-zinc-800/80 border-zinc-700/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/80';
+            
+            html += `
+                <button onclick="selectPulseTopic('${escapeHTML(t.name)}')" class="pulse-topic-pill ${activeClass} px-4 py-2 border rounded-xl font-semibold shrink-0 flex items-center gap-2 transition-all">
+                    <span>${escapeHTML(t.name)}</span>
+                </button>
+            `;
+        });
+        bar.innerHTML = html;
+    }
+
+    function renderPulseCards(items) {
+        const grid = document.getElementById('pulse-grid');
+        if (!grid) return;
+
+        if (items.length === 0) {
+            grid.innerHTML = `
+                <div class="col-span-full py-16 text-center bg-zinc-900/40 rounded-3xl border border-zinc-800 text-zinc-400 text-sm">
+                    <i class="fa-regular fa-compass text-cyan-400 text-3xl mb-3 block"></i>
+                    No new stories for <b>${escapeHTML(activePulseTopic)}</b> right now. Click <b>Refresh Feed</b> to check open streams.
+                </div>
+            `;
+            return;
+        }
+
+        grid.innerHTML = items.map(item => {
+            const domain = item.source_name || 'Web';
+            const faviconUrl = item.source_icon || `https://www.google.com/s2/favicons?domain=${encodeURIComponent(item.url)}&sz=64`;
+            const image = item.image_url || `https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80`;
+
+            return `
+                <div id="pulse-card-${item.id}" class="pulse-card group relative bg-zinc-900/80 border border-zinc-800/90 rounded-3xl overflow-hidden flex flex-col justify-between backdrop-blur-sm cursor-pointer" onclick="openStory('${escapeHTML(item.url)}')">
+                    <div>
+                        <!-- Media Rich Aspect Cover Image -->
+                        <div class="w-full h-52 overflow-hidden bg-zinc-950 border-b border-zinc-800/80 relative">
+                            <img src="${escapeHTML(image)}" class="pulse-card-img w-full h-full object-cover brightness-100 contrast-[1.02]" onerror="this.src='https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80'">
+                            
+                            <!-- Topic & Dismiss Badge -->
+                            <div class="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-between pointer-events-none">
+                                <span class="px-2.5 py-1 rounded-lg bg-zinc-950/80 backdrop-blur-md text-[11px] font-bold text-cyan-300 border border-cyan-500/40 shadow-lg">
+                                    #${escapeHTML(item.topic || 'Discover')}
+                                </span>
+                                <button onclick="event.stopPropagation(); dismissPulseItem(${item.id})" title="Dismiss Story" class="pointer-events-auto w-7 h-7 rounded-full bg-zinc-950/80 hover:bg-red-500/90 backdrop-blur-md text-zinc-300 hover:text-white flex items-center justify-center transition-colors shadow-lg border border-zinc-700/60">
+                                    <i class="fa-solid fa-xmark text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Card Content -->
+                        <div class="p-5">
+                            <!-- Publisher & Relative Time -->
+                            <div class="flex items-center gap-2 text-[11px] text-zinc-400 mb-2.5">
+                                <img src="${faviconUrl}" class="w-4 h-4 rounded shrink-0" onerror="this.src='/static/favicon.svg'">
+                                <span class="font-semibold text-zinc-300 truncate">${escapeHTML(domain)}</span>
+                                <span class="text-zinc-600">•</span>
+                                <span class="text-zinc-500">${escapeHTML(item.published_at ? item.published_at.substring(0, 16) : 'Trending')}</span>
+                            </div>
+
+                            <!-- Title -->
+                            <h2 class="text-base font-bold text-zinc-100 group-hover:text-cyan-300 transition-colors leading-snug line-clamp-2 mb-2">
+                                ${escapeHTML(item.title)}
+                            </h2>
+
+                            <!-- Summary Snippet -->
+                            ${item.summary ? `
+                                <p class="text-xs text-zinc-400 line-clamp-3 leading-relaxed">
+                                    ${escapeHTML(item.summary)}
+                                </p>
+                            ` : ''}
+                        </div>
+                    </div>
+
+                    <!-- Subtle Footer -->
+                    <div class="px-5 pb-4 pt-2 flex items-center justify-between text-[11px] text-zinc-500 border-t border-zinc-800/40">
+                        <span class="flex items-center gap-1.5 text-zinc-400 group-hover:text-cyan-300 transition-colors font-medium">
+                            <span>Read article</span>
+                            <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                        </span>
+                        <span class="text-[10px] text-zinc-500 font-mono">Relevance: ${item.relevance_score}%</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function openStory(url) {
+        if (!url) return;
+        window.open(url, '_blank', 'noopener,noreferrer');
+    }
+
+    window.filterPulseCards = function() {
+        const query = document.getElementById('pulse-search-input').value.trim().toLowerCase();
+        if (!query) {
+            renderPulseCards(allPulseItems);
+            return;
+        }
+        const filtered = allPulseItems.filter(it => 
+            (it.title && it.title.toLowerCase().includes(query)) ||
+            (it.summary && it.summary.toLowerCase().includes(query)) ||
+            (it.source_name && it.source_name.toLowerCase().includes(query))
+        );
+        renderPulseCards(filtered);
+    };
+
+    window.selectPulseTopic = function(topicName) {
+        loadPulsePageFeed(topicName);
+    };
+
+    window.refreshPulseFeed = async function() {
+        const icon = document.getElementById('pulse-refresh-icon');
+        const btn = document.getElementById('pulse-refresh-btn');
+        if (icon) icon.classList.add('animate-spin');
+        if (btn) btn.disabled = true;
+
+        try {
+            await fetch('/api/pulse/refresh', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({})
+            });
+            await loadPulsePageFeed(activePulseTopic);
+        } catch (e) {
+            console.error('Pulse refresh failed:', e);
+        } finally {
+            if (icon) icon.classList.remove('animate-spin');
+            if (btn) btn.disabled = false;
+        }
+    };
+
+    window.dismissPulseItem = async function(itemId) {
+        const card = document.getElementById(`pulse-card-${itemId}`);
+        if (card) {
+            card.style.opacity = '0';
+            card.style.transform = 'scale(0.9)';
+            card.style.transition = 'all 0.25s ease';
+            setTimeout(() => card.remove(), 260);
+        }
+        try {
+            await fetch(`/api/pulse/${itemId}/dismiss`, { method: 'POST' });
+        } catch (e) {
+            console.error('Failed to dismiss pulse item:', e);
+        }
+    };
+
+    window.openPulseTopicsModal = function() {
+        const modal = document.getElementById('managePulseTopicsModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        renderPulseTopicsList();
+    };
+
+    window.closePulseTopicsModal = function() {
+        const modal = document.getElementById('managePulseTopicsModal');
+        modal.classList.remove('flex');
+        modal.classList.add('hidden');
+    };
+
+    window.renderPulseTopicsList = async function() {
+        const container = document.getElementById('pulse-topics-list-container');
+        try {
+            const res = await fetch('/api/pulse/topics');
+            const data = await res.json();
+            const topics = data.topics || [];
+            
+            if (topics.length === 0) {
+                container.innerHTML = `<div class="text-xs text-zinc-500 text-center py-2">No topics found.</div>`;
+                return;
+            }
+
+            container.innerHTML = topics.map(t => `
+                <div class="flex items-center justify-between p-2.5 bg-zinc-800/80 rounded-xl border border-zinc-700/60 text-xs">
+                    <div>
+                        <div class="font-semibold text-zinc-200">${escapeHTML(t.name)}</div>
+                        <div class="text-[10px] text-zinc-400 truncate max-w-[240px]">${escapeHTML(t.custom_feed_url || t.query_keywords)}</div>
+                    </div>
+                    ${t.name !== '✨ For You' ? `
+                        <button onclick="deletePulseTopic(${t.id})" class="text-zinc-500 hover:text-red-400 p-1.5 transition-colors">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    ` : '<span class="text-[10px] text-cyan-400 font-semibold px-2 py-0.5 bg-cyan-950/60 rounded border border-cyan-500/30">AI Profile</span>'}
+                </div>
+            `).join('');
+        } catch (e) {
+            container.innerHTML = `<div class="text-xs text-red-400 text-center py-2">Failed to load topics.</div>`;
+        }
+    };
+
+    window.submitNewPulseTopic = async function() {
+        const name = document.getElementById('new-pulse-topic-name').value.trim();
+        const keywords = document.getElementById('new-pulse-topic-keywords').value.trim();
+        const url = document.getElementById('new-pulse-topic-url').value.trim();
+
+        if (!name) {
+            alert('Please enter a topic name.');
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/pulse/topics/add', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ name, keywords, custom_url: url })
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                document.getElementById('new-pulse-topic-name').value = '';
+                document.getElementById('new-pulse-topic-keywords').value = '';
+                document.getElementById('new-pulse-topic-url').value = '';
+                renderPulseTopicsList();
+                loadPulsePageFeed(name);
+                closePulseTopicsModal();
+            } else {
+                alert(data.error || 'Failed to add topic.');
+            }
+        } catch (e) {
+            alert('Error adding topic: ' + e);
+        }
+    };
+
+    window.deletePulseTopic = async function(topicId) {
+        if (!confirm('Delete this topic feed?')) return;
+        try {
+            await fetch(`/api/pulse/topics/${topicId}/delete`, { method: 'POST' });
+            renderPulseTopicsList();
+            loadPulsePageFeed('✨ For You');
+        } catch (e) {
+            console.error('Failed to delete topic:', e);
+        }
+    };
+
+    window.autoDiscoverPulseTopics = async function(btn) {
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i><span>Analyzing Library & Synthesizing Feeds...</span>';
+        btn.disabled = true;
+        try {
+            const res = await fetch('/api/pulse/topics/auto-discover', { method: 'POST' });
+            const data = await res.json();
+            if (data.status === 'success') {
+                await renderPulseTopicsList();
+                await loadPulsePageFeed('✨ For You');
+                closePulseTopicsModal();
+            } else {
+                alert('Topic auto-discovery: ' + (data.error || 'Done'));
+            }
+        } catch (e) {
+            alert('AI Topic Auto-Discovery error: ' + e);
+        } finally {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
+    };
+
+    loadPulsePageFeed();
+</script>
+{% endblock %}

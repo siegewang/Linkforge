@@ -856,10 +856,13 @@ def auto_log_link():
                     master_on = settings.get("feature_smart_ingestion_master") != '0'
                     if master_on:
                         if settings.get("feature_yt_transcript_fetch") != '0':
-                            from services.scraper import fetch_youtube_transcript
-                            transcript = fetch_youtube_transcript(u)
-                            if transcript:
-                                conn.execute("UPDATE video_bookmarks SET transcript=? WHERE id=?", (transcript, v_id))
+                            import json
+                            from services.scraper import fetch_youtube_transcript_details
+                            t_data = fetch_youtube_transcript_details(u)
+                            transcript = t_data.get("text", "")
+                            segments = t_data.get("segments", [])
+                            if transcript or segments:
+                                conn.execute("UPDATE video_bookmarks SET transcript=?, transcript_json=? WHERE id=?", (transcript, json.dumps(segments) if segments else None, v_id))
                                 conn.execute("UPDATE links SET full_text=? WHERE url=?", (transcript, u))
                                 conn.commit()
                         if settings.get("feature_ai_auto_route") != '0':
@@ -1040,6 +1043,220 @@ Here are the links:
     except Exception as e:
         logger.error(f"AI Search Error: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+@links_bp.route("/api/ai/ask-library", methods=["POST"])
+def ask_library_rag():
+    """Unified Semantic RAG across links, video transcripts, and scratchpad notes."""
+    data = request.json or {}
+    query = data.get("query", "").strip()
+    if not query:
+        return jsonify({"error": "No question or query provided"}), 400
+
+    sources = data.get("sources", ["links", "videos", "notes"])
+    
+    conn = get_db()
+    conn.row_factory = sqlite3.Row
+    
+    # Check AI Config
+    settings = dict(conn.execute("SELECT key, value FROM settings WHERE key IN ('ai_api_key', 'ai_base_url', 'ai_model')").fetchall())
+    api_key = settings.get("ai_api_key", "").strip()
+    if not api_key:
+        return jsonify({"error": "AI not configured. Please add your API key in Settings or Admin."}), 400
+
+    base_url = settings.get("ai_base_url", "https://api.openai.com/v1").strip()
+    model = settings.get("ai_model", "gpt-4o-mini").strip()
+
+    import json
+    import re
+    query_keywords = [w.lower() for w in re.findall(r'\b\w+\b', query) if len(w) > 2]
+    
+    collected_candidates = []
+
+    # 1. Search Links / Articles
+    if "links" in sources:
+        links = conn.execute("SELECT id, title, description, tags, url, favicon, full_text FROM links").fetchall()
+        for l in links:
+            t_low = (l["title"] or "").lower()
+            d_low = (l["description"] or "").lower()
+            tags_low = (l["tags"] or "").lower()
+            ft_low = (l["full_text"] or "").lower()
+            
+            score = 0
+            for kw in query_keywords:
+                if kw in t_low: score += 20
+                if kw in tags_low: score += 12
+                if kw in d_low: score += 8
+                if kw in ft_low: score += 6
+                
+            if score > 0 or not query_keywords:
+                # Find best snippet
+                snippet = l["description"] or ""
+                if l["full_text"]:
+                    ft = l["full_text"]
+                    best_idx = -1
+                    for kw in query_keywords:
+                        idx = ft.lower().find(kw)
+                        if idx != -1:
+                            best_idx = idx
+                            break
+                    if best_idx != -1:
+                        start = max(0, best_idx - 60)
+                        end = min(len(ft), best_idx + 240)
+                        snippet = ("..." if start > 0 else "") + ft[start:end].strip() + "..."
+                
+                collected_candidates.append({
+                    "score": score,
+                    "type": "link",
+                    "id": l["id"],
+                    "title": l["title"] or "Untitled Link",
+                    "url": l["url"],
+                    "tags": l["tags"] or "",
+                    "snippet": snippet[:350]
+                })
+
+    # 2. Search Videos & Transcripts
+    if "videos" in sources:
+        videos = conn.execute("SELECT id, title, channel_name, tags, url, transcript, transcript_json, ai_chapters FROM video_bookmarks").fetchall()
+        for v in videos:
+            t_low = (v["title"] or "").lower()
+            c_low = (v["channel_name"] or "").lower()
+            tags_low = (v["tags"] or "").lower()
+            tr_low = (v["transcript"] or "").lower()
+            
+            score = 0
+            for kw in query_keywords:
+                if kw in t_low: score += 20
+                if kw in tags_low: score += 12
+                if kw in c_low: score += 10
+                if kw in tr_low: score += 8
+
+            if score > 0 or not query_keywords:
+                best_timestamp_str = ""
+                best_seconds = 0
+                snippet = v["title"] or ""
+                
+                # Check timestamped segments if available
+                if v["transcript_json"]:
+                    try:
+                        segs = json.loads(v["transcript_json"])
+                        for s in segs:
+                            s_text = s.get("text", "")
+                            if any(kw in s_text.lower() for kw in query_keywords):
+                                best_seconds = int(s.get("start", 0))
+                                m, s_rem = divmod(best_seconds, 60)
+                                h, m = divmod(m, 60)
+                                best_timestamp_str = f"{h:02d}:{m:02d}:{s_rem:02d}" if h > 0 else f"{m:02d}:{s_rem:02d}"
+                                snippet = s_text
+                                break
+                    except Exception:
+                        pass
+                
+                if not best_timestamp_str and v["transcript"]:
+                    tr = v["transcript"]
+                    best_idx = -1
+                    for kw in query_keywords:
+                        idx = tr.lower().find(kw)
+                        if idx != -1:
+                            best_idx = idx
+                            break
+                    if best_idx != -1:
+                        start = max(0, best_idx - 60)
+                        end = min(len(tr), best_idx + 240)
+                        snippet = ("..." if start > 0 else "") + tr[start:end].strip() + "..."
+                    else:
+                        snippet = tr[:250]
+
+                collected_candidates.append({
+                    "score": score,
+                    "type": "video",
+                    "id": v["id"],
+                    "title": v["title"] or "Untitled Video",
+                    "channel": v["channel_name"] or "YouTube",
+                    "url": v["url"],
+                    "timestamp": best_timestamp_str,
+                    "seconds": best_seconds,
+                    "tags": v["tags"] or "",
+                    "snippet": snippet[:350]
+                })
+
+    # 3. Search Scratchpad Notes
+    if "notes" in sources:
+        notes = conn.execute("SELECT id, content, category, date_added FROM notes").fetchall()
+        for n in notes:
+            c_low = (n["content"] or "").lower()
+            score = 0
+            for kw in query_keywords:
+                if kw in c_low: score += 15
+            if score > 0:
+                collected_candidates.append({
+                    "score": score,
+                    "type": "note",
+                    "id": n["id"],
+                    "title": f"Scratchpad Note #{n['id']}",
+                    "content": n["content"],
+                    "category": n["category"] or "note",
+                    "snippet": (n["content"] or "")[:300]
+                })
+
+    # Sort candidates by relevance
+    collected_candidates.sort(key=lambda x: x["score"], reverse=True)
+    top_candidates = collected_candidates[:12]
+
+    if not top_candidates:
+        return jsonify({
+            "status": "success",
+            "answer": f"I searched your library for **\"{query}\"**, but couldn't find any matching articles, video transcripts, or scratchpad notes. Try adding related bookmarks or videos first!",
+            "sources": []
+        })
+
+    # Build RAG Context Block
+    context_lines = []
+    for idx, c in enumerate(top_candidates, 1):
+        if c["type"] == "link":
+            context_lines.append(f"[Source {idx} - Article] Title: {c['title']} | URL: {c['url']} | Tags: {c['tags']}\nContent Excerpt: {c['snippet']}")
+        elif c["type"] == "video":
+            ts_info = f" at {c['timestamp']}" if c.get("timestamp") else ""
+            context_lines.append(f"[Source {idx} - Video] Title: {c['title']} | Channel: {c.get('channel', 'YouTube')} | URL: {c['url']}{ts_info}\nSpoken Dialogue / Excerpt: {c['snippet']}")
+        elif c["type"] == "note":
+            context_lines.append(f"[Source {idx} - Scratchpad Note] Content: {c.get('content', '')}")
+
+    context_payload = "\n\n".join(context_lines)
+
+    system_prompt = """You are LinkForge AI, an intelligent personal knowledge assistant.
+Answer the user's question accurately using ONLY the provided knowledge sources from their library.
+Formatting Rules:
+1. Structure your answer using clear Markdown (bullet points, bold highlights, code blocks when applicable).
+2. Always ground your facts in the sources and cite them using clickable markdown links:
+   - For articles: [Article Title](URL)
+   - For videos: [Video Title (at MM:SS)](URL#t=SECONDS) or just [Video Title](URL)
+   - For notes: [Scratchpad Note #ID]
+3. Keep the tone helpful, direct, and concise."""
+
+    user_prompt = f"""User Question: {query}
+
+Knowledge Base Sources:
+{context_payload}"""
+
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key, base_url=base_url)
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ]
+        )
+        answer = response.choices[0].message.content
+        return jsonify({
+            "status": "success",
+            "answer": answer,
+            "sources": top_candidates[:6]
+        })
+    except Exception as e:
+        logger.error(f"Ask Library RAG Error: {e}")
+        return jsonify({"error": f"AI synthesis failed: {str(e)}"}), 500
 
 @links_bp.route("/api/links/find-mirrors", methods=["POST"])
 def api_find_mirrors():

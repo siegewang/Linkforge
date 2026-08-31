@@ -16,9 +16,14 @@ logger = logging.getLogger(__name__)
 
 from services.backup import start_backup_scheduler
 
+from werkzeug.middleware.proxy_fix import ProxyFix
+
 def create_app():
     app = Flask(__name__, template_folder='templates', static_folder='static')
     app.config.from_object(Config)
+
+    # Trust reverse proxy / Cloudflare Tunnel headers for HTTPS and client IPs
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
     # Initialize Database and teardown callbacks
     init_db(app)

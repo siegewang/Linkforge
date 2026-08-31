@@ -7,8 +7,12 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="LinkForge">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png">
+    <link rel="shortcut icon" href="/static/favicon.ico">
+    <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
     <link rel="manifest" href="/static/manifest.json">
-    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
     <title>{% block title %}LinkForge{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -69,6 +73,30 @@
                     <a href="/videos" class="px-4 py-3.5 rounded-xl border text-sm font-medium transition-all flex items-center gap-3 shadow-sm group {% if active_page == 'videos' %}bg-zinc-800 border-zinc-700 text-white{% else %}bg-zinc-900/40 hover:bg-zinc-800 border-zinc-800/60 text-zinc-400 hover:text-white{% endif %}">
                         <i class="fa-solid fa-clapperboard text-rose-400 w-5 text-center group-hover:scale-110 transition-transform"></i> Video Library
                     </a>
+
+                    <a href="/pulse" class="px-4 py-3.5 rounded-xl border text-sm font-medium transition-all flex items-center justify-between shadow-sm group {% if active_page == 'pulse' %}bg-zinc-800 border-cyan-500/50 text-cyan-200 shadow-cyan-950/30{% else %}bg-zinc-900/40 hover:bg-zinc-800 border-zinc-800/60 text-zinc-400 hover:text-white{% endif %}">
+                        <span class="flex items-center gap-3">
+                            <i class="fa-solid fa-bolt-lightning text-cyan-400 w-5 text-center group-hover:scale-110 transition-transform"></i>
+                            <span>LinkForge Pulse</span>
+                        </span>
+                        <span class="text-[9px] font-bold bg-cyan-950/80 text-cyan-300 px-1.5 py-0.5 rounded-full border border-cyan-500/30 tracking-wider uppercase">Live</span>
+                    </a>
+
+                    <a href="/books" class="px-4 py-3.5 rounded-xl border text-sm font-medium transition-all flex items-center justify-between shadow-sm group {% if active_page == 'books' %}bg-zinc-800 border-emerald-500/50 text-emerald-200 shadow-emerald-950/30{% else %}bg-zinc-900/40 hover:bg-zinc-800 border-zinc-800/60 text-zinc-400 hover:text-white{% endif %}">
+                        <span class="flex items-center gap-3">
+                            <i class="fa-solid fa-book-bookmark text-emerald-400 w-5 text-center group-hover:scale-110 transition-transform"></i>
+                            <span>Book Vault</span>
+                        </span>
+                        <span class="text-[9px] font-bold bg-emerald-950/80 text-emerald-300 px-1.5 py-0.5 rounded-full border border-emerald-500/30 tracking-wider uppercase">Books</span>
+                    </a>
+
+                    <button onclick="openAskLibraryModal()" type="button" class="px-4 py-3.5 rounded-xl border border-purple-500/40 bg-gradient-to-r from-purple-950/40 via-zinc-900/50 to-purple-950/30 text-purple-200 hover:text-white text-sm font-semibold transition-all flex items-center justify-between shadow-lg shadow-purple-950/20 group hover:border-purple-500/70 hover:shadow-purple-900/40">
+                        <span class="flex items-center gap-3">
+                            <i class="fa-solid fa-brain text-purple-400 w-5 text-center group-hover:scale-110 transition-transform animate-pulse"></i>
+                            <span>Ask Library AI</span>
+                        </span>
+                        <span class="text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded border border-purple-500/30 font-mono">⌘K</span>
+                    </button>
                     <div class="h-px bg-zinc-800/50 my-2 mx-2"></div>
                     
                     <a href="/admin" class="px-4 py-3.5 rounded-xl border text-sm font-medium transition-all flex items-center gap-3 shadow-sm group {% if active_page == 'admin' %}bg-zinc-800 border-zinc-700 text-white{% else %}bg-zinc-900/40 hover:bg-zinc-800 border-zinc-800/60 text-zinc-400 hover:text-white{% endif %}">
@@ -320,7 +348,334 @@
                     .catch(err => console.debug('ServiceWorker registration skipped/failed:', err));
             });
         }
+
+        // --- Ask Library AI (Neural RAG) Engine ---
+        let selectedRAGSources = new Set(['links', 'videos', 'notes']);
+
+        window.openAskLibraryModal = function(initialQuery = '') {
+            const modal = document.getElementById('askLibraryModal');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            const input = document.getElementById('rag-query-input');
+            if (initialQuery) {
+                input.value = initialQuery;
+                window.submitAskLibrary();
+            } else {
+                setTimeout(() => input.focus(), 50);
+            }
+        };
+
+        window.closeAskLibraryModal = function() {
+            const modal = document.getElementById('askLibraryModal');
+            if (modal) {
+                modal.classList.remove('flex');
+                modal.classList.add('hidden');
+            }
+        };
+
+        window.toggleRAGSource = function(src) {
+            const btn = document.getElementById(`rag-src-${src}`);
+            if (selectedRAGSources.has(src)) {
+                if (selectedRAGSources.size > 1) {
+                    selectedRAGSources.delete(src);
+                    if (btn) btn.classList.replace('bg-purple-950/80', 'bg-zinc-900/60');
+                    if (btn) btn.classList.replace('text-purple-300', 'text-zinc-500');
+                    if (btn) btn.classList.replace('border-purple-600/60', 'border-zinc-800');
+                }
+            } else {
+                selectedRAGSources.add(src);
+                if (btn) btn.classList.replace('bg-zinc-900/60', 'bg-purple-950/80');
+                if (btn) btn.classList.replace('text-zinc-500', 'text-purple-300');
+                if (btn) btn.classList.replace('border-zinc-800', 'border-purple-600/60');
+            }
+        };
+
+        window.quickAskPrompt = function(promptText) {
+            document.getElementById('rag-query-input').value = promptText;
+            window.submitAskLibrary();
+        };
+
+        function renderMarkdownSimple(md) {
+            if (!md) return '';
+            let html = md
+                .replace(/^### (.*$)/gim, '<h4 class="text-sm font-bold text-purple-300 mt-3 mb-1">$1</h4>')
+                .replace(/^## (.*$)/gim, '<h3 class="text-base font-bold text-purple-200 mt-4 mb-1.5">$1</h3>')
+                .replace(/^# (.*$)/gim, '<h2 class="text-lg font-bold text-white mt-4 mb-2">$1</h2>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong class="text-zinc-100 font-semibold">$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em class="text-zinc-300">$1</em>')
+                .replace(/`([^`]+)`/g, '<code class="bg-zinc-900 text-purple-300 px-1.5 py-0.5 rounded text-xs font-mono border border-zinc-800">$1</code>')
+                .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="text-cyan-400 hover:text-cyan-300 underline underline-offset-2 font-medium transition-colors inline-flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>$1</a>')
+                .replace(/^\s*[\-\*]\s+(.*)$/gim, '<li class="text-xs text-zinc-300 ml-4 list-disc my-1 leading-relaxed">$1</li>')
+                .replace(/^\s*\d+\.\s+(.*)$/gim, '<li class="text-xs text-zinc-300 ml-4 list-decimal my-1 leading-relaxed">$1</li>');
+
+            return html.replace(/\n\n/g, '<div class="h-2.5"></div>');
+        }
+
+        window.submitAskLibrary = async function() {
+            const input = document.getElementById('rag-query-input');
+            const query = (input.value || '').trim();
+            if (!query) return;
+
+            const responseBox = document.getElementById('rag-response-box');
+            const sourcesContainer = document.getElementById('rag-sources-container');
+            const emptyState = document.getElementById('rag-empty-state');
+            const loadingState = document.getElementById('rag-loading-state');
+            const answerContent = document.getElementById('rag-answer-content');
+
+            emptyState.classList.add('hidden');
+            responseBox.classList.remove('hidden');
+            loadingState.classList.remove('hidden');
+            answerContent.innerHTML = '';
+            sourcesContainer.innerHTML = '';
+
+            try {
+                const res = await fetch('/api/ai/ask-library', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        query: query,
+                        sources: Array.from(selectedRAGSources)
+                    })
+                });
+                const data = await res.json();
+                loadingState.classList.add('hidden');
+
+                if (!res.ok || data.error) {
+                    answerContent.innerHTML = `<div class="p-4 bg-rose-950/40 border border-rose-800/60 rounded-xl text-rose-300 text-xs flex items-start gap-2">
+                        <i class="fa-solid fa-circle-exclamation mt-0.5 flex-shrink-0"></i>
+                        <div>
+                            <strong>Unable to process query:</strong>
+                            <p class="mt-1">${escapeHTML(data.error || 'Unknown error occurred')}</p>
+                            <p class="mt-1 text-[11px] text-zinc-400">Make sure your AI API key is configured in <a href="/settings" class="text-cyan-400 underline">Settings</a> or <a href="/admin" class="text-cyan-400 underline">Admin</a>.</p>
+                        </div>
+                    </div>`;
+                    return;
+                }
+
+                // Render answer
+                answerContent.innerHTML = renderMarkdownSimple(data.answer);
+
+                // Render sources / citations
+                if (data.sources && data.sources.length > 0) {
+                    sourcesContainer.innerHTML = `
+                        <div class="mt-4 pt-4 border-t border-zinc-800/80">
+                            <h4 class="text-[11px] uppercase tracking-wider font-bold text-zinc-400 mb-2.5 flex items-center gap-1.5">
+                                <i class="fa-solid fa-quote-left text-purple-400 text-xs"></i> Grounded Sources Cited (${data.sources.length})
+                            </h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                ${data.sources.map(s => {
+                                    if (s.type === 'video') {
+                                        const tsParam = s.seconds ? `?t=${s.seconds}` : '';
+                                        return `
+                                        <a href="${escapeHTML(s.url + tsParam)}" target="_blank" class="p-2.5 bg-zinc-950/70 hover:bg-zinc-900 border border-zinc-800/80 hover:border-rose-500/40 rounded-xl transition-all flex items-start gap-2.5 group">
+                                            <div class="w-7 h-7 rounded-lg bg-rose-600/20 border border-rose-500/30 flex items-center justify-center text-rose-400 text-xs flex-shrink-0 mt-0.5">
+                                                <i class="fa-brands fa-youtube"></i>
+                                            </div>
+                                            <div class="min-w-0 flex-1">
+                                                <div class="flex items-center justify-between gap-1">
+                                                    <span class="text-xs font-medium text-zinc-200 group-hover:text-cyan-300 truncate">${escapeHTML(s.title)}</span>
+                                                    ${s.timestamp ? `<span class="text-[10px] bg-rose-950/80 text-rose-300 border border-rose-800 px-1.5 py-0.2 rounded font-mono font-bold flex-shrink-0">▶ ${escapeHTML(s.timestamp)}</span>` : ''}
+                                                </div>
+                                                <p class="text-[11px] text-zinc-500 truncate mt-0.5">${escapeHTML(s.channel || 'Video')}</p>
+                                                ${s.snippet ? `<p class="text-[10px] text-zinc-400 italic line-clamp-1 mt-1 font-mono">${escapeHTML(s.snippet)}</p>` : ''}
+                                            </div>
+                                        </a>`;
+                                    } else if (s.type === 'note') {
+                                        return `
+                                        <a href="/notes" class="p-2.5 bg-zinc-950/70 hover:bg-zinc-900 border border-zinc-800/80 hover:border-amber-500/40 rounded-xl transition-all flex items-start gap-2.5 group">
+                                            <div class="w-7 h-7 rounded-lg bg-amber-600/20 border border-amber-500/30 flex items-center justify-center text-amber-300 text-xs flex-shrink-0 mt-0.5">
+                                                <i class="fa-solid fa-note-sticky"></i>
+                                            </div>
+                                            <div class="min-w-0 flex-1">
+                                                <span class="text-xs font-medium text-zinc-200 group-hover:text-amber-300 truncate block">${escapeHTML(s.title)}</span>
+                                                <p class="text-[10px] text-zinc-400 line-clamp-2 mt-0.5">${escapeHTML(s.content || s.snippet)}</p>
+                                            </div>
+                                        </a>`;
+                                    } else {
+                                        return `
+                                        <a href="${escapeHTML(s.url)}" target="_blank" class="p-2.5 bg-zinc-950/70 hover:bg-zinc-900 border border-zinc-800/80 hover:border-cyan-500/40 rounded-xl transition-all flex items-start gap-2.5 group">
+                                            <div class="w-7 h-7 rounded-lg bg-cyan-600/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xs flex-shrink-0 mt-0.5">
+                                                <i class="fa-solid fa-link"></i>
+                                            </div>
+                                            <div class="min-w-0 flex-1">
+                                                <span class="text-xs font-medium text-zinc-200 group-hover:text-cyan-300 truncate block">${escapeHTML(s.title)}</span>
+                                                <p class="text-[11px] text-zinc-500 truncate mt-0.5">${escapeHTML(s.url)}</p>
+                                                ${s.snippet ? `<p class="text-[10px] text-zinc-400 line-clamp-1 mt-1 font-mono">${escapeHTML(s.snippet)}</p>` : ''}
+                                            </div>
+                                        </a>`;
+                                    }
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+
+            } catch(e) {
+                loadingState.classList.add('hidden');
+                answerContent.innerHTML = `<div class="text-xs text-rose-400 p-4 bg-rose-950/30 rounded-xl border border-rose-900/50">Error reaching server: ${escapeHTML(e.toString())}</div>`;
+            }
+        };
+
+        window.copyRAGAnswer = function() {
+            const content = document.getElementById('rag-answer-content').innerText;
+            if (content) {
+                navigator.clipboard.writeText(content);
+                const btn = document.getElementById('btn-rag-copy');
+                if (btn) {
+                    btn.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i> Copied!';
+                    setTimeout(() => btn.innerHTML = '<i class="fa-regular fa-copy"></i> Copy', 2000);
+                }
+            }
+        };
+
+        // Global Keyboard Shortcut: Cmd+K / Ctrl+K
+        document.addEventListener('keydown', (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                const modal = document.getElementById('askLibraryModal');
+                if (modal && !modal.classList.contains('hidden')) {
+                    window.closeAskLibraryModal();
+                } else {
+                    window.openAskLibraryModal();
+                }
+            } else if (e.key === 'Escape') {
+                window.closeAskLibraryModal();
+                closeModal();
+            }
+        });
     </script>
+
+    <!-- Global "Ask Library AI" (Semantic RAG) Modal -->
+    <div id="askLibraryModal" class="fixed inset-0 bg-black/85 hidden items-center justify-center p-4 z-50 backdrop-blur-md transition-all">
+        <div class="bg-zinc-900/95 border border-purple-800/60 rounded-3xl w-full max-w-3xl shadow-[0_0_50px_rgba(168,85,247,0.15)] flex flex-col max-h-[90vh] overflow-hidden">
+            <!-- Modal Header / Search Bar -->
+            <div class="p-5 border-b border-zinc-800/80 bg-zinc-950/40">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-400 text-sm">
+                            <i class="fa-solid fa-brain"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                Ask Your Library
+                                <span class="text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded-full font-mono font-bold">Neural RAG</span>
+                            </h3>
+                            <p class="text-[11px] text-zinc-400">Synthesizes answers across articles, video transcripts, and notes with citations.</p>
+                        </div>
+                    </div>
+                    <button onclick="closeAskLibraryModal()" class="w-8 h-8 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center transition-colors">
+                        <i class="fa-solid fa-xmark text-sm"></i>
+                    </button>
+                </div>
+
+                <!-- Input Field -->
+                <div class="relative flex items-center mt-2">
+                    <i class="fa-solid fa-wand-magic-sparkles absolute left-4 text-purple-400 text-sm"></i>
+                    <input id="rag-query-input" type="text"
+                           placeholder="Ask anything (e.g. 'How do I optimize Docker build speeds?' or 'Summarize my saved video on Next.js')..."
+                           class="w-full bg-zinc-950/90 border border-purple-900/50 rounded-2xl py-3.5 pl-11 pr-24 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 shadow-inner"
+                           onkeydown="if(event.key === 'Enter') submitAskLibrary()">
+                    <div class="absolute right-2.5 flex items-center gap-1.5">
+                        <button onclick="submitAskLibrary()" class="px-3.5 py-2 bg-purple-600 hover:bg-purple-500 active:scale-95 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-purple-900/40 flex items-center gap-1">
+                            Ask <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Source Filter Pills -->
+                <div class="flex items-center justify-between gap-2 mt-3 pt-2 text-xs flex-wrap">
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-[11px] text-zinc-500 font-medium mr-1">Search in:</span>
+                        <button onclick="toggleRAGSource('links')" id="rag-src-links" class="px-2.5 py-1 rounded-lg text-[11px] font-medium border bg-purple-950/80 text-purple-300 border-purple-600/60 transition-all flex items-center gap-1.5">
+                            <i class="fa-solid fa-link text-[10px]"></i> Articles
+                        </button>
+                        <button onclick="toggleRAGSource('videos')" id="rag-src-videos" class="px-2.5 py-1 rounded-lg text-[11px] font-medium border bg-purple-950/80 text-purple-300 border-purple-600/60 transition-all flex items-center gap-1.5">
+                            <i class="fa-brands fa-youtube text-[10px] text-rose-400"></i> Video Transcripts
+                        </button>
+                        <button onclick="toggleRAGSource('notes')" id="rag-src-notes" class="px-2.5 py-1 rounded-lg text-[11px] font-medium border bg-purple-950/80 text-purple-300 border-purple-600/60 transition-all flex items-center gap-1.5">
+                            <i class="fa-solid fa-note-sticky text-[10px] text-amber-300"></i> Scratchpad
+                        </button>
+                    </div>
+                    <span class="text-[10px] text-zinc-500 font-mono hidden sm:inline">Press Enter ↵</span>
+                </div>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="p-6 overflow-y-auto custom-scroll flex-1 space-y-4">
+                <!-- Initial Empty State / Suggestion Chips -->
+                <div id="rag-empty-state" class="text-center py-8 space-y-4">
+                    <div class="w-12 h-12 mx-auto rounded-2xl bg-purple-950/60 border border-purple-800/40 flex items-center justify-center text-purple-400 text-xl shadow-inner">
+                        <i class="fa-solid fa-lightbulb"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-semibold text-zinc-200">Explore Your Stored Knowledge</h4>
+                        <p class="text-xs text-zinc-400 mt-0.5">Click any suggested query below or type your own question.</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2 justify-center max-w-lg mx-auto pt-2">
+                        <button onclick="quickAskPrompt('What are the key concepts from my saved tutorials?')" class="px-3 py-1.5 bg-zinc-950/60 hover:bg-zinc-800 border border-zinc-800 hover:border-purple-500/50 rounded-xl text-xs text-zinc-300 transition-colors">
+                            💡 "Key concepts from saved tutorials"
+                        </button>
+                        <button onclick="quickAskPrompt('Summarize what my saved videos talk about')" class="px-3 py-1.5 bg-zinc-950/60 hover:bg-zinc-800 border border-zinc-800 hover:border-purple-500/50 rounded-xl text-xs text-zinc-300 transition-colors">
+                            🎬 "Summarize my saved videos"
+                        </button>
+                        <button onclick="quickAskPrompt('What tools or software did I bookmark recently?')" class="px-3 py-1.5 bg-zinc-950/60 hover:bg-zinc-800 border border-zinc-800 hover:border-purple-500/50 rounded-xl text-xs text-zinc-300 transition-colors">
+                            🔗 "Recent tools & software bookmarked"
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Result Box -->
+                <div id="rag-response-box" class="hidden space-y-4">
+                    <!-- Loading state -->
+                    <div id="rag-loading-state" class="p-6 bg-zinc-950/60 rounded-2xl border border-purple-900/30 flex items-center gap-3 animate-pulse">
+                        <i class="fa-solid fa-spinner fa-spin text-purple-400 text-lg"></i>
+                        <span class="text-xs text-zinc-300 font-medium">Scanning articles, transcribing dialogues, and synthesizing answer...</span>
+                    </div>
+
+                    <!-- AI Answer Card -->
+                    <div class="p-5 bg-gradient-to-b from-purple-950/20 via-zinc-950/60 to-zinc-950/60 border border-purple-800/40 rounded-2xl shadow-xl">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-purple-400 animate-ping"></span>
+                                <span class="text-xs font-bold uppercase tracking-wider text-purple-300">Synthesized Answer</span>
+                            </div>
+                            <button id="btn-rag-copy" onclick="copyRAGAnswer()" class="text-xs text-zinc-400 hover:text-zinc-200 transition-colors flex items-center gap-1 px-2 py-1 rounded bg-zinc-900 border border-zinc-800">
+                                <i class="fa-regular fa-copy"></i> Copy
+                            </button>
+                        </div>
+                        <div id="rag-answer-content" class="text-xs text-zinc-200 leading-relaxed font-sans prose-invert"></div>
+                    </div>
+
+                    <!-- Sources List -->
+                    <div id="rag-sources-container"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Bottom Navigation Bar (Visible on mobile/tablets < lg) -->
+    <nav id="mobile-bottom-nav" class="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur-lg border-t border-zinc-800/80 px-2 py-2 flex items-center justify-around shadow-[0_-10px_25px_rgba(0,0,0,0.5)]">
+        <a href="/" class="flex flex-col items-center gap-1 py-1 px-2 rounded-xl text-center {% if active_page == 'home' %}text-amber-400 font-semibold{% else %}text-zinc-400 hover:text-white{% endif %} transition-colors">
+            <i class="fa-solid fa-house text-base"></i>
+            <span class="text-[10px]">Home</span>
+        </a>
+        <a href="/bookmarks" class="flex flex-col items-center gap-1 py-1 px-2 rounded-xl text-center {% if active_page == 'bookmarks' %}text-cyan-400 font-semibold{% else %}text-zinc-400 hover:text-white{% endif %} transition-colors">
+            <i class="fa-solid fa-network-wired text-base"></i>
+            <span class="text-[10px]">Links</span>
+        </a>
+        <button onclick="openAskLibraryModal()" type="button" class="flex flex-col items-center justify-center -mt-5 w-12 h-12 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.5)] border-2 border-zinc-900 active:scale-95 transition-transform" title="Ask Library AI">
+            <i class="fa-solid fa-brain text-lg"></i>
+        </button>
+        <a href="/videos" class="flex flex-col items-center gap-1 py-1 px-2 rounded-xl text-center {% if active_page == 'videos' %}text-rose-400 font-semibold{% else %}text-zinc-400 hover:text-white{% endif %} transition-colors">
+            <i class="fa-solid fa-clapperboard text-base"></i>
+            <span class="text-[10px]">Videos</span>
+        </a>
+        <a href="/notes" class="flex flex-col items-center gap-1 py-1 px-2 rounded-xl text-center {% if active_page == 'notes' %}text-amber-300 font-semibold{% else %}text-zinc-400 hover:text-white{% endif %} transition-colors">
+            <i class="fa-solid fa-note-sticky text-base"></i>
+            <span class="text-[10px]">Notes</span>
+        </a>
+    </nav>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

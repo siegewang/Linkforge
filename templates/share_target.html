@@ -1,0 +1,75 @@
+﻿{% extends 'base.html' %}
+
+{% block title %}Link Captured — LinkForge{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto my-8 p-6 bg-zinc-900/60 border border-zinc-800 rounded-3xl shadow-2xl backdrop-blur-md">
+    <div class="text-center mb-6">
+        <div class="w-16 h-16 mx-auto rounded-2xl {% if item_type == 'video' %}bg-rose-500/20 text-rose-400 border border-rose-500/30{% elif item_type == 'note' %}bg-amber-500/20 text-amber-300 border border-amber-500/30{% else %}bg-cyan-500/20 text-cyan-400 border border-cyan-500/30{% endif %} flex items-center justify-center text-2xl shadow-lg mb-4">
+            {% if item_type == 'video' %}
+                <i class="fa-brands fa-youtube"></i>
+            {% elif item_type == 'note' %}
+                <i class="fa-solid fa-note-sticky"></i>
+            {% else %}
+                <i class="fa-solid fa-cloud-arrow-down"></i>
+            {% endif %}
+        </div>
+        <h2 class="text-xl font-bold text-zinc-100">
+            {% if item_type == 'video' %}
+                Captured to Video Library!
+            {% elif item_type == 'note' %}
+                Saved to Scratchpad!
+            {% else %}
+                Captured to Neural Links!
+            {% endif %}
+        </h2>
+        <p class="text-xs text-zinc-400 mt-1">Smart ingestion pipeline is running in the background.</p>
+    </div>
+
+    <div class="bg-zinc-950/70 border border-zinc-800/80 rounded-2xl p-4 mb-6 space-y-3">
+        {% if item_thumb %}
+        <div class="w-full h-40 rounded-xl overflow-hidden mb-2">
+            <img src="{{ item_thumb }}" class="w-full h-full object-cover" onerror="this.parentElement.style.display='none'">
+        </div>
+        {% endif %}
+
+        <div>
+            <h3 class="text-sm font-semibold text-zinc-200 line-clamp-2">{{ item_title or 'Untitled Ingestion' }}</h3>
+            {% if item_channel %}
+            <p class="text-xs text-zinc-500 mt-0.5"><i class="fa-brands fa-youtube text-rose-500 mr-1"></i>{{ item_channel }}</p>
+            {% endif %}
+            {% if item_url %}
+            <p class="text-[11px] text-zinc-500 font-mono truncate mt-1">{{ item_url }}</p>
+            {% endif %}
+            {% if item_content %}
+            <p class="text-xs text-zinc-300 italic mt-2 whitespace-pre-line bg-zinc-900 p-3 rounded-xl border border-zinc-800">{{ item_content }}</p>
+            {% endif %}
+        </div>
+        
+        <div class="flex items-center gap-2 pt-2 text-[11px] text-emerald-400">
+            <i class="fa-solid fa-circle-check"></i>
+            <span>Metadata & full text cached for offline search</span>
+        </div>
+    </div>
+
+    <div class="flex flex-col sm:flex-row gap-3">
+        {% if item_type == 'video' %}
+        <a href="/videos" class="flex-1 py-3 px-4 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl text-center transition-all shadow-lg shadow-rose-900/30 flex items-center justify-center gap-2">
+            <i class="fa-solid fa-clapperboard"></i> Open Video Library
+        </a>
+        {% elif item_type == 'note' %}
+        <a href="/notes" class="flex-1 py-3 px-4 bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold rounded-xl text-center transition-all shadow-lg flex items-center justify-center gap-2">
+            <i class="fa-solid fa-note-sticky"></i> Open Scratchpad
+        </a>
+        {% else %}
+        <a href="/bookmarks" class="flex-1 py-3 px-4 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded-xl text-center transition-all shadow-lg shadow-cyan-900/30 flex items-center justify-center gap-2">
+            <i class="fa-solid fa-network-wired"></i> Open Neural Links
+        </a>
+        {% endif %}
+        
+        <a href="/" class="flex-1 py-3 px-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium rounded-xl text-center transition-all flex items-center justify-center gap-2">
+            <i class="fa-solid fa-house"></i> Home Dashboard
+        </a>
+    </div>
+</div>
+{% endblock %}

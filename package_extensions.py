@@ -27,11 +27,16 @@ def create_zip(zip_path, is_chrome):
                             del m["content_security_policy"]
                     else:
                         m["background"] = {"scripts": ["background.js"]}
-                        # Add a fake ID for Firefox so it can be installed from zip
+                        # Add gecko configuration required by Mozilla AMO validation
                         m["browser_specific_settings"] = {
                             "gecko": {
                                 "id": "passive-memory@dashforge.local",
-                                "strict_min_version": "109.0"
+                                "strict_min_version": "140.0",
+                                "data_collection_permissions": {
+                                    "required": [
+                                        "none"
+                                    ]
+                                }
                             }
                         }
                     

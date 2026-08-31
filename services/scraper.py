@@ -156,10 +156,14 @@ def fetch_full_article_text(url: str, html_content: str = None) -> str:
         return ""
 
 
-def fetch_youtube_transcript(url: str) -> str:
-    """Extract closed captions / transcript text from a YouTube video URL."""
+def fetch_youtube_transcript_details(url: str) -> dict:
+    """Extract closed captions / transcript text along with timestamped segments from a YouTube video URL."""
     try:
         from urllib.parse import parse_qs, urlparse
+        import json
+        import re
+        import requests
+        import xml.etree.ElementTree as ET
         
         # Extract video ID
         vid_id = None
@@ -170,18 +174,120 @@ def fetch_youtube_transcript(url: str) -> str:
             vid_id = query.get("v", [None])[0]
             
         if not vid_id:
-            return ""
-            
+            return {"text": "", "segments": [], "error": "invalid_url", "error_msg": "Invalid YouTube URL."}
+
+        # Strategy 1: YouTubeTranscriptApi
         try:
             from youtube_transcript_api import YouTubeTranscriptApi
             transcript_list = YouTubeTranscriptApi().fetch(vid_id)
-            chunks = [t.text for t in transcript_list if getattr(t, 'text', None)]
-            if chunks:
-                return " ".join(chunks)[:15000]
-        except Exception as api_err:
-            logger.debug(f"YouTubeTranscriptApi failed for {vid_id}, falling back: {api_err}")
+            segments = []
+            text_chunks = []
             
-        return ""
+            for item in transcript_list:
+                if isinstance(item, dict):
+                    t_text = item.get('text', '').strip()
+                    t_start = float(item.get('start', 0.0))
+                    t_dur = float(item.get('duration', 0.0))
+                else:
+                    t_text = getattr(item, 'text', '').strip()
+                    t_start = float(getattr(item, 'start', 0.0))
+                    t_dur = float(getattr(item, 'duration', 0.0))
+                    
+                if t_text:
+                    segments.append({
+                        "start": round(t_start, 2),
+                        "duration": round(t_dur, 2),
+                        "text": t_text
+                    })
+                    text_chunks.append(t_text)
+                    
+            if segments:
+                full_text = " ".join(text_chunks)[:25000]
+                return {"text": full_text, "segments": segments, "status": "success"}
+        except Exception as api_err:
+            err_str = str(api_err).lower()
+            logger.debug(f"YouTubeTranscriptApi attempt failed for {vid_id}: {api_err}")
+            if "ipblocked" in err_str or "too many requests" in err_str or "rate" in err_str:
+                rate_limited = True
+            else:
+                rate_limited = False
+
+        # Strategy 2: Direct YouTube Page captionTracks & timedtext extraction
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                'Accept-Language': 'en-US,en;q=0.9',
+            }
+            watch_url = f"https://www.youtube.com/watch?v={vid_id}"
+            r = requests.get(watch_url, headers=headers, timeout=8)
+            if r.status_code == 200:
+                match = re.search(r'"captionTracks":(\[.*?\])', r.text)
+                if match:
+                    caption_tracks = json.loads(match.group(1))
+                    chosen_track = None
+                    for tr in caption_tracks:
+                        code = tr.get("languageCode", "").lower()
+                        if "en" in code:
+                            chosen_track = tr
+                            break
+                    if not chosen_track and caption_tracks:
+                        chosen_track = caption_tracks[0]
+
+                    if chosen_track and chosen_track.get("baseUrl"):
+                        base_url = chosen_track["baseUrl"]
+                        # Try xml or json3
+                        t_resp = requests.get(base_url, headers=headers, timeout=8)
+                        if t_resp.status_code == 200 and "<transcript>" in t_resp.text:
+                            root = ET.fromstring(t_resp.text)
+                            segments = []
+                            text_chunks = []
+                            for text_elem in root.findall("text"):
+                                start = float(text_elem.get("start", 0))
+                                dur = float(text_elem.get("dur", 0))
+                                t = text_elem.text or ""
+                                t = re.sub(r'&#39;', "'", t)
+                                t = re.sub(r'&amp;', "&", t)
+                                t = re.sub(r'&quot;', '"', t)
+                                t = re.sub(r'\s+', ' ', t).strip()
+                                if t:
+                                    segments.append({
+                                        "start": round(start, 2),
+                                        "duration": round(dur, 2),
+                                        "text": t
+                                    })
+                                    text_chunks.append(t)
+                            if segments:
+                                return {
+                                    "text": " ".join(text_chunks)[:25000],
+                                    "segments": segments,
+                                    "status": "success"
+                                }
+                        elif t_resp.status_code == 429:
+                            rate_limited = True
+        except Exception as direct_err:
+            logger.debug(f"Direct captionTracks extraction failed for {vid_id}: {direct_err}")
+
+        if rate_limited:
+            return {
+                "text": "",
+                "segments": [],
+                "error": "rate_limited",
+                "error_msg": "YouTube temporarily rate-limited automated caption extraction for this IP (HTTP 429). The video is still playable; try refreshing in a few moments."
+            }
+
+        return {
+            "text": "",
+            "segments": [],
+            "error": "no_transcript",
+            "error_msg": "No closed captions or auto-generated transcripts were found for this video on YouTube."
+        }
     except Exception as e:
         logger.debug(f"YouTube transcript extraction error for {url}: {e}")
-        return ""
+        return {"text": "", "segments": [], "error": "unknown", "error_msg": str(e)}
+
+
+def fetch_youtube_transcript(url: str) -> str:
+    """Extract closed captions / transcript text from a YouTube video URL."""
+    res = fetch_youtube_transcript_details(url)
+    return res.get("text", "")
+

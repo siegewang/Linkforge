@@ -164,7 +164,24 @@
             </label>
         </div>
 
-        <!-- Toggle 7: Stored System Backups -->
+        <!-- Toggle 7: Book Vault Library & Downloaded EPUBs -->
+        <div class="p-4 rounded-2xl bg-zinc-950 border border-zinc-800/80 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3.5">
+                <div class="w-10 h-10 rounded-xl bg-teal-950/60 border border-teal-700/60 flex items-center justify-center text-teal-400 text-base flex-shrink-0">
+                    <i class="fa-solid fa-book-bookmark"></i>
+                </div>
+                <div>
+                    <h4 class="text-sm font-bold text-zinc-200">Book Vault Library & Downloaded EPUBs</h4>
+                    <p class="text-xs text-zinc-500">Deletes saved books in the library table and permanently removes downloaded EPUB files from data/books.</p>
+                </div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                <input type="checkbox" id="toggle_nuke_books" checked class="sr-only peer">
+                <div class="w-12 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-zinc-400 peer-checked:after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-600"></div>
+            </label>
+        </div>
+
+        <!-- Toggle 8: Stored System Backups -->
         <div class="p-4 rounded-2xl bg-zinc-950 border border-zinc-800/80 flex items-center justify-between gap-4">
             <div class="flex items-center gap-3.5">
                 <div class="w-10 h-10 rounded-xl bg-red-950/60 border border-red-700/60 flex items-center justify-center text-red-400 text-base flex-shrink-0">
@@ -268,6 +285,7 @@
         document.getElementById('toggle_nuke_notes').checked = true;
         document.getElementById('toggle_nuke_homepage').checked = true;
         document.getElementById('toggle_nuke_denied').checked = true;
+        document.getElementById('toggle_nuke_books').checked = true;
         document.getElementById('toggle_nuke_backups').checked = false;
         document.getElementById('toggle_retain_settings').checked = true;
     }
@@ -279,6 +297,7 @@
         document.getElementById('toggle_nuke_notes').checked = true;
         document.getElementById('toggle_nuke_homepage').checked = true;
         document.getElementById('toggle_nuke_denied').checked = true;
+        document.getElementById('toggle_nuke_books').checked = true;
         document.getElementById('toggle_nuke_backups').checked = true;
         document.getElementById('toggle_retain_settings').checked = false;
     }
@@ -310,6 +329,7 @@
             nuke_notes: document.getElementById('toggle_nuke_notes').checked,
             nuke_homepage: document.getElementById('toggle_nuke_homepage').checked,
             nuke_denied: document.getElementById('toggle_nuke_denied').checked,
+            nuke_books: document.getElementById('toggle_nuke_books').checked,
             nuke_backups: document.getElementById('toggle_nuke_backups').checked,
             retain_settings: document.getElementById('toggle_retain_settings').checked
         };
@@ -332,6 +352,7 @@
                     <div class="flex justify-between"><span>Deleted Categories:</span><span class="text-rose-400 font-bold">${rep.deleted_categories}</span></div>
                     <div class="flex justify-between"><span>Deleted Notes:</span><span class="text-rose-400 font-bold">${rep.deleted_notes}</span></div>
                     <div class="flex justify-between"><span>Deleted Denied URLs:</span><span class="text-rose-400 font-bold">${rep.deleted_denied_urls}</span></div>
+                    <div class="flex justify-between"><span>Deleted Books (Vault):</span><span class="text-rose-400 font-bold">${rep.deleted_books} (${rep.deleted_book_files || 0} EPUB files)</span></div>
                     <div class="flex justify-between"><span>AI & System Settings:</span><span class="text-emerald-400 font-bold">${rep.retained_settings ? 'Retained (Safe)' : 'Reset to Default'}</span></div>
                 `;
 

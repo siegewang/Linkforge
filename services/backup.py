@@ -21,12 +21,9 @@ _scheduler_lock = threading.Lock()
 def get_db_direct():
     conn = sqlite3.connect(Config.DB_PATH, timeout=30)
     try:
-        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA journal_mode=DELETE;")
     except Exception:
-        try:
-            conn.execute("PRAGMA journal_mode=TRUNCATE;")
-        except Exception:
-            pass
+        pass
     conn.execute("PRAGMA busy_timeout=30000;")
     conn.execute("PRAGMA foreign_keys=ON;")
     conn.row_factory = sqlite3.Row
@@ -428,6 +425,11 @@ def create_auto_backup():
         except Exception:
             summaries = []
 
+        try:
+            book_rows = src_conn.execute("SELECT * FROM downloaded_books ORDER BY date_added DESC").fetchall()
+        except Exception:
+            book_rows = []
+
         # Helper to export any SQLite Row list to a CSV with full headers
         def export_rows_to_csv(rows, path, fallback_headers=None):
             with open(path, 'w', newline='', encoding='utf-8') as f:
@@ -440,7 +442,7 @@ def create_auto_backup():
                 elif fallback_headers:
                     cw.writerow(fallback_headers)
 
-        # Export all 11 tables to CSVs
+        # Export all 12 tables to CSVs
         links_csv_path = os.path.join(tmp_dir, "links.csv")
         export_rows_to_csv(links_rows, links_csv_path, ['id', 'url', 'title', 'description', 'favicon', 'tags', 'is_read', 'date_added', 'click_count', 'image_url', 'archive_path', 'full_text'])
 
@@ -474,9 +476,12 @@ def create_auto_backup():
         summaries_csv_path = os.path.join(tmp_dir, "timeline_summaries.csv")
         export_rows_to_csv(summaries, summaries_csv_path, ['period_key', 'summary', 'created_at'])
 
+        books_csv_path = os.path.join(tmp_dir, "downloaded_books.csv")
+        export_rows_to_csv(book_rows, books_csv_path, ['id', 'book_key', 'title', 'author', 'year', 'cover_url', 'filename', 'file_path', 'file_size', 'date_added'])
+
         # Export manifest.json
         manifest = {
-            "version": "2.0",
+            "version": "2.1",
             "backup_type": "full_system_archive",
             "created_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "includes_archives": include_archives,
@@ -491,7 +496,8 @@ def create_auto_backup():
                 "config": len(config_rows),
                 "denied_urls": len(denied_rows),
                 "routing_history": len(route_history),
-                "timeline_summaries": len(summaries)
+                "timeline_summaries": len(summaries),
+                "downloaded_books": len(book_rows)
             }
         }
         manifest_path = os.path.join(tmp_dir, "manifest.json")
@@ -513,10 +519,11 @@ def create_auto_backup():
             zipf.write(denied_csv_path, "denied_urls.csv")
             zipf.write(routing_csv_path, "routing_history.csv")
             zipf.write(summaries_csv_path, "timeline_summaries.csv")
+            zipf.write(books_csv_path, "downloaded_books.csv")
 
-            # If enabled, package active data/archives into ZIP under archives/
+            # Package active data/archives into ZIP under archives/
+            db_dir = os.path.dirname(os.path.abspath(Config.DB_PATH))
             if include_archives:
-                db_dir = os.path.dirname(os.path.abspath(Config.DB_PATH))
                 archives_dir = os.path.join(db_dir, 'archives')
                 if os.path.exists(archives_dir):
                     for root, dirs, files in os.walk(archives_dir):
@@ -524,6 +531,15 @@ def create_auto_backup():
                             abs_file_path = os.path.join(root, file_name)
                             rel_arc_path = os.path.join("archives", os.path.relpath(abs_file_path, archives_dir)).replace('\\', '/')
                             zipf.write(abs_file_path, rel_arc_path)
+
+            # Package downloaded EPUB books into ZIP under books/
+            books_dir = os.path.join(db_dir, 'books')
+            if os.path.exists(books_dir):
+                for root, dirs, files in os.walk(books_dir):
+                    for file_name in files:
+                        abs_file_path = os.path.join(root, file_name)
+                        rel_book_path = os.path.join("books", os.path.relpath(abs_file_path, books_dir)).replace('\\', '/')
+                        zipf.write(abs_file_path, rel_book_path)
 
     # Update last run timestamp
     now_formatted = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -582,7 +598,9 @@ def list_auto_backups():
                         counts = m_data.get("table_counts", {})
                         has_arch = m_data.get("includes_archives", False)
                         arch_tag = " • with Article Archives" if has_arch else ""
-                        summary_info = f"{counts.get('links', 0)} links, {counts.get('video_bookmarks', 0)} videos, {counts.get('notes', 0)} notes{arch_tag}"
+                        bks_cnt = counts.get('downloaded_books', 0)
+                        bks_tag = f", {bks_cnt} books" if bks_cnt > 0 else ""
+                        summary_info = f"{counts.get('links', 0)} links, {counts.get('video_bookmarks', 0)} videos, {counts.get('notes', 0)} notes{bks_tag}{arch_tag}"
             except Exception:
                 pass
 
@@ -635,6 +653,10 @@ def restore_backup(file_storage):
                     notes_cnt = test_conn.execute("SELECT COUNT(*) FROM notes").fetchone()[0]
                 except Exception:
                     notes_cnt = 0
+                try:
+                    books_cnt = test_conn.execute("SELECT COUNT(*) FROM downloaded_books").fetchone()[0]
+                except Exception:
+                    books_cnt = 0
                 test_conn.close()
 
                 # Safety copy of current database
@@ -683,10 +705,37 @@ def restore_backup(file_storage):
                         except Exception as arc_e:
                             logger.warning(f"Could not extract archive file {member}: {arc_e}")
 
-                arch_msg = f" and {restored_archives_count} offline article archives" if restored_archives_count > 0 else ""
+                # Restore downloaded EPUB books if present in ZIP
+                restored_books_count = 0
+                target_books_dir = os.path.join(db_dir, 'books')
+                os.makedirs(target_books_dir, exist_ok=True)
+
+                for member in namelist:
+                    if member.startswith("books/") and not member.endswith('/'):
+                        try:
+                            zf.extract(member, tmp_dir)
+                            src_file = os.path.join(tmp_dir, member)
+                            rel_sub = member[len("books/"):].replace('/', os.sep).replace('\\', os.sep)
+                            dest_file = os.path.join(target_books_dir, rel_sub)
+                            os.makedirs(os.path.dirname(dest_file), exist_ok=True)
+                            
+                            if os.path.exists(dest_file):
+                                try:
+                                    os.chmod(dest_file, stat.S_IWRITE)
+                                    shutil.copy2(src_file, dest_file)
+                                except Exception:
+                                    pass
+                            else:
+                                shutil.copy2(src_file, dest_file)
+                            restored_books_count += 1
+                        except Exception as book_e:
+                            logger.warning(f"Could not extract book file {member}: {book_e}")
+
+                arch_msg = f", {restored_archives_count} article archives" if restored_archives_count > 0 else ""
+                books_msg = f", {books_cnt} books ({restored_books_count} EPUB files)" if books_cnt > 0 else ""
                 return {
                     "status": "success",
-                    "message": f"Full system restore successful! Restored {links_cnt} links, {vids_cnt} videos, {notes_cnt} notes{arch_msg}."
+                    "message": f"Full system restore successful! Restored {links_cnt} links, {vids_cnt} videos, {notes_cnt} notes{books_msg}{arch_msg}."
                 }
 
         # 2. Restore from raw .db snapshot

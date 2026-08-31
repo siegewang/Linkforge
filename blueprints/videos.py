@@ -140,6 +140,36 @@ def add_video():
     
     new_id = retry_write(_write)
     
+    # Trigger background transcript extraction and AI auto-routing if enabled
+    import threading
+    def bg_enrich_video(v_id, v_url, v_title, v_channel):
+        import sqlite3
+        import json
+        from config import Config
+        conn = sqlite3.connect(Config.DB_PATH, timeout=30)
+        try:
+            settings = dict(conn.execute("SELECT key, value FROM settings WHERE key LIKE 'feature_%'").fetchall())
+            master_on = settings.get("feature_smart_ingestion_master") != '0'
+            if master_on:
+                if settings.get("feature_yt_transcript_fetch") != '0':
+                    from services.scraper import fetch_youtube_transcript_details
+                    t_data = fetch_youtube_transcript_details(v_url)
+                    transcript = t_data.get("text", "")
+                    segments = t_data.get("segments", [])
+                    if transcript or segments:
+                        conn.execute("UPDATE video_bookmarks SET transcript=?, transcript_json=? WHERE id=?", (transcript, json.dumps(segments) if segments else None, v_id))
+                        conn.execute("UPDATE links SET full_text=? WHERE url=?", (transcript, v_url))
+                        conn.commit()
+                if settings.get("feature_ai_auto_route") != '0':
+                    from blueprints.links import auto_route_video_ai
+                    auto_route_video_ai(v_id, v_title, v_channel, v_url)
+        except Exception as e:
+            logger.debug(f"Background video enrichment error: {e}")
+        finally:
+            conn.close()
+            
+    threading.Thread(target=bg_enrich_video, args=(new_id, url, title, channel_name)).start()
+
     conn = get_db()
     conn.row_factory = sqlite3.Row
     video = dict(conn.execute("SELECT * FROM video_bookmarks WHERE id=?", (new_id,)).fetchone())
@@ -364,3 +394,217 @@ def oembed_lookup():
     if result:
         return jsonify(result)
     return jsonify({"error": "Could not fetch metadata"}), 404
+
+
+@videos_bp.route("/api/videos/<int:video_id>/re-fetch-transcript", methods=["POST"])
+def refetch_video_transcript(video_id):
+    """Re-fetch closed captions / transcripts with timestamped segments."""
+    conn = get_db()
+    row = conn.execute("SELECT url FROM video_bookmarks WHERE id=?", (video_id,)).fetchone()
+    if not row or not row[0]:
+        return jsonify({"error": "Video not found"}), 404
+        
+    url = row[0]
+    import json
+    from services.scraper import fetch_youtube_transcript_details
+    
+    t_data = fetch_youtube_transcript_details(url)
+    transcript = t_data.get("text", "")
+    segments = t_data.get("segments", [])
+    
+    if not transcript and not segments:
+        err_msg = t_data.get("error_msg", "No closed captions or transcript available for this video.")
+        err_code = t_data.get("error", "no_transcript")
+        status_code = 429 if err_code == "rate_limited" else 404
+        return jsonify({"error": err_msg, "error_type": err_code}), status_code
+        
+    def _save():
+        c = get_db()
+        c.execute("UPDATE video_bookmarks SET transcript=?, transcript_json=? WHERE id=?", (transcript, json.dumps(segments) if segments else None, video_id))
+        c.execute("UPDATE links SET full_text=? WHERE url=?", (transcript, url))
+        c.commit()
+    retry_write(_save)
+    
+    return jsonify({
+        "status": "success",
+        "transcript": transcript,
+        "segments": segments
+    })
+
+
+@videos_bp.route("/api/videos/<int:video_id>/ai-chapters", methods=["POST"])
+def generate_ai_chapters(video_id):
+    """Generate structured AI chapters with timestamps and key takeaways from transcript."""
+    import json
+    from openai import OpenAI
+    
+    conn = get_db()
+    conn.row_factory = sqlite3.Row
+    video = conn.execute("SELECT * FROM video_bookmarks WHERE id=?", (video_id,)).fetchone()
+    if not video:
+        return jsonify({"error": "Video not found"}), 404
+        
+    req_data = request.json or {}
+    force_regenerate = req_data.get("regenerate", False)
+    
+    # If cached and not regenerating, return cached chapters
+    if video["ai_chapters"] and not force_regenerate:
+        try:
+            cached = json.loads(video["ai_chapters"])
+            return jsonify({"status": "cached", "data": cached})
+        except Exception:
+            pass
+
+    transcript = video["transcript"] or ""
+    transcript_json = video["transcript_json"]
+    segments = []
+    if transcript_json:
+        try:
+            segments = json.loads(transcript_json)
+        except Exception:
+            pass
+
+    # If segments missing or empty, fetch transcript details with real timestamps
+    if not segments:
+        from services.scraper import fetch_youtube_transcript_details
+        t_data = fetch_youtube_transcript_details(video["url"])
+        fetched_text = t_data.get("text", "")
+        segments = t_data.get("segments", [])
+        if fetched_text or segments:
+            transcript = fetched_text or transcript
+            def _save_t():
+                c = get_db()
+                c.execute("UPDATE video_bookmarks SET transcript=?, transcript_json=? WHERE id=?", (transcript, json.dumps(segments) if segments else None, video_id))
+                c.commit()
+            retry_write(_save_t)
+
+    if not transcript and not segments:
+        return jsonify({"error": "No transcript available for this video to generate chapters."}), 400
+
+    # Determine maximum duration from segments or transcript
+    max_duration_sec = 0
+    if segments:
+        last_seg = segments[-1]
+        max_duration_sec = int(last_seg.get("start", 0) + last_seg.get("duration", 10))
+    elif video["duration"]:
+        try:
+            parts = [int(p) for p in video["duration"].split(":")]
+            if len(parts) == 2:
+                max_duration_sec = parts[0] * 60 + parts[1]
+            elif len(parts) == 3:
+                max_duration_sec = parts[0] * 3600 + parts[1] * 60 + parts[2]
+        except Exception:
+            pass
+
+    if max_duration_sec <= 0:
+        max_duration_sec = 7200 # 2 hour upper safety bound
+
+    m_max, s_max = divmod(max_duration_sec, 60)
+    h_max, m_max = divmod(m_max, 60)
+    max_dur_str = f"{h_max:02d}:{m_max:02d}:{s_max:02d}" if h_max > 0 else f"{m_max:02d}:{s_max:02d}"
+
+    # Get AI Configuration
+    settings = dict(conn.execute("SELECT key, value FROM settings WHERE key IN ('ai_api_key', 'ai_base_url', 'ai_model')").fetchall())
+    api_key = settings.get("ai_api_key", "").strip()
+    if not api_key:
+        return jsonify({"error": "AI not configured. Please set your AI API key in Admin/Settings."}), 400
+
+    base_url = settings.get("ai_base_url", "https://api.openai.com/v1").strip()
+    model = settings.get("ai_model", "gpt-4o-mini").strip()
+
+    # Format transcript with timestamps (sample uniformly if very long)
+    formatted_lines = []
+    if segments:
+        # If segments > 200, sample every 1-2 segments to fit context window cleanly
+        step = 1 if len(segments) <= 250 else 2
+        for s in segments[::step]:
+            sec = int(s.get("start", 0))
+            m, sec_rem = divmod(sec, 60)
+            h, m = divmod(m, 60)
+            ts = f"{h:02d}:{m:02d}:{sec_rem:02d}" if h > 0 else f"{m:02d}:{sec_rem:02d}"
+            formatted_lines.append(f"[{ts}] {s.get('text', '')}")
+    else:
+        formatted_lines.append(transcript[:15000])
+
+    transcript_payload = "\n".join(formatted_lines)[:24000]
+
+    system_prompt = f"""You are an expert video analyst. Analyze the timestamped transcript of a video and generate structured chapters and key takeaways.
+Return ONLY valid JSON matching this exact schema:
+{{
+  "summary": "2-3 sentence overview summarizing the core topic and key conclusions of the video.",
+  "key_takeaways": [
+    "Key takeaway point 1",
+    "Key takeaway point 2",
+    "Key takeaway point 3"
+  ],
+  "chapters": [
+    {{
+      "timestamp": "00:00",
+      "seconds": 0,
+      "title": "<Concise descriptive title of topic starting at 00:00>"
+    }},
+    {{
+      "timestamp": "MM:SS",
+      "seconds": 120,
+      "title": "<Concise descriptive title of next topic transition>"
+    }}
+  ]
+}}
+
+CRITICAL ACCURACY RULES:
+1. Total Video Length: {max_dur_str} ({max_duration_sec} seconds).
+2. Every chapter timestamp MUST strictly be an actual timestamp from the provided transcript and MUST NOT exceed {max_dur_str} (seconds must be <= {max_duration_sec}).
+3. Chapter titles MUST be specific to what is actually discussed in this video. Do not use generic placeholders.
+4. Provide between 4 to 8 natural chapter transitions."""
+
+    user_prompt = f"""Video Title: {video['title'] or 'Untitled Video'}
+Channel: {video['channel_name'] or 'Unknown'}
+Total Duration: {max_dur_str}
+URL: {video['url']}
+
+Timestamped Transcript:
+{transcript_payload}"""
+
+    try:
+        client = OpenAI(api_key=api_key, base_url=base_url)
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            response_format={"type": "json_object"}
+        )
+        raw_content = response.choices[0].message.content
+        result_json = json.loads(raw_content)
+
+        # Sanitize and validate chapters against video duration
+        valid_chapters = []
+        for ch in result_json.get("chapters", []):
+            sec = int(ch.get("seconds", 0))
+            if sec <= max_duration_sec + 5: # allow 5 sec tolerance
+                sec = min(sec, max_duration_sec)
+                m, s_rem = divmod(sec, 60)
+                h, m = divmod(m, 60)
+                ts = f"{h:02d}:{m:02d}:{s_rem:02d}" if h > 0 else f"{m:02d}:{s_rem:02d}"
+                valid_chapters.append({
+                    "seconds": sec,
+                    "timestamp": ts,
+                    "title": ch.get("title", "").strip()
+                })
+        
+        valid_chapters.sort(key=lambda c: c["seconds"])
+        result_json["chapters"] = valid_chapters
+
+        # Save to database
+        def _save_chapters():
+            c = get_db()
+            c.execute("UPDATE video_bookmarks SET ai_chapters=? WHERE id=?", (json.dumps(result_json), video_id))
+            c.commit()
+        retry_write(_save_chapters)
+        
+        return jsonify({"status": "success", "data": result_json})
+    except Exception as e:
+        logger.error(f"AI Chapter generation error for video {video_id}: {e}")
+        return jsonify({"error": f"Failed to generate chapters: {str(e)}"}), 500
+

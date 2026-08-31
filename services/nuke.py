@@ -28,6 +28,7 @@ def nuke_system_data(options):
     nuke_notes = bool(options.get("nuke_notes", True))
     nuke_homepage = bool(options.get("nuke_homepage", True))
     nuke_denied = bool(options.get("nuke_denied", True))
+    nuke_books = bool(options.get("nuke_books", True))
     nuke_backups = bool(options.get("nuke_backups", False))
     retain_settings = bool(options.get("retain_settings", True))
 
@@ -39,6 +40,8 @@ def nuke_system_data(options):
         "deleted_notes": 0,
         "deleted_homepage_bookmarks": 0,
         "deleted_denied_urls": 0,
+        "deleted_books": 0,
+        "deleted_book_files": 0,
         "deleted_backups": 0,
         "retained_settings": retain_settings
     }
@@ -94,7 +97,16 @@ def nuke_system_data(options):
                 except Exception:
                     pass
 
-            # 6. Settings Table
+            # 6. Book Vault Downloaded Books
+            if nuke_books:
+                try:
+                    b_cnt = conn.execute("SELECT COUNT(*) FROM downloaded_books").fetchone()[0]
+                    report["deleted_books"] = b_cnt
+                    conn.execute("DELETE FROM downloaded_books")
+                except Exception:
+                    pass
+
+            # 7. Settings Table
             if not retain_settings:
                 # Reset settings to clean default keys
                 conn.execute("DELETE FROM settings")
@@ -104,6 +116,8 @@ def nuke_system_data(options):
                 conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('feature_ai_auto_route', '1')")
                 conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('feature_video_routing_mode', 'suggest')")
                 conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('show_scratchpad_menu', '1')")
+                conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('shelfmark_url', 'https://stacks.okapitek.uk/')")
+                conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('hardcover_api_key', '')")
 
             conn.commit()
             
@@ -119,7 +133,14 @@ def nuke_system_data(options):
     # Run Database Nuke with Retry
     retry_write(_execute_db_nuke)
 
-    # 7. Filesystem: Wipe Offline Article Archives
+    def _remove_readonly(func, path, exc_info):
+        try:
+            os.chmod(path, stat.S_IWRITE)
+            func(path)
+        except Exception:
+            pass
+
+    # 8. Filesystem: Wipe Offline Article Archives
     if nuke_archives:
         db_dir = os.path.dirname(os.path.abspath(Config.DB_PATH))
         archives_dir = os.path.join(db_dir, 'archives')
@@ -129,20 +150,29 @@ def nuke_system_data(options):
                 file_count += len(files)
             report["deleted_archives"] = file_count
             
-            def _remove_readonly(func, path, exc_info):
-                try:
-                    os.chmod(path, stat.S_IWRITE)
-                    func(path)
-                except Exception:
-                    pass
-            
             try:
                 shutil.rmtree(archives_dir, onerror=_remove_readonly)
             except Exception as e:
                 logger.error(f"Error removing archives directory: {e}")
             os.makedirs(archives_dir, exist_ok=True)
 
-    # 8. Filesystem: Wipe Stored System Backups
+    # 9. Filesystem: Wipe Downloaded EPUB Books
+    if nuke_books:
+        db_dir = os.path.dirname(os.path.abspath(Config.DB_PATH))
+        books_dir = os.path.join(db_dir, 'books')
+        if os.path.exists(books_dir):
+            bfile_count = 0
+            for root, dirs, files in os.walk(books_dir):
+                bfile_count += len(files)
+            report["deleted_book_files"] = bfile_count
+            
+            try:
+                shutil.rmtree(books_dir, onerror=_remove_readonly)
+            except Exception as e:
+                logger.error(f"Error removing books storage directory: {e}")
+            os.makedirs(books_dir, exist_ok=True)
+
+    # 10. Filesystem: Wipe Stored System Backups
     if nuke_backups:
         if os.path.exists(Config.BACKUP_DIR):
             backup_files = glob.glob(os.path.join(Config.BACKUP_DIR, "linkforge_auto_backup_*.zip"))

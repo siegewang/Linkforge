@@ -243,6 +243,63 @@
         </div>
     </div>
 
+    <!-- 7. Book Vault (Shelfmark Integration) -->
+    <div class="bg-gradient-to-br from-zinc-900/90 to-zinc-950/90 p-6 rounded-3xl border border-emerald-500/30 shadow-[0_0_25px_rgba(16,185,129,0.1)] relative overflow-hidden">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+            <div class="flex items-start gap-4">
+                <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-xl flex-shrink-0 mt-0.5">
+                    <i class="fa-solid fa-book-bookmark"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h2 class="text-lg font-bold text-zinc-100">Book Vault (Shelfmark Hub)</h2>
+                        <div class="relative inline-block info-bobble">
+                            <button type="button" class="w-5 h-5 rounded-full bg-zinc-800 hover:bg-emerald-500/20 text-zinc-400 hover:text-emerald-400 text-[11px] flex items-center justify-center border border-zinc-700 transition-colors">
+                                <i class="fa-solid fa-question"></i>
+                            </button>
+                            <div class="info-tooltip absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-80 p-3 bg-zinc-950/95 border border-emerald-900/80 rounded-xl shadow-2xl z-50 text-xs text-zinc-300 pointer-events-none backdrop-blur-md">
+                                <span class="font-bold text-emerald-400 block mb-1">Shelfmark Integration</span>
+                                Configures your connected Shelfmark instance URL for unified book discovery and downloads inside the LinkForge Book Vault tab.
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-zinc-400 text-xs mt-1">Configure your self-hosted Shelfmark book search and request service.</p>
+                </div>
+            </div>
+
+            <a href="/books" class="px-4 py-2 bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/40 text-emerald-300 hover:text-white rounded-xl text-xs font-semibold flex items-center gap-2 transition-all shadow-sm">
+                <i class="fa-solid fa-book-open"></i> Open Book Vault
+            </a>
+        </div>
+
+        <div class="mt-4 pt-4 border-t border-zinc-800/80 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Shelfmark Service URL</label>
+                <div class="flex items-center gap-2">
+                    <input type="url" id="shelfmark_url" placeholder="https://stacks.okapitek.uk/" class="w-full bg-zinc-950/80 border border-zinc-800 rounded-xl px-4 py-2.5 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500 font-mono" onchange="saveShelfmarkUrl(this.value)">
+                    <button onclick="saveShelfmarkUrl(document.getElementById('shelfmark_url').value)" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-emerald-900/20 flex-shrink-0">
+                        Save
+                    </button>
+                </div>
+            </div>
+
+            <div>
+                <div class="flex items-center justify-between mb-1.5">
+                    <label class="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Hardcover.app API Key (Official Covers)</label>
+                    <a href="https://hardcover.app/account/api" target="_blank" rel="noopener noreferrer" class="text-[10px] text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1">
+                        <span>Get Free Key</span> <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                    </a>
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="password" id="hardcover_api_key" placeholder="Bearer eyJhbGciOiJIUzI1Ni..." class="w-full bg-zinc-950/80 border border-zinc-800 rounded-xl px-4 py-2.5 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500 font-mono" onchange="saveHardcoverKey(this.value)">
+                    <button onclick="saveHardcoverKey(document.getElementById('hardcover_api_key').value)" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-emerald-900/20 flex-shrink-0">
+                        Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 7. System Software & Live Updates -->
     <div class="bg-gradient-to-br from-zinc-900/90 to-zinc-950/90 p-6 rounded-3xl border border-cyan-500/30 shadow-[0_0_25px_rgba(6,182,212,0.1)] relative overflow-hidden">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -315,13 +372,26 @@
                 if (document.getElementById('show_scratchpad_menu')) {
                     document.getElementById('show_scratchpad_menu').checked = data.show_scratchpad_menu !== '0';
                 }
-                if (document.getElementById('feature_video_routing_mode')) {
-                    document.getElementById('feature_video_routing_mode').value = data.feature_video_routing_mode || 'suggest';
+                if (document.getElementById('shelfmark_url')) {
+                    document.getElementById('shelfmark_url').value = data.shelfmark_url || 'https://stacks.okapitek.uk/';
+                }
+                if (document.getElementById('hardcover_api_key')) {
+                    document.getElementById('hardcover_api_key').value = data.hardcover_api_key || '';
                 }
             }
         } catch(e) {
             console.error("Failed to load settings:", e);
         }
+    }
+
+    async function saveShelfmarkUrl(url) {
+        const clean = (url || '').trim() || 'https://stacks.okapitek.uk/';
+        await toggleSetting('shelfmark_url', clean);
+    }
+
+    async function saveHardcoverKey(key) {
+        const clean = (key || '').trim();
+        await toggleSetting('hardcover_api_key', clean);
     }
 
     async function toggleSetting(key, val) {

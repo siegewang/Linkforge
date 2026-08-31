@@ -1,0 +1,727 @@
+{% set active_page = 'books' %}
+{% extends 'base.html' %}
+
+{% block extra_css %}
+    .book-cover-container {
+        aspect-ratio: 2 / 3;
+        perspective: 800px;
+    }
+    .book-cover-card {
+        box-shadow: -4px 6px 16px rgba(0, 0, 0, 0.6), inset -1px 0 2px rgba(255, 255, 255, 0.1);
+        transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+    }
+    .book-card:hover .book-cover-card {
+        transform: translateY(-6px) scale(1.03) rotateY(-4deg);
+        box-shadow: -8px 12px 24px rgba(16, 185, 129, 0.25), 0 10px 20px rgba(0,0,0,0.8);
+    }
+    .genre-pill.active {
+        background: rgba(16, 185, 129, 0.2);
+        border-color: rgba(16, 185, 129, 0.6);
+        color: #6ee7b7;
+        box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
+    }
+    @keyframes progress-stripes {
+        from { background-position: 1rem 0; }
+        to { background-position: 0 0; }
+    }
+    .progress-bar-striped {
+        background-image: linear-gradient(45deg, rgba(255,255,255,0.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.15) 75%, transparent 75%, transparent);
+        background-size: 1rem 1rem;
+        animation: progress-stripes 1s linear infinite;
+    }
+{% endblock %}
+
+{% block content %}
+<div class="space-y-8 max-w-7xl mx-auto pb-16">
+    <!-- Top Action & Search Header -->
+    <div class="bg-gradient-to-br from-zinc-900/90 via-zinc-900/60 to-zinc-950/90 border border-zinc-800/80 rounded-3xl p-6 shadow-2xl backdrop-blur-md relative overflow-hidden">
+        <!-- Ambient Glow -->
+        <div class="absolute -right-20 -top-20 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -left-20 -bottom-20 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-emerald-500/25 flex-shrink-0">
+                    <i class="fa-solid fa-book-bookmark"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2.5">
+                        <h1 class="text-xl font-bold text-zinc-100 tracking-tight">Book Vault</h1>
+                        <span class="px-2.5 py-0.5 text-[10px] font-bold bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 rounded-full flex items-center gap-1.5 shadow-sm uppercase tracking-wider">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> Auto-Acquisition
+                        </span>
+                        <span id="hardcover-status-badge" class="px-2.5 py-0.5 text-[10px] font-semibold bg-zinc-800/80 border border-zinc-700/60 text-zinc-400 rounded-full flex items-center gap-1.5 shadow-sm">
+                            <a href="/settings" class="hover:text-emerald-300 transition-colors flex items-center gap-1">
+                                <i class="fa-solid fa-key text-[9px] text-amber-400"></i>
+                                <span>Hardcover API</span>
+                            </a>
+                        </span>
+                    </div>
+                    <p class="text-xs text-zinc-400 mt-0.5">Search millions of titles — auto-grab directly into your library with real-time download progress</p>
+                </div>
+            </div>
+
+            <!-- Total Books Counter Badge -->
+            <div class="flex items-center gap-3">
+                <div id="library-count-badge" class="px-4 py-2 bg-zinc-800/80 border border-zinc-700/60 rounded-xl text-xs text-zinc-300 flex items-center gap-2">
+                    <i class="fa-solid fa-layer-group text-emerald-400"></i>
+                    <span><b>0</b> Books in Library</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="mt-6 relative z-10">
+            <div class="relative flex items-center">
+                <i class="fa-solid fa-magnifying-glass absolute left-4 text-zinc-500 text-sm"></i>
+                <input 
+                    type="text" 
+                    id="book-search-input" 
+                    placeholder="Search any book title, author, or topic (e.g. Dune, Stephen King, Python, Astrophysics)..." 
+                    class="w-full bg-zinc-950/80 border border-zinc-700/80 hover:border-emerald-500/50 focus:border-emerald-500 rounded-2xl pl-11 pr-28 py-3.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none transition-all shadow-inner"
+                    oninput="handleSearchInput(this.value)"
+                    onkeydown="if(event.key==='Enter') executeSearch()"
+                >
+                <div class="absolute right-2 flex items-center gap-1.5">
+                    <button id="clear-search-btn" onclick="clearSearch()" class="hidden p-2 text-zinc-500 hover:text-zinc-300 transition-colors">
+                        <i class="fa-solid fa-xmark text-sm"></i>
+                    </button>
+                    <button onclick="executeSearch()" title="Search catalog" class="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 shadow-md">
+                        <span>Search</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Genre Pills -->
+        <div class="mt-4 flex items-center gap-2 overflow-x-auto custom-scroll pb-1 relative z-10" id="genre-pills-bar">
+            <!-- Populated via JS -->
+        </div>
+    </div>
+
+    <!-- ================= MY DOWNLOADED BOOKS SHELF ================= -->
+    <div id="my-library-section" class="hidden space-y-3">
+        <div class="flex items-center justify-between px-1">
+            <h2 class="text-base font-bold text-zinc-200 flex items-center gap-2">
+                <i class="fa-solid fa-circle-check text-emerald-400"></i> My Downloaded Books
+            </h2>
+            <span class="text-xs text-zinc-500" id="library-shelf-count"></span>
+        </div>
+
+        <div id="library-books-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <!-- Populated via JS -->
+        </div>
+    </div>
+
+    <!-- Filter & Sort Control Toolbar -->
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-3 bg-zinc-900/70 border border-zinc-800/80 rounded-2xl px-4 py-3 shadow-md backdrop-blur-sm">
+        <!-- Results Counter & Status -->
+        <div class="flex items-center gap-3 text-xs text-zinc-300 w-full sm:w-auto">
+            <div id="results-count-text" class="flex items-center gap-1.5 font-medium">
+                <i class="fa-solid fa-compass text-emerald-400"></i>
+                <span>Showing top discoveries</span>
+            </div>
+            <div id="search-spinner" class="hidden items-center gap-1.5 text-emerald-400 font-medium">
+                <i class="fa-solid fa-spinner animate-spin text-xs"></i>
+                <span>Searching...</span>
+            </div>
+        </div>
+
+        <!-- Inline Word Filter & Sort Selectors -->
+        <div class="flex items-center gap-2.5 w-full sm:w-auto">
+            <!-- Inline Word Filter -->
+            <div class="relative flex-1 sm:w-60">
+                <i class="fa-solid fa-filter absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-[10px]"></i>
+                <input 
+                    type="text" 
+                    id="inline-filter-input" 
+                    placeholder="Filter results (e.g. Viking, Mules)..." 
+                    class="w-full bg-zinc-950/80 border border-zinc-700/70 hover:border-emerald-500/50 focus:border-emerald-500 rounded-xl pl-7 pr-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none transition-all shadow-inner"
+                    oninput="applyClientFilterAndSort()"
+                >
+            </div>
+
+            <!-- Sort By Select -->
+            <div class="relative flex-shrink-0">
+                <select 
+                    id="sort-select" 
+                    onchange="applyClientFilterAndSort()" 
+                    class="bg-zinc-950/80 border border-zinc-700/70 hover:border-emerald-500/50 text-zinc-200 text-xs rounded-xl pl-3 pr-7 py-1.5 focus:outline-none focus:border-emerald-500 cursor-pointer transition-all appearance-none shadow-inner font-medium"
+                >
+                    <option value="year_desc">📅 Year: Newest First</option>
+                    <option value="year_asc">📅 Year: Oldest First</option>
+                    <option value="title_asc">🔤 Title: A to Z</option>
+                    <option value="title_desc">🔤 Title: Z to A</option>
+                    <option value="rating_desc">⭐ Rating: Highest</option>
+                </select>
+                <i class="fa-solid fa-chevron-down absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] text-zinc-500 pointer-events-none"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Book Discovery Grid Container -->
+    <div id="books-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-5">
+        <!-- Skeleton Loaders -->
+        {% for i in range(12) %}
+        <div class="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-3 animate-pulse space-y-3">
+            <div class="book-cover-container bg-zinc-800/60 rounded-xl w-full"></div>
+            <div class="h-3.5 bg-zinc-800 rounded w-3/4"></div>
+            <div class="h-2.5 bg-zinc-800/70 rounded w-1/2"></div>
+            <div class="h-7 bg-zinc-800/40 rounded-xl"></div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Book Details Modal -->
+<div id="bookDetailsModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center p-4 z-50 backdrop-blur-md">
+    <div class="bg-zinc-900 border border-zinc-700/80 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl relative">
+        <button onclick="closeBookModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center transition-colors z-10">
+            <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+
+        <div class="p-6 md:p-8 flex flex-col md:flex-row gap-6 max-h-[85vh] overflow-y-auto custom-scroll">
+            <div class="w-40 mx-auto md:mx-0 flex-shrink-0">
+                <img id="modal-cover" src="" class="w-full rounded-2xl shadow-2xl border border-zinc-800 object-cover" onerror="this.src='/static/favicon.svg'">
+            </div>
+            <div class="flex-1 space-y-3.5">
+                <div id="modal-genres" class="flex flex-wrap gap-1.5"></div>
+                <h2 id="modal-title" class="text-xl font-bold text-zinc-100 leading-snug"></h2>
+                <p id="modal-author" class="text-sm font-semibold text-emerald-400"></p>
+                
+                <div class="grid grid-cols-2 gap-2 text-xs py-2 border-y border-zinc-800 text-zinc-400">
+                    <div><span class="text-zinc-500">First Published:</span> <b id="modal-year" class="text-zinc-300"></b></div>
+                    <div><span class="text-zinc-500">Publisher:</span> <b id="modal-publisher" class="text-zinc-300 truncate block"></b></div>
+                    <div><span class="text-zinc-500">Editions:</span> <b id="modal-editions" class="text-zinc-300"></b></div>
+                    <div><span class="text-zinc-500">ISBN:</span> <b id="modal-isbn" class="text-zinc-300 font-mono"></b></div>
+                </div>
+
+                <div class="pt-2 flex flex-wrap gap-3" id="modal-actions-container">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let activeGenreQuery = 'bestsellers trending popular fiction';
+    let searchDebounceTimer = null;
+    let progressPollInterval = null;
+    let currentBooksList = [];
+    let downloadedLibrary = [];
+    let activeDownloads = {};
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        await loadGenres();
+        await loadMyLibrary();
+        await searchBooks('bestsellers trending popular fiction');
+    });
+
+    async function loadGenres() {
+        const bar = document.getElementById('genre-pills-bar');
+        try {
+            const res = await fetch('/api/books/genres');
+            const data = await res.json();
+            const genres = data.genres || [];
+            
+            bar.innerHTML = genres.map((g, idx) => `
+                <button 
+                    onclick="selectGenre('${escapeHTML(g.query)}', this)" 
+                    class="genre-pill ${idx === 0 ? 'active' : ''} px-3 py-1.5 bg-zinc-800/80 hover:bg-zinc-700/80 border border-zinc-700/60 text-zinc-300 hover:text-white rounded-xl text-xs font-medium shrink-0 transition-all flex items-center gap-1.5"
+                >
+                    <span>${escapeHTML(g.name)}</span>
+                </button>
+            `).join('');
+        } catch(e) {
+            console.error('Failed to load genres:', e);
+        }
+    }
+
+    function getFallbackJacketSvg(title, author) {
+        const paletteList = [
+            ["#064e3b", "#022c22", "#34d399"],
+            ["#1e1b4b", "#0f172a", "#818cf8"],
+            ["#450a0a", "#1c1917", "#f87171"],
+            ["#3b0764", "#18181b", "#c084fc"],
+            ["#172554", "#030712", "#60a5fa"],
+            ["#451a03", "#1c1917", "#fbbf24"]
+        ];
+        let hash = 0;
+        const str = (title || '') + (author || '');
+        for (let i = 0; i < str.length; i++) hash = ((hash << 5) - hash) + str.charCodeAt(i);
+        const [bg1, bg2, accent] = paletteList[Math.abs(hash) % paletteList.length];
+        
+        const cleanTitle = (title || 'Book').substring(0, 45);
+        const cleanAuthor = (author || 'Author').substring(0, 30);
+        
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" width="400" height="600">
+          <defs>
+            <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="${bg1}" />
+              <stop offset="100%" stop-color="${bg2}" />
+            </linearGradient>
+          </defs>
+          <rect width="400" height="600" fill="url(#g)" rx="12" />
+          <rect x="20" y="20" width="360" height="560" fill="none" stroke="${accent}" stroke-width="2" stroke-opacity="0.35" rx="8" />
+          <circle cx="200" cy="130" r="32" fill="${accent}" fill-opacity="0.15" stroke="${accent}" stroke-width="1.5" stroke-opacity="0.4" />
+          <text x="200" y="138" font-family="system-ui, sans-serif" font-size="24" fill="${accent}" text-anchor="middle">📖</text>
+          <text x="200" y="250" font-family="system-ui, sans-serif" font-size="22" font-weight="bold" fill="#f4f4f5" text-anchor="middle">${cleanTitle}</text>
+          <line x1="140" y1="300" x2="260" y2="300" stroke="${accent}" stroke-width="2" stroke-opacity="0.5" />
+          <text x="200" y="350" font-family="system-ui, sans-serif" font-size="16" font-weight="600" fill="${accent}" text-anchor="middle">${cleanAuthor}</text>
+          <text x="200" y="520" font-family="system-ui, sans-serif" font-size="11" font-weight="bold" fill="#a1a1aa" text-anchor="middle" letter-spacing="2">LINKFORGE BOOK VAULT</text>
+        </svg>`;
+        return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+    }
+
+    async function loadMyLibrary() {
+        try {
+            const res = await fetch('/api/books/library');
+            const data = await res.json();
+            downloadedLibrary = data.books || [];
+            
+            renderMyLibrary(downloadedLibrary);
+        } catch(e) {
+            console.error('Failed to load library:', e);
+        }
+    }
+
+    function renderMyLibrary(books) {
+        const section = document.getElementById('my-library-section');
+        const grid = document.getElementById('library-books-grid');
+        const countBadge = document.getElementById('library-count-badge');
+        const shelfCount = document.getElementById('library-shelf-count');
+
+        if (countBadge) {
+            countBadge.innerHTML = `<i class="fa-solid fa-layer-group text-emerald-400"></i> <span><b>${books.length}</b> Books in Library</span>`;
+        }
+
+        if (books.length === 0) {
+            section.classList.add('hidden');
+            return;
+        }
+
+        section.classList.remove('hidden');
+        if (shelfCount) shelfCount.innerText = `${books.length} available offline`;
+
+        grid.innerHTML = books.map(b => {
+            const fallbackJacket = getFallbackJacketSvg(b.title, b.author);
+            const cover = b.cover_url || fallbackJacket;
+            const sizeMb = (b.file_size / (1024 * 1024)).toFixed(1);
+
+            return `
+                <div id="lib-card-${b.id}" class="bg-zinc-900/90 border border-emerald-500/30 rounded-2xl p-3 flex flex-col justify-between shadow-lg shadow-emerald-950/20 group hover:border-emerald-500/60 transition-all">
+                    <div>
+                        <div class="book-cover-container w-full rounded-xl overflow-hidden mb-2 relative">
+                            <img src="${escapeHTML(cover)}" class="w-full h-full object-cover rounded-xl" onerror="this.onerror=null; this.src='${fallbackJacket}';">
+                            <span class="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-emerald-950/90 border border-emerald-500/50 text-emerald-300 text-[9px] font-bold uppercase tracking-wider">Ready</span>
+                        </div>
+                        <h4 class="font-bold text-xs text-zinc-100 line-clamp-1 group-hover:text-emerald-300 transition-colors" title="${escapeHTML(b.title)}">${escapeHTML(b.title)}</h4>
+                        <p class="text-[10px] text-zinc-400 line-clamp-1">${escapeHTML(b.author || 'Unknown')}</p>
+                    </div>
+
+                    <div class="mt-3 pt-2 border-t border-zinc-800 flex items-center gap-1.5">
+                        <a href="/api/books/download/${b.id}" class="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-sm" download>
+                            <i class="fa-solid fa-download text-[10px]"></i>
+                            <span>EPUB</span>
+                        </a>
+                        <button onclick="deleteBook(${b.id})" title="Delete from Library" class="w-7 h-7 rounded-lg bg-zinc-800 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 flex items-center justify-center transition-colors">
+                            <i class="fa-solid fa-trash-can text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async function deleteBook(id) {
+        if (!confirm('Remove this book from your library?')) return;
+        try {
+            await fetch(`/api/books/${id}/delete`, { method: 'POST' });
+            await loadMyLibrary();
+            renderBooks(currentBooksList);
+        } catch(e) {
+            console.error('Failed to delete book:', e);
+        }
+    }
+
+    function selectGenre(query, btn) {
+        document.querySelectorAll('.genre-pill').forEach(b => b.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+        
+        document.getElementById('book-search-input').value = '';
+        document.getElementById('clear-search-btn').classList.add('hidden');
+        searchBooks(query);
+    }
+
+    function handleSearchInput(val) {
+        const clearBtn = document.getElementById('clear-search-btn');
+        if (val.trim()) {
+            clearBtn.classList.remove('hidden');
+        } else {
+            clearBtn.classList.add('hidden');
+        }
+
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(() => {
+            if (val.trim().length >= 2) {
+                document.querySelectorAll('.genre-pill').forEach(b => b.classList.remove('active'));
+                searchBooks(val.trim());
+            } else if (!val.trim()) {
+                searchBooks('bestsellers trending popular fiction');
+            }
+        }, 350);
+    }
+
+    function executeSearch() {
+        const query = document.getElementById('book-search-input').value.trim();
+        if (query) {
+            searchBooks(query);
+        }
+    }
+
+    function clearSearch() {
+        const input = document.getElementById('book-search-input');
+        input.value = '';
+        const filterInput = document.getElementById('inline-filter-input');
+        if (filterInput) filterInput.value = '';
+        document.getElementById('clear-search-btn').classList.add('hidden');
+        searchBooks('bestsellers trending popular fiction');
+    }
+
+    function applyClientFilterAndSort() {
+        const filterWord = (document.getElementById('inline-filter-input')?.value || '').toLowerCase().trim();
+        const sortMode = document.getElementById('sort-select')?.value || 'year_desc';
+        
+        let filtered = currentBooksList.filter(b => {
+            if (!filterWord) return true;
+            const matchTitle = (b.title || '').toLowerCase().includes(filterWord);
+            const matchAuthor = (b.author || '').toLowerCase().includes(filterWord);
+            const matchYear = String(b.first_publish_year || '').includes(filterWord);
+            const matchGenres = (b.genres || []).some(g => (g || '').toLowerCase().includes(filterWord));
+            return matchTitle || matchAuthor || matchYear || matchGenres;
+        });
+
+        filtered.sort((a, b) => {
+            if (sortMode === 'title_asc') {
+                return (a.title || '').localeCompare(b.title || '');
+            } else if (sortMode === 'title_desc') {
+                return (b.title || '').localeCompare(a.title || '');
+            } else if (sortMode === 'year_desc') {
+                return (b.first_publish_year || 0) - (a.first_publish_year || 0);
+            } else if (sortMode === 'year_asc') {
+                const yA = a.first_publish_year || 9999;
+                const yB = b.first_publish_year || 9999;
+                return yA - yB;
+            } else if (sortMode === 'rating_desc') {
+                return (b.rating || 0) - (a.rating || 0);
+            }
+            return 0;
+        });
+
+        renderBooks(filtered);
+        
+        const countText = document.getElementById('results-count-text');
+        if (countText) {
+            if (filterWord) {
+                countText.innerHTML = `<i class="fa-solid fa-filter text-emerald-400"></i> Filtered: <b>${filtered.length}</b> of ${currentBooksList.length} titles`;
+            } else {
+                countText.innerHTML = `<i class="fa-solid fa-layer-group text-emerald-400 mr-1.5"></i> Found <b>${currentBooksList.length}</b> titles`;
+            }
+        }
+    }
+
+    async function searchBooks(query) {
+        const grid = document.getElementById('books-grid');
+        const spinner = document.getElementById('search-spinner');
+        const countText = document.getElementById('results-count-text');
+
+        if (spinner) spinner.classList.remove('hidden');
+        if (spinner) spinner.classList.add('flex');
+
+        try {
+            const res = await fetch(`/api/books/search?q=${encodeURIComponent(query)}`);
+            const data = await res.json();
+            currentBooksList = data.books || [];
+
+            const hcBadge = document.getElementById('hardcover-status-badge');
+            if (hcBadge) {
+                if (data.hardcover_configured) {
+                    hcBadge.className = 'px-2.5 py-0.5 text-[10px] font-semibold bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 rounded-full flex items-center gap-1.5 shadow-sm';
+                    hcBadge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Hardcover Connected';
+                } else {
+                    hcBadge.className = 'px-2.5 py-0.5 text-[10px] font-semibold bg-zinc-800/80 border border-zinc-700/60 text-zinc-400 rounded-full flex items-center gap-1.5 shadow-sm';
+                    hcBadge.innerHTML = '<a href="/settings" class="hover:text-emerald-300 transition-colors flex items-center gap-1"><i class="fa-solid fa-key text-[9px] text-amber-400"></i> Add Hardcover Key in Settings</a>';
+                }
+            }
+
+            applyClientFilterAndSort();
+        } catch(e) {
+            console.error('Failed to search books:', e);
+            grid.innerHTML = `
+                <div class="col-span-full py-12 text-center bg-zinc-900/40 rounded-3xl border border-zinc-800 text-zinc-400 text-sm">
+                    <i class="fa-solid fa-triangle-exclamation text-amber-400 text-2xl mb-2 block"></i>
+                    Error searching books. Please check your network connection.
+                </div>
+            `;
+        } finally {
+            if (spinner) spinner.classList.add('hidden');
+            if (spinner) spinner.classList.remove('flex');
+        }
+    }
+
+    function renderBooks(books) {
+        const grid = document.getElementById('books-grid');
+        if (!grid) return;
+
+        if (books.length === 0) {
+            grid.innerHTML = `
+                <div class="col-span-full py-16 text-center bg-zinc-900/40 rounded-3xl border border-zinc-800 text-zinc-400 text-sm">
+                    <i class="fa-solid fa-book-open text-emerald-400 text-3xl mb-3 block"></i>
+                    No books matched your query. Try another author or title.
+                </div>
+            `;
+            return;
+        }
+
+        const libraryKeys = new Set(downloadedLibrary.map(b => b.key));
+        const libraryTitles = new Set(downloadedLibrary.map(b => (b.title || '').toLowerCase().trim()));
+
+        grid.innerHTML = books.map((b, idx) => {
+            const fallbackJacket = getFallbackJacketSvg(b.title, b.author);
+            const cover = b.cover_url || fallbackJacket;
+            const year = b.first_publish_year ? `(${b.first_publish_year})` : '';
+            const taskKey = b.key || `book_${idx}`;
+            
+            const isSaved = libraryKeys.has(taskKey) || libraryTitles.has((b.title || '').toLowerCase().trim());
+            const activeDownload = activeDownloads[taskKey];
+
+            return `
+                <div id="book-card-${taskKey.replace(/[^\w]/g, '_')}" class="book-card group relative bg-zinc-900/70 hover:bg-zinc-900 border border-zinc-800/80 hover:border-emerald-500/50 rounded-2xl p-3 flex flex-col justify-between transition-all duration-300 hover:shadow-xl hover:shadow-emerald-950/30">
+                    <div>
+                        <!-- 3D Aspect Cover Image -->
+                        <div class="book-cover-container w-full rounded-xl overflow-hidden mb-3 relative cursor-pointer" onclick="openBookModal(${idx})">
+                            <img 
+                                src="${escapeHTML(cover)}" 
+                                alt="${escapeHTML(b.title)}" 
+                                class="book-cover-card w-full h-full object-cover rounded-xl bg-zinc-950 border border-zinc-800/80" 
+                                onerror="this.onerror=null; this.src='${fallbackJacket}';"
+                            >
+                            ${b.rating ? `
+                                <div class="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-black/75 backdrop-blur-md text-[10px] font-bold text-amber-400 border border-amber-500/30 flex items-center gap-1 shadow-lg">
+                                    <i class="fa-solid fa-star text-[9px]"></i>
+                                    <span>${b.rating}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        <!-- Title & Author -->
+                        <h3 class="font-bold text-zinc-100 text-xs sm:text-sm line-clamp-2 leading-snug group-hover:text-emerald-300 transition-colors cursor-pointer" onclick="openBookModal(${idx})" title="${escapeHTML(b.title)}">
+                            ${escapeHTML(b.title)}
+                        </h3>
+                        <p class="text-[11px] text-zinc-400 line-clamp-1 mt-1 font-medium">
+                            ${escapeHTML(b.author)} ${year}
+                        </p>
+                    </div>
+
+                    <!-- Dynamic Acquisition Container -->
+                    <div id="btn-container-${taskKey.replace(/[^\w]/g, '_')}" class="mt-3 pt-2.5 border-t border-zinc-800/60">
+                        ${renderCardActionButton(b, idx, isSaved, activeDownload)}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function renderCardActionButton(b, idx, isSaved, activeDownload) {
+        const taskKey = b.key || `book_${idx}`;
+        const safeId = taskKey.replace(/[^\w]/g, '_');
+
+        if (activeDownload && activeDownload.status === 'downloading') {
+            const pct = activeDownload.progress || 10;
+            return `
+                <div class="space-y-1.5">
+                    <div class="flex items-center justify-between text-[10px] text-emerald-300 font-semibold">
+                        <span><i class="fa-solid fa-spinner animate-spin mr-1"></i> Grabbing...</span>
+                        <span>${pct}%</span>
+                    </div>
+                    <div class="w-full bg-zinc-800 rounded-full h-2 overflow-hidden">
+                        <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-2 rounded-full progress-bar-striped transition-all duration-300" style="width: ${pct}%"></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        if (isSaved || (activeDownload && activeDownload.status === 'completed')) {
+            return `
+                <a href="/api/books/download-by-key/${encodeURIComponent(taskKey)}" class="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-950/40" download>
+                    <i class="fa-solid fa-download text-[11px]"></i>
+                    <span>Download EPUB</span>
+                </a>
+            `;
+        }
+
+        return `
+            <button 
+                onclick="triggerAutoGrab(${idx}, '${safeId}')" 
+                class="w-full py-2 px-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-950/30 group/btn"
+            >
+                <i class="fa-solid fa-bolt text-[11px] group-hover/btn:scale-125 transition-transform text-amber-300"></i>
+                <span>Auto-Grab Book</span>
+            </button>
+        `;
+    }
+
+    async function triggerAutoGrab(idx, safeId) {
+        const b = currentBooksList[idx];
+        if (!b) return;
+
+        const taskKey = b.key || `book_${idx}`;
+        const container = document.getElementById(`btn-container-${safeId}`);
+
+        if (container) {
+            container.innerHTML = `
+                <div class="space-y-1.5">
+                    <div class="flex items-center justify-between text-[10px] text-emerald-300 font-semibold">
+                        <span><i class="fa-solid fa-spinner animate-spin mr-1"></i> Starting Grab...</span>
+                        <span>5%</span>
+                    </div>
+                    <div class="w-full bg-zinc-800 rounded-full h-2 overflow-hidden">
+                        <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-2 rounded-full progress-bar-striped" style="width: 5%"></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        try {
+            const res = await fetch('/api/books/grab', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    title: b.title,
+                    author: b.author,
+                    cover_url: b.cover_url,
+                    key: taskKey,
+                    ia_id: b.ia_id
+                })
+            });
+            const data = await res.json();
+            
+            startProgressPolling();
+        } catch(e) {
+            console.error('Failed to trigger auto-grab:', e);
+        }
+    }
+
+    function startProgressPolling() {
+        if (progressPollInterval) return;
+
+        progressPollInterval = setInterval(async () => {
+            try {
+                const res = await fetch('/api/books/status');
+                const data = await res.json();
+                activeDownloads = data.downloads || {};
+
+                let hasActive = false;
+                for (const [key, d] of Object.entries(activeDownloads)) {
+                    const safeId = key.replace(/[^\w]/g, '_');
+                    const container = document.getElementById(`btn-container-${safeId}`);
+
+                    if (d.status === 'downloading') {
+                        hasActive = true;
+                        if (container) {
+                            container.innerHTML = `
+                                <div class="space-y-1.5">
+                                    <div class="flex items-center justify-between text-[10px] text-emerald-300 font-semibold">
+                                        <span><i class="fa-solid fa-spinner animate-spin mr-1"></i> Grabbing (${d.speed_kb || 0} KB/s)...</span>
+                                        <span>${d.progress}%</span>
+                                    </div>
+                                    <div class="w-full bg-zinc-800 rounded-full h-2 overflow-hidden">
+                                        <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-2 rounded-full progress-bar-striped transition-all duration-300" style="width: ${d.progress}%"></div>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    } else if (d.status === 'completed') {
+                        if (container) {
+                            container.innerHTML = `
+                                <a href="/api/books/download-by-key/${encodeURIComponent(key)}" class="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-950/40 animate-bounce" download>
+                                    <i class="fa-solid fa-download text-[11px]"></i>
+                                    <span>Download EPUB</span>
+                                </a>
+                            `;
+                        }
+                    }
+                }
+
+                if (!hasActive) {
+                    clearInterval(progressPollInterval);
+                    progressPollInterval = null;
+                    await loadMyLibrary();
+                }
+            } catch(e) {
+                console.error('Error polling download progress:', e);
+            }
+        }, 1200);
+    }
+
+    function openBookModal(idx) {
+        const b = currentBooksList[idx];
+        if (!b) return;
+
+        const modal = document.getElementById('bookDetailsModal');
+        const fallbackJacket = getFallbackJacketSvg(b.title, b.author);
+        const cover = b.cover_url || fallbackJacket;
+        const taskKey = b.key || `book_${idx}`;
+        const safeId = taskKey.replace(/[^\w]/g, '_');
+
+        const modalCoverImg = document.getElementById('modal-cover');
+        modalCoverImg.src = cover;
+        modalCoverImg.onerror = () => { modalCoverImg.src = fallbackJacket; };
+        document.getElementById('modal-title').innerText = b.title;
+        document.getElementById('modal-author').innerText = `By ${b.author}`;
+        document.getElementById('modal-year').innerText = b.first_publish_year || 'Unknown';
+        document.getElementById('modal-publisher').innerText = b.publisher || 'Various Publishers';
+        document.getElementById('modal-editions').innerText = b.editions || 1;
+        document.getElementById('modal-isbn').innerText = b.isbn || 'N/A';
+
+        const genresContainer = document.getElementById('modal-genres');
+        genresContainer.innerHTML = (b.genres || []).map(g => `
+            <span class="px-2 py-0.5 bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 rounded-md text-[10px] font-semibold">${escapeHTML(g)}</span>
+        `).join('');
+
+        const actionsContainer = document.getElementById('modal-actions-container');
+        actionsContainer.innerHTML = `
+            <button onclick="triggerAutoGrab(${idx}, '${safeId}'); closeBookModal();" class="flex-1 py-3 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-950/40 flex items-center justify-center gap-2 transition-all">
+                <i class="fa-solid fa-bolt text-amber-300"></i>
+                <span>Auto-Grab Book Now</span>
+            </button>
+        `;
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeBookModal() {
+        const modal = document.getElementById('bookDetailsModal');
+        modal.classList.remove('flex');
+        modal.classList.add('hidden');
+    }
+
+    document.getElementById('bookDetailsModal').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('bookDetailsModal')) {
+            closeBookModal();
+        }
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeBookModal();
+        if (e.key === '/' && document.activeElement !== document.getElementById('book-search-input')) {
+            e.preventDefault();
+            document.getElementById('book-search-input').focus();
+        }
+    });
+</script>
+{% endblock %}
