@@ -125,24 +125,82 @@
         </div>
     </div>
 
-    <!-- Restore Card -->
-    <div class="bg-zinc-900 p-8 rounded-3xl border border-zinc-800 shadow-xl flex flex-col justify-between">
-        <div>
-            <h2 class="text-xl font-bold mb-2 flex items-center gap-3"><i class="fa-solid fa-upload text-amber-400"></i> Restore & Import</h2>
-            <p class="text-sm text-zinc-400 mb-8">Restore a complete system backup (<code class="text-amber-400">.zip</code> or <code class="text-amber-400">.db</code>) or import links from a <code class="text-amber-400">.csv</code> file. Automated safety checkpoints are created prior to restore.</p>
-            
-            <div class="w-full relative flex flex-col">
-                <input type="file" id="csv-upload" accept=".zip,.db,.sqlite,.csv" class="hidden" onchange="importCSV()">
-                <button onclick="document.getElementById('csv-upload').click()" class="w-full bg-zinc-800 hover:bg-zinc-700 transition-colors py-4 rounded-2xl text-sm font-bold shadow text-white flex items-center justify-center gap-3 border border-zinc-700">
-                    <i class="fa-solid fa-file-zipper text-amber-400 text-xl"></i> Restore from Backup / CSV
-                </button>
+    <!-- Right Column: System Restore & Browser Bookmarks Importer -->
+    <div class="flex flex-col gap-6">
+        <!-- 1. System Restore Card (Compact) -->
+        <div class="bg-zinc-900 p-6 rounded-3xl border border-zinc-800 shadow-xl">
+            <div class="flex items-center justify-between mb-2">
+                <h2 class="text-base font-bold flex items-center gap-2.5">
+                    <i class="fa-solid fa-cloud-arrow-up text-amber-400"></i> Full System Restore
+                </h2>
+                <span class="px-2.5 py-0.5 rounded-full text-[11px] font-mono bg-amber-950/80 text-amber-400 border border-amber-800/60">
+                    .zip / .db / .csv
+                </span>
             </div>
+            <p class="text-xs text-zinc-400 mb-4 leading-relaxed">
+                Restore full SQLite database snapshots, offline article archives, and Book Vault EPUBs. Pre-restore safety checkpoints are created automatically.
+            </p>
+            
+            <input type="file" id="csv-upload" accept=".zip,.db,.sqlite,.csv" class="hidden" onchange="importCSV()">
+            <button onclick="document.getElementById('csv-upload').click()" class="w-full bg-zinc-800 hover:bg-zinc-700 transition-all py-3 rounded-2xl text-xs font-bold shadow text-white flex items-center justify-center gap-2.5 border border-zinc-700">
+                <i class="fa-solid fa-file-zipper text-amber-400 text-base"></i> Select Backup File (.zip / .db / .csv)
+            </button>
         </div>
-        
-        <div class="mt-8 p-4 bg-zinc-950/60 border border-zinc-800/80 rounded-2xl">
-            <div class="flex items-center gap-3 text-xs text-zinc-400">
-                <i class="fa-solid fa-shield-halved text-cyan-400 text-lg flex-shrink-0"></i>
-                <span>Complete archives backup all Neural Links, Video Library, Categories, Homepage Pins, Notes, AI Routing Memory, and System Settings.</span>
+
+        <!-- 2. Browser Bookmarks Importer Card -->
+        <div class="bg-zinc-900 p-6 rounded-3xl border-2 border-cyan-500/30 hover:border-cyan-500/50 transition-all shadow-xl">
+            <div class="flex items-center justify-between mb-2">
+                <h2 class="text-base font-bold flex items-center gap-2.5 text-zinc-100">
+                    <i class="fa-solid fa-bookmark text-cyan-400"></i> Import Browser Bookmarks
+                </h2>
+                <div class="flex items-center gap-1.5 text-xs text-zinc-400">
+                    <span class="px-2 py-0.5 rounded bg-zinc-800 text-[10px] font-bold text-orange-400">Brave</span>
+                    <span class="px-2 py-0.5 rounded bg-zinc-800 text-[10px] font-bold text-blue-400">Chrome</span>
+                    <span class="px-2 py-0.5 rounded bg-zinc-800 text-[10px] font-bold text-orange-500">Firefox</span>
+                    <span class="px-2 py-0.5 rounded bg-zinc-800 text-[10px] font-bold text-cyan-400">Edge</span>
+                </div>
+            </div>
+            <p class="text-xs text-zinc-400 mb-4 leading-relaxed">
+                Export bookmarks from Brave/Chrome (<code class="text-zinc-300 font-mono text-[11px]">bookmarks.html</code>) and import them directly into your Neural Links library and Homepage shortcuts.
+            </p>
+
+            <!-- Import Toggles -->
+            <div class="space-y-2 mb-4 bg-zinc-950/60 p-3.5 rounded-2xl border border-zinc-800/80">
+                <label class="flex items-center justify-between text-xs text-zinc-300 cursor-pointer">
+                    <span class="flex items-center gap-2">
+                        <i class="fa-solid fa-shield-heart text-emerald-400"></i> Filter dead / 404 links (Verify live)
+                    </span>
+                    <input type="checkbox" id="import_filter_dead" checked class="rounded bg-zinc-800 border-zinc-700 text-emerald-500 focus:ring-0 cursor-pointer">
+                </label>
+                <label class="flex items-center justify-between text-xs text-zinc-300 cursor-pointer">
+                    <span class="flex items-center gap-2">
+                        <i class="fa-solid fa-house text-amber-400"></i> Pin "Bookmarks Bar" to Homepage
+                    </span>
+                    <input type="checkbox" id="import_pin_toolbar" checked class="rounded bg-zinc-800 border-zinc-700 text-amber-500 focus:ring-0 cursor-pointer">
+                </label>
+                <label class="flex items-center justify-between text-xs text-zinc-300 cursor-pointer">
+                    <span class="flex items-center gap-2">
+                        <i class="fa-solid fa-video text-rose-400"></i> Route YouTube to Video Library (with Categories)
+                    </span>
+                    <input type="checkbox" id="import_route_videos" checked class="rounded bg-zinc-800 border-zinc-700 text-rose-500 focus:ring-0 cursor-pointer">
+                </label>
+            </div>
+
+            <!-- Upload Dropzone / Button -->
+            <input type="file" id="bookmarks-html-upload" accept=".html,.htm" class="hidden" onchange="uploadBrowserBookmarks(this.files[0])">
+            <div 
+                id="bookmarks-dropzone" 
+                onclick="document.getElementById('bookmarks-html-upload').click()"
+                ondragover="event.preventDefault(); this.classList.add('border-cyan-400', 'bg-cyan-950/20');"
+                ondragleave="this.classList.remove('border-cyan-400', 'bg-cyan-950/20');"
+                ondrop="event.preventDefault(); this.classList.remove('border-cyan-400', 'bg-cyan-950/20'); if(event.dataTransfer.files[0]) uploadBrowserBookmarks(event.dataTransfer.files[0]);"
+                class="border-2 border-dashed border-zinc-700 hover:border-cyan-400 bg-zinc-950/40 hover:bg-cyan-950/20 rounded-2xl p-4 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2 group"
+            >
+                <i class="fa-solid fa-file-import text-cyan-400 text-2xl group-hover:scale-110 transition-transform"></i>
+                <div>
+                    <span class="text-xs font-bold text-zinc-200 block">Click to upload or Drag & Drop <span class="text-cyan-400 font-mono">bookmarks.html</span></span>
+                    <span class="text-[10px] text-zinc-500 block mt-0.5">Background archiving & AI reader packaging are queued automatically</span>
+                </div>
             </div>
         </div>
     </div>
@@ -614,6 +672,108 @@
             modal.classList.add('hidden');
             alert("A network error occurred during backup upload.");
             fileInput.value = '';
+        };
+
+        xhr.send(formData);
+    }
+
+    async function uploadBrowserBookmarks(file) {
+        if (!file) return;
+        if (!file.name.toLowerCase().endsWith('.html') && !file.name.toLowerCase().endsWith('.htm')) {
+            alert('Please select a standard bookmarks.html file exported from your browser.');
+            return;
+        }
+
+        const filterDead = document.getElementById('import_filter_dead').checked;
+        const pinToolbar = document.getElementById('import_pin_toolbar').checked;
+        const routeVideos = document.getElementById('import_route_videos').checked;
+
+        const modal = document.getElementById('restoreProgressModal');
+        const progressBar = document.getElementById('restore-progress-bar');
+        const stepLabel = document.getElementById('restore-step-label');
+        const pctLabel = document.getElementById('restore-percentage-label');
+        const filenameDisplay = document.getElementById('restore-filename-display');
+        const iconContainer = document.getElementById('restore-icon-container');
+        const modalTitle = document.getElementById('restore-modal-title');
+
+        filenameDisplay.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+        progressBar.style.width = '10%';
+        pctLabel.textContent = '10%';
+        stepLabel.textContent = 'Uploading bookmark file...';
+        iconContainer.className = 'w-16 h-16 rounded-3xl bg-cyan-500/20 border border-cyan-500/50 flex items-center justify-center text-cyan-400 text-3xl mx-auto shadow-lg';
+        iconContainer.innerHTML = '<i class="fa-solid fa-bookmark fa-bounce"></i>';
+        modalTitle.textContent = 'Importing Browser Bookmarks';
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('filter_dead', filterDead);
+        formData.append('pin_toolbar', pinToolbar);
+        formData.append('route_videos', routeVideos);
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/admin/import-bookmarks', true);
+
+        xhr.upload.onprogress = function(e) {
+            if (e.lengthComputable) {
+                const percent = Math.round((e.loaded / e.total) * 40);
+                progressBar.style.width = Math.max(10, percent) + '%';
+                pctLabel.textContent = Math.max(10, percent) + '%';
+                if (e.loaded >= e.total) {
+                    stepLabel.textContent = filterDead ? 'Verifying live links & filtering dead 404s...' : 'Processing bookmarks & category routing...';
+                    progressBar.style.width = '75%';
+                    pctLabel.textContent = '75%';
+                }
+            }
+        };
+
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                try {
+                    const result = JSON.parse(xhr.responseText);
+                    if (result.status === 'success') {
+                        const rep = result.report;
+                        progressBar.style.width = '100%';
+                        pctLabel.textContent = '100%';
+                        modalTitle.textContent = 'Bookmarks Imported!';
+                        iconContainer.className = 'w-16 h-16 rounded-3xl bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center text-emerald-400 text-3xl mx-auto shadow-lg';
+                        iconContainer.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+                        
+                        stepLabel.innerHTML = `
+                            <div class="text-left bg-zinc-950 p-3.5 rounded-2xl border border-zinc-800 space-y-1.5 text-xs text-zinc-300 font-mono mt-3">
+                                <div class="flex justify-between"><span class="text-zinc-400">Total Bookmarks Found:</span><span class="text-zinc-100 font-bold">${rep.total_found}</span></div>
+                                <div class="flex justify-between"><span class="text-zinc-400">Imported to Neural Links:</span><span class="text-emerald-400 font-bold">${rep.links_imported}</span></div>
+                                <div class="flex justify-between"><span class="text-zinc-400">Pinned to Homepage:</span><span class="text-amber-400 font-bold">${rep.homepage_pinned}</span></div>
+                                <div class="flex justify-between"><span class="text-zinc-400">YouTube Videos Routed:</span><span class="text-rose-400 font-bold">${rep.videos_routed}</span></div>
+                                ${rep.dead_skipped > 0 ? `<div class="flex justify-between"><span class="text-zinc-500">Dead / 404 Links Skipped:</span><span class="text-rose-400 font-bold">${rep.dead_skipped}</span></div>` : ''}
+                                <div class="flex justify-between text-[11px] text-cyan-400 pt-1.5 border-t border-zinc-800"><span>Background Archiving:</span><span>${rep.archiving_queued} queued</span></div>
+                            </div>
+                            <div class="pt-3">
+                                <a href="/bookmarks" class="block w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition-colors shadow">View Neural Links Library ➔</a>
+                            </div>
+                        `;
+                    } else {
+                        alert('Import failed: ' + (result.message || 'Unknown error'));
+                        modal.classList.add('hidden');
+                        modal.classList.remove('flex');
+                    }
+                } catch(e) {
+                    alert('Error parsing server response.');
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                }
+            } else {
+                alert('Server error during import: ' + xhr.statusText);
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        };
+
+        xhr.onerror = function() {
+            alert('Network error occurred during bookmark import.');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
         };
 
         xhr.send(formData);

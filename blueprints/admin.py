@@ -172,3 +172,30 @@ def auto_backup_restore():
         return jsonify(res)
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
+@admin_bp.route("/api/admin/import-bookmarks", methods=["POST"])
+def api_admin_import_bookmarks():
+    """Import bookmarks from Brave, Chrome, Edge, Firefox, or Safari HTML export."""
+    if 'file' not in request.files:
+        return jsonify({"status": "error", "message": "No bookmark HTML file uploaded"}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"status": "error", "message": "No selected file"}), 400
+        
+    filter_dead = request.form.get('filter_dead', 'true').lower() == 'true'
+    pin_toolbar = request.form.get('pin_toolbar', 'true').lower() == 'true'
+    route_videos = request.form.get('route_videos', 'true').lower() == 'true'
+    
+    try:
+        from services.importer import process_browser_bookmarks_import
+        res = process_browser_bookmarks_import(
+            file, 
+            filter_dead_links=filter_dead, 
+            pin_bookmarks_bar=pin_toolbar, 
+            route_youtube_videos=route_videos
+        )
+        return jsonify(res)
+    except Exception as e:
+        logger.error(f"Bookmark import exception: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
