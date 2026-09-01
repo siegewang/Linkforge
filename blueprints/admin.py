@@ -182,7 +182,33 @@ def api_test_ai_connection():
         }), 400
 
 
+@admin_bp.route("/api/admin/ai/simulate-task", methods=["POST"])
+def api_simulate_ai_task():
+    """Spawns a mock 6-second AI background processing task to test the dynamic sidebar animation."""
+    import threading
+    import time
+    from services.task_queue import start_task, update_progress, complete_task
+    
+    def _run_sim():
+        start_task("ai_simulation", "AI Neural Synthesis", total=5, icon="fa-brain")
+        mock_steps = [
+            "Parsing semantic graph...",
+            "Vectorizing multi-modal embeddings...",
+            "Synthesizing knowledge clusters...",
+            "Applying auto-routing memory...",
+            "Finalizing neural index..."
+        ]
+        for i, step in enumerate(mock_steps, 1):
+            time.sleep(1.2)
+            update_progress("ai_simulation", current=i, current_item=step)
+        complete_task("ai_simulation", final_message="Neural Synthesis Complete ✓")
+
+    threading.Thread(target=_run_sim, daemon=True).start()
+    return jsonify({"status": "started", "message": "Simulated AI background task started!"})
+
+
 @admin_bp.route("/api/admin/auto-backup/list")
+
 def auto_backup_list():
     return jsonify(list_auto_backups())
 

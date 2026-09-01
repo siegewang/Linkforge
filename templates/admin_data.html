@@ -330,6 +330,7 @@
                 <div class="pt-4 flex flex-wrap gap-4 items-center">
                     <button type="submit" class="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl text-sm transition-all shadow-[0_0_15px_rgba(168,85,247,0.4)] flex items-center gap-2"><i class="fa-solid fa-floppy-disk"></i> Save Active Profile</button>
                     <button type="button" onclick="testAiConnection()" id="btn-test-ai" class="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-purple-300 hover:text-white font-bold rounded-xl text-sm transition-colors border border-purple-500/40 hover:border-purple-400 flex items-center gap-2 shadow-sm"><i class="fa-solid fa-bolt text-purple-400"></i> Test Connection</button>
+                    <button type="button" onclick="simulateAiTask()" id="btn-sim-ai" class="px-5 py-3 bg-zinc-800/80 hover:bg-purple-950/60 text-purple-300 hover:text-purple-200 font-bold rounded-xl text-sm transition-colors border border-purple-500/30 flex items-center gap-2" title="Test the sidebar animated notification widget"><i class="fa-solid fa-flask-vial text-purple-400"></i> Simulate AI Task</button>
                     <button type="button" onclick="saveAsNewProfile()" class="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white font-bold rounded-xl text-sm transition-colors border border-zinc-700 flex items-center gap-2"><i class="fa-solid fa-bookmark"></i> Save as New Profile</button>
                 </div>
                 <!-- AI Test Result Banner -->
@@ -972,6 +973,23 @@
         } finally {
             btn.innerHTML = originalHTML;
             btn.disabled = false;
+        }
+    }
+
+    async function simulateAiTask() {
+        const btn = document.getElementById('btn-sim-ai');
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-purple-400"></i> Simulating...';
+        btn.disabled = true;
+        try {
+            await fetch('/api/admin/ai/simulate-task', { method: 'POST' });
+        } catch(e) {
+            console.error('Failed to trigger simulation:', e);
+        } finally {
+            setTimeout(() => {
+                btn.innerHTML = orig;
+                btn.disabled = false;
+            }, 6500);
         }
     }
 
