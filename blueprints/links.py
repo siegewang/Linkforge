@@ -924,25 +924,13 @@ def ai_search_links():
     links_rows = conn.execute("SELECT id, title, description, tags, url, favicon, full_text FROM links").fetchall()
     vids_rows = conn.execute("SELECT id, title, description, tags, url, thumbnail_url, transcript, channel_name FROM video_bookmarks").fetchall()
     
-    all_candidates = []
+    # Deduplicate candidates across links and video_bookmarks by normalized URL
+    seen_urls = {}
     
-    # 1. Add web links
-    for l in links_rows:
-        all_candidates.append({
-            "id": f"link_{l['id']}",
-            "raw_id": l['id'],
-            "type": "link",
-            "title": l['title'] or l['url'],
-            "desc": l['description'] or "",
-            "tags": l['tags'] or "",
-            "url": l['url'],
-            "favicon": l['favicon'] or "",
-            "full_text": l['full_text'] or ""
-        })
-        
-    # 2. Add video bookmarks
+    # 1. Add video bookmarks first (so rich video metadata/thumbnails/transcripts take precedence)
     for v in vids_rows:
-        all_candidates.append({
+        norm_url = (v['url'] or "").lower().rstrip('/')
+        item = {
             "id": f"video_{v['id']}",
             "raw_id": v['id'],
             "type": "video",
@@ -952,7 +940,33 @@ def ai_search_links():
             "url": v['url'],
             "favicon": v['thumbnail_url'] or "https://www.youtube.com/s/desktop/favicon.ico",
             "full_text": v['transcript'] or ""
-        })
+        }
+        seen_urls[norm_url] = item
+
+    # 2. Add web links, merging tags if already present in videos
+    for l in links_rows:
+        norm_url = (l['url'] or "").lower().rstrip('/')
+        if norm_url in seen_urls:
+            # Merge any extra tags from links table into the existing video entry
+            existing_tags = set(t.strip() for t in (seen_urls[norm_url]["tags"] or "").split(",") if t.strip())
+            extra_tags = set(t.strip() for t in (l["tags"] or "").split(",") if t.strip())
+            combined = existing_tags.union(extra_tags)
+            seen_urls[norm_url]["tags"] = ", ".join(sorted(combined))
+        else:
+            seen_urls[norm_url] = {
+                "id": f"link_{l['id']}",
+                "raw_id": l['id'],
+                "type": "link",
+                "title": l['title'] or l['url'],
+                "desc": l['description'] or "",
+                "tags": l['tags'] or "",
+                "url": l['url'],
+                "favicon": l['favicon'] or "",
+                "full_text": l['full_text'] or ""
+            }
+
+    all_candidates = list(seen_urls.values())
+
         
     # Filter by selected tags (if any)
     filtered_candidates = []
