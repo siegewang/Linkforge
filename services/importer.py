@@ -307,7 +307,7 @@ def process_browser_bookmarks_import(file_storage, filter_dead_links=True, pin_b
                 if not link_id:
                     cur = conn.execute("""
                         INSERT INTO links (url, title, description, tags, is_read, date_added, favicon, click_count)
-                        VALUES (?, ?, ?, ?, 0, datetime('now'), ?, 0)
+                        VALUES (?, ?, ?, ?, 1, datetime('now'), ?, 0)
                     """, (url, title, "", tags_str, favicon))
                     link_id = cur.lastrowid
                     existing_link_urls[norm_url] = link_id

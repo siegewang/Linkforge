@@ -806,38 +806,51 @@ function switchView(view) {
             `;
 
             // Tags
+            const rawId = link.raw_id || link.id;
+            const isVideo = link.type === 'video';
             const tagsList = (link.tags || "").split(',').map(t => t.trim()).filter(t => t);
-            const tagsHTML = tagsList.map(t => `<span data-tag="${t}" onclick="enableTagEditing(${link.id}, '#tags-query-${link.id}')" class="cursor-pointer hover:bg-cyan-900/40 px-2 py-0.5 bg-cyan-950/40 text-cyan-500 border border-cyan-900 font-mono text-[9px] uppercase tracking-widest rounded shadow-sm">#${t}</span>`).join('');
+            const tagsHTML = tagsList.map(t => `<span data-tag="${t}" class="hover:bg-cyan-900/40 px-2 py-0.5 bg-cyan-950/40 text-cyan-500 border border-cyan-900 font-mono text-[9px] uppercase tracking-widest rounded shadow-sm">#${t}</span>`).join('');
 
-            // Favicon
+            // Favicon & Badges
             const favHTML = link.favicon 
-                ? `<img src="${link.favicon}" class="w-4 h-4 rounded object-contain" onerror="this.style.display='none'">`
-                : `<i class="fa-solid fa-link text-cyan-700 text-xs"></i>`;
+                ? `<img src="${link.favicon}" class="w-6 h-6 rounded ${isVideo ? 'object-cover' : 'object-contain'}" onerror="this.src='https://www.google.com/s2/favicons?domain=youtube.com'">`
+                : `<i class="fa-solid ${isVideo ? 'fa-video text-rose-400' : 'fa-link text-cyan-700'} text-xs"></i>`;
+
+            const typeBadge = isVideo 
+                ? `<span class="px-2 py-0.5 rounded-full bg-rose-950/90 text-rose-300 border border-rose-700/60 text-[9px] font-bold uppercase tracking-wider inline-flex items-center gap-1 flex-shrink-0"><i class="fa-brands fa-youtube text-rose-400"></i> Video</span>`
+                : '';
 
             card.innerHTML = `
                 ${scoreHTML}
                 <div class="flex-1 min-w-0 flex flex-col justify-center">
-                    <div class="flex items-center gap-3 mb-1">
-                        <div class="w-6 h-6 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center shadow-inner">${favHTML}</div>
-                        <a href="${link.url}" target="_blank" onclick="trackLinkClick(${link.id})" class="text-lg font-bold text-zinc-100 hover:text-cyan-400 truncate transition-colors">${link.title || link.url}</a>
+                    <div class="flex items-center gap-3 mb-1 flex-wrap">
+                        <div class="w-6 h-6 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center shadow-inner flex-shrink-0">${favHTML}</div>
+                        <a href="${link.url}" target="_blank" onclick="if(!'${isVideo}') trackLinkClick(${rawId})" class="text-lg font-bold text-zinc-100 hover:text-cyan-400 truncate transition-colors">${escapeHTML(link.title || link.url)}</a>
+                        ${typeBadge}
                     </div>
                     <a href="${link.url}" target="_blank" class="text-[10px] text-cyan-700 font-mono truncate hover:underline mb-2 block">${link.url}</a>
-                    <p class="text-sm text-zinc-400 leading-relaxed mb-3">${link.desc || ''}</p>
+                    <p class="text-sm text-zinc-400 leading-relaxed mb-3">${escapeHTML(link.desc || '')}</p>
                     <div id="tags-query-${link.id}" class="flex flex-wrap gap-1.5 mb-4">${tagsHTML}</div>
                     
                     <div class="mt-auto pt-3 border-t border-cyan-900/30 flex items-start gap-2">
                         <i class="fa-solid fa-microchip text-cyan-600 mt-0.5 text-xs"></i>
-                        <p class="text-xs text-cyan-300/80 font-mono leading-tight typewriter-text">${match.reasoning}</p>
+                        <p class="text-xs text-cyan-300/80 font-mono leading-tight typewriter-text">${escapeHTML(match.reasoning)}</p>
                     </div>
                 </div>
                 
                 <!-- Actions -->
                 <div class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-                    <button data-homepage-id="${link.id}" onclick="event.stopPropagation(); showAddToHomepage(${link.id})" class="px-2.5 py-1.5 bg-zinc-800 hover:bg-amber-900/30 border border-zinc-700 hover:border-amber-700 text-zinc-400 hover:text-amber-400 text-xs rounded-lg transition-colors flex items-center gap-1.5" title="Add to Homepage">
+                    ${!isVideo ? `
+                    <button data-homepage-id="${rawId}" onclick="event.stopPropagation(); showAddToHomepage(${rawId})" class="px-2.5 py-1.5 bg-zinc-800 hover:bg-amber-900/30 border border-zinc-700 hover:border-amber-700 text-zinc-400 hover:text-amber-400 text-xs rounded-lg transition-colors flex items-center gap-1.5" title="Add to Homepage">
                         <i class="fa-solid fa-star text-[10px]"></i> Homepage
                     </button>
-                    <button onclick="openEditModal(${link.id}, \`${link.url.replace(/`/g, '\\`')}\`, \`${(link.title||'').replace(/`/g, '\\`')}\`, \`${(link.desc||'').replace(/`/g, '\\`')}\`, \`${link.tags||''}\`)" title="Edit Record" class="w-8 h-8 rounded bg-zinc-900 border border-zinc-700 text-zinc-400 hover:text-cyan-400 hover:border-cyan-500 transition-colors flex items-center justify-center"><i class="fa-solid fa-pen text-xs"></i></button>
-                    <button onclick="deleteLink(${link.id})" title="Purge Record" class="w-8 h-8 rounded bg-zinc-900 border border-zinc-700 text-zinc-400 hover:text-rose-500 hover:border-rose-500 transition-colors flex items-center justify-center"><i class="fa-solid fa-trash text-xs"></i></button>
+                    <button onclick="openEditModal(${rawId}, \`${link.url.replace(/`/g, '\\`')}\`, \`${(link.title||'').replace(/`/g, '\\`')}\`, \`${(link.desc||'').replace(/`/g, '\\`')}\`, \`${link.tags||''}\`)" title="Edit Record" class="w-8 h-8 rounded bg-zinc-900 border border-zinc-700 text-zinc-400 hover:text-cyan-400 hover:border-cyan-500 transition-colors flex items-center justify-center"><i class="fa-solid fa-pen text-xs"></i></button>
+                    <button onclick="deleteLink(${rawId})" title="Purge Record" class="w-8 h-8 rounded bg-zinc-900 border border-zinc-700 text-zinc-400 hover:text-rose-500 hover:border-rose-500 transition-colors flex items-center justify-center"><i class="fa-solid fa-trash text-xs"></i></button>
+                    ` : `
+                    <a href="/videos" class="px-3 py-1.5 bg-rose-950/80 hover:bg-rose-900/90 border border-rose-700/60 text-rose-300 text-xs rounded-lg transition-colors flex items-center gap-1.5 font-semibold">
+                        <i class="fa-solid fa-play text-[10px]"></i> Open in Video Library
+                    </a>
+                    `}
                 </div>
             `;
             list.appendChild(card);

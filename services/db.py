@@ -267,6 +267,12 @@ def init_db(app=None):
             date_added TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )""")
 
+        # Ensure all imported bookmarks are marked is_read = 1 so they appear in Neural Links and Tag Swarms
+        try:
+            conn.execute("UPDATE links SET is_read = 1 WHERE is_read = 0")
+        except Exception:
+            pass
+
         os.makedirs(Config.BACKUP_DIR, exist_ok=True)
         conn.commit()
         _db_initialized = True
