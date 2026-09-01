@@ -1,6 +1,7 @@
 ﻿import os
 import re
 import time
+import json
 import datetime
 import logging
 import urllib.parse
@@ -10,7 +11,7 @@ import requests
 
 from config import Config
 from services.db import get_db, retry_write
-from services.scraper import scrape_url_data, check_link_alive
+from services.scraper import scrape_url_data, check_link_alive, fetch_youtube_transcript_details
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,25 @@ def extract_youtube_video_id(url: str):
                 return parts[1].split('/')[0]
     return None
 
+def fetch_youtube_oembed(url: str):
+    """Fetch video metadata from YouTube free oEmbed API."""
+    try:
+        resp = requests.get(
+            "https://www.youtube.com/oembed",
+            params={"url": url, "format": "json"},
+            timeout=8
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            return {
+                "title": data.get("title", ""),
+                "thumbnail_url": data.get("thumbnail_url", ""),
+                "channel_name": data.get("author_name", ""),
+            }
+    except Exception as e:
+        logger.debug(f"YouTube oEmbed fetch failed for {url}: {e}")
+    return None
+
 def is_link_alive_fast(url: str, timeout: float = 2.5) -> bool:
     """Fast concurrent check to ensure the link is alive and not a dead 404/500/broken domain."""
     if not url or not (url.startswith('http://') or url.startswith('https://')):
@@ -72,7 +92,6 @@ def is_link_alive_fast(url: str, timeout: float = 2.5) -> bool:
         resp = requests.head(url, headers=HEADERS, timeout=timeout, allow_redirects=True)
         if resp.status_code < 400 or resp.status_code in (401, 403, 405, 429):
             return True
-        # If HEAD returned 404/500, attempt a quick streamed GET to confirm
         resp_get = requests.get(url, headers=HEADERS, timeout=timeout, stream=True, allow_redirects=True)
         if resp_get.status_code < 400 or resp_get.status_code in (401, 403, 405, 429):
             return True
@@ -135,7 +154,6 @@ def parse_netscape_bookmarks(html_content: str):
             'is_in_toolbar': is_toolbar
         })
 
-    # Deduplicate within the file itself preserving earliest order
     unique_bookmarks = []
     seen = set()
     for b in bookmarks:
@@ -190,7 +208,7 @@ def process_browser_bookmarks_import(file_storage, filter_dead_links=True, pin_b
     3. Route YouTube videos to video_bookmarks with auto-created folder categories.
     4. Store regular web bookmarks in links with folder tags.
     5. Pin Bookmarks Bar links to homepage_bookmarks.
-    6. Queue background article scraping/archiving worker.
+    6. Queue background article & YouTube transcript ingestion worker.
     """
     content = file_storage.read().decode('utf-8', errors='ignore')
     raw_bookmarks = parse_netscape_bookmarks(content)
@@ -224,7 +242,6 @@ def process_browser_bookmarks_import(file_storage, filter_dead_links=True, pin_b
     else:
         valid_bookmarks = raw_bookmarks
 
-    # Preserve original file order
     url_to_order = {bm['url']: idx for idx, bm in enumerate(raw_bookmarks)}
     valid_bookmarks.sort(key=lambda b: url_to_order.get(b['url'], 0))
 
@@ -240,6 +257,7 @@ def process_browser_bookmarks_import(file_storage, filter_dead_links=True, pin_b
     }
 
     links_to_background_archive = []
+    videos_to_background_ingest = []
 
     def _execute_import_db():
         conn = get_db()
@@ -270,12 +288,14 @@ def process_browser_bookmarks_import(file_storage, filter_dead_links=True, pin_b
                 thumb = f"https://img.youtube.com/vi/{yt_id}/hqdefault.jpg"
                 tags_str = ", ".join(bm['folder_tags']) if bm['folder_tags'] else "Imported, Video"
                 
-                conn.execute("""
+                cur = conn.execute("""
                     INSERT INTO video_bookmarks (url, title, thumbnail_url, channel_name, category_id, tags, description, date_added, display_order)
                     VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), 0)
                 """, (url, title, thumb, "YouTube", cat_id, tags_str, f"Imported from browser folder: {' > '.join(bm['folder_path'])}"))
+                v_id = cur.lastrowid
                 
                 report["videos_routed"] += 1
+                videos_to_background_ingest.append((v_id, url, title))
                 
             # 2. Regular Web Link Import
             else:
@@ -294,7 +314,6 @@ def process_browser_bookmarks_import(file_storage, filter_dead_links=True, pin_b
                     report["links_imported"] += 1
                     links_to_background_archive.append((link_id, url))
                 
-                # Pin to Homepage if part of Bookmarks Bar
                 if pin_bookmarks_bar and bm.get('is_in_toolbar'):
                     already_pinned = conn.execute("SELECT id FROM homepage_bookmarks WHERE link_id = ?", (link_id,)).fetchone()
                     if not already_pinned:
@@ -309,15 +328,43 @@ def process_browser_bookmarks_import(file_storage, filter_dead_links=True, pin_b
 
     retry_write(_execute_import_db)
     
-    # Step 6: Spawn background thread for offline reader and AI archiving
-    report["archiving_queued"] = len(links_to_background_archive)
-    if links_to_background_archive:
+    # Step 6: Spawn unified background thread for offline article reader & YouTube transcripts
+    total_queued = len(links_to_background_archive) + len(videos_to_background_ingest)
+    report["archiving_queued"] = total_queued
+    
+    if total_queued > 0:
         import threading
-        def _background_archive_worker(batch):
-            logger.info(f"Starting background archiving for {len(batch)} imported bookmarks...")
-            for l_id, l_url in batch:
+        def _background_archive_worker(link_batch, video_batch):
+            logger.info(f"Starting background ingestion for {len(link_batch)} articles and {len(video_batch)} YouTube videos...")
+            
+            # 1. Ingest YouTube Video Metadata & Transcripts
+            for v_id, v_url, v_title in video_batch:
                 try:
-                    time.sleep(0.5) # Gentle rate limiting
+                    time.sleep(0.4)
+                    oembed = fetch_youtube_oembed(v_url)
+                    channel_name = oembed.get('channel_name', 'YouTube') if oembed else 'YouTube'
+                    clean_title = oembed.get('title') if oembed and oembed.get('title') else v_title
+                    
+                    t_data = fetch_youtube_transcript_details(v_url)
+                    transcript = t_data.get("text", "")
+                    segments = t_data.get("segments", [])
+                    
+                    def _update_vid():
+                        c = get_db()
+                        c.execute("""
+                            UPDATE video_bookmarks 
+                            SET title = ?, channel_name = ?, transcript = ?, transcript_json = ? 
+                            WHERE id = ?
+                        """, (clean_title, channel_name, transcript, json.dumps(segments) if segments else None, v_id))
+                        c.commit()
+                    retry_write(_update_vid)
+                except Exception as ve:
+                    logger.debug(f"YouTube background ingestion error for video {v_id} ({v_url}): {ve}")
+
+            # 2. Ingest Web Articles
+            for l_id, l_url in link_batch:
+                try:
+                    time.sleep(0.5)
                     scraped_title, scraped_desc, scraped_fav, auto_tags = scrape_url_data(l_url)
                     
                     def _update_link():
@@ -336,7 +383,7 @@ def process_browser_bookmarks_import(file_storage, filter_dead_links=True, pin_b
                 except Exception as e:
                     logger.debug(f"Background archiving error for link {l_id} ({l_url}): {e}")
                     
-        threading.Thread(target=_background_archive_worker, args=(links_to_background_archive,), daemon=True, name="ImportArchiver").start()
+        threading.Thread(target=_background_archive_worker, args=(links_to_background_archive, videos_to_background_ingest), daemon=True, name="ImportArchiver").start()
 
     logger.info(f"Browser bookmark import complete: {report}")
     return {
