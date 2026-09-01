@@ -389,40 +389,57 @@
                     const itemEl = document.getElementById('bg-widget-current-item');
 
                     if (widget) {
+                        const widgetCard = widget.firstElementChild;
                         if (data.tasks && data.tasks.length > 0) {
                             const task = data.tasks[0];
                             widget.classList.remove('hidden');
-                            if (titleEl) titleEl.textContent = task.name || 'Background Ingestion';
-                            if (iconEl) {
-                                if (task.status === 'completed') {
-                                    iconEl.className = 'fa-solid fa-circle-check text-emerald-400';
-                                } else {
-                                    iconEl.className = `fa-solid ${task.icon || 'fa-gear'} fa-spin text-cyan-400`;
+                            const isAiTask = (task.icon && task.icon.includes('brain')) || (task.id && task.id.startsWith('ai')) || (task.name && task.name.toLowerCase().includes('ai'));
+                            
+                            if (titleEl) titleEl.textContent = task.name || (isAiTask ? 'AI Neural Processing' : 'Background Ingestion');
+                            
+                            if (isAiTask && task.status !== 'completed') {
+                                if (widgetCard) widgetCard.className = 'p-3 bg-gradient-to-br from-purple-950/90 via-zinc-900/95 to-purple-950/80 border border-purple-500/60 shadow-[0_0_25px_rgba(168,85,247,0.35)] rounded-2xl backdrop-blur-sm space-y-2';
+                                if (iconEl) iconEl.className = 'fa-solid fa-brain text-purple-400 animate-pulse text-sm drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]';
+                                if (badgeEl) {
+                                    badgeEl.textContent = 'AI Active';
+                                    badgeEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-mono bg-purple-950 text-purple-300 border border-purple-700/80 shadow-sm';
                                 }
-                            }
-                            if (badgeEl) {
-                                if (task.status === 'completed') {
-                                    badgeEl.textContent = 'Complete ✓';
-                                    badgeEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-950 text-emerald-300 border border-emerald-800/60';
-                                } else {
-                                    badgeEl.textContent = `${task.queue_remaining || 0} in queue`;
-                                    badgeEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-950 text-cyan-300 border border-cyan-800/60';
+                                if (barEl) barEl.className = 'bg-gradient-to-r from-purple-500 via-indigo-500 to-pink-500 h-full rounded-full transition-all duration-300';
+                            } else {
+                                if (widgetCard) widgetCard.className = 'p-3 bg-zinc-900/90 border border-cyan-500/40 hover:border-cyan-500/60 rounded-2xl shadow-lg backdrop-blur-sm space-y-2';
+                                if (iconEl) {
+                                    if (task.status === 'completed') {
+                                        iconEl.className = 'fa-solid fa-circle-check text-emerald-400';
+                                    } else {
+                                        iconEl.className = `fa-solid ${task.icon || 'fa-gear'} fa-spin text-cyan-400`;
+                                    }
                                 }
+                                if (badgeEl) {
+                                    if (task.status === 'completed') {
+                                        badgeEl.textContent = 'Complete ✓';
+                                        badgeEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-950 text-emerald-300 border border-emerald-800/60';
+                                    } else {
+                                        badgeEl.textContent = `${task.queue_remaining || 0} in queue`;
+                                        badgeEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-950 text-cyan-300 border border-cyan-800/60';
+                                    }
+                                }
+                                if (barEl) barEl.className = 'bg-gradient-to-r from-cyan-500 to-emerald-500 h-full rounded-full transition-all duration-300';
                             }
+
                             if (barEl) barEl.style.width = `${task.percentage || 0}%`;
                             if (countsEl) countsEl.textContent = `${task.current} / ${task.total}`;
                             if (pctEl) pctEl.textContent = `${task.percentage}%`;
-                            if (itemEl) itemEl.textContent = task.current_item || 'Working...';
+                            if (itemEl) itemEl.textContent = task.current_item || 'Processing...';
 
-                            nextInterval = 2000; // active fast polling
+                            nextInterval = 1500; // fast responsive poll during background activity
                         } else {
                             widget.classList.add('hidden');
-                            nextInterval = 8000; // relaxed polling when idle
+                            nextInterval = 7000; // relaxed heartbeat when idle
                         }
                     }
                 }
             } catch(e) {
-                nextInterval = 10000;
+                nextInterval = 9000;
             }
             bgPollTimeout = setTimeout(pollBackgroundTasks, nextInterval);
         }

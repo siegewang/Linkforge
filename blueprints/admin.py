@@ -1,7 +1,10 @@
 from flask import Blueprint, render_template, jsonify, request, send_from_directory
 from werkzeug.utils import secure_filename
 import os
+import logging
 from config import Config
+
+logger = logging.getLogger(__name__)
 from services.backup import (
     get_backup_config, save_backup_config, create_auto_backup, list_auto_backups,
     restore_backup, clean_orphaned_archives, get_archives_storage_stats,
@@ -135,6 +138,49 @@ def ai_config():
         "base_url": rows.get("ai_base_url", "https://api.openai.com/v1"),
         "model": rows.get("ai_model", "gpt-4o-mini")
     })
+
+@admin_bp.route("/api/admin/ai/test", methods=["POST"])
+def api_test_ai_connection():
+    """Test connection, latency, and tool-calling capability of configured AI credentials."""
+    data = request.json or {}
+    api_key = data.get("api_key", "").strip()
+    base_url = data.get("base_url", "https://api.openai.com/v1").strip()
+    model = data.get("model", "gpt-4o-mini").strip()
+    
+    if not api_key:
+        return jsonify({"status": "error", "message": "API Key is required to test connection."}), 400
+        
+    import time
+    start_t = time.time()
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key, base_url=base_url, timeout=12.0)
+        
+        # Send a lightweight test completion
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": "Respond with single word: OK"}],
+            max_tokens=5
+        )
+        latency_ms = int((time.time() - start_t) * 1000)
+        reply = resp.choices[0].message.content.strip()
+        
+        return jsonify({
+            "status": "success",
+            "message": f"Connected successfully to {model}!",
+            "model": model,
+            "latency_ms": latency_ms,
+            "response": reply
+        })
+    except Exception as e:
+        latency_ms = int((time.time() - start_t) * 1000)
+        logger.warning(f"AI test connection error: {e}")
+        return jsonify({
+            "status": "error",
+            "message": str(e),
+            "latency_ms": latency_ms
+        }), 400
+
 
 @admin_bp.route("/api/admin/auto-backup/list")
 def auto_backup_list():

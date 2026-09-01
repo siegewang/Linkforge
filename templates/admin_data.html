@@ -327,10 +327,13 @@
                         <span class="text-[11px] text-zinc-500 block mt-2">Ensure the model supports tool calling</span>
                     </div>
                 </div>
-                <div class="pt-4 flex gap-4">
+                <div class="pt-4 flex flex-wrap gap-4 items-center">
                     <button type="submit" class="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl text-sm transition-all shadow-[0_0_15px_rgba(168,85,247,0.4)] flex items-center gap-2"><i class="fa-solid fa-floppy-disk"></i> Save Active Profile</button>
-                    <button type="button" onclick="saveAsNewProfile()" class="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-xl text-sm transition-colors border border-zinc-700 flex items-center gap-2"><i class="fa-solid fa-bookmark"></i> Save as New Profile</button>
+                    <button type="button" onclick="testAiConnection()" id="btn-test-ai" class="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-purple-300 hover:text-white font-bold rounded-xl text-sm transition-colors border border-purple-500/40 hover:border-purple-400 flex items-center gap-2 shadow-sm"><i class="fa-solid fa-bolt text-purple-400"></i> Test Connection</button>
+                    <button type="button" onclick="saveAsNewProfile()" class="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white font-bold rounded-xl text-sm transition-colors border border-zinc-700 flex items-center gap-2"><i class="fa-solid fa-bookmark"></i> Save as New Profile</button>
                 </div>
+                <!-- AI Test Result Banner -->
+                <div id="ai-test-result-box" class="hidden p-4 rounded-2xl border text-xs font-mono transition-all"></div>
             </form>
         </div>
     </div>
@@ -914,6 +917,62 @@
             if (res.ok) alert('Active AI Profile saved to backend!');
             else alert('Error saving AI config.');
         } catch (err) { alert('Error saving AI config.'); }
+    }
+
+    async function testAiConnection() {
+        const btn = document.getElementById('btn-test-ai');
+        const resultBox = document.getElementById('ai-test-result-box');
+        const api_key = document.getElementById('ai_api_key').value.trim();
+        const base_url = document.getElementById('ai_base_url').value.trim();
+        const model = document.getElementById('ai_model').value.trim();
+
+        if (!api_key) {
+            resultBox.className = 'p-4 rounded-2xl border border-rose-500/50 bg-rose-950/40 text-rose-300 text-xs font-mono space-y-1 block';
+            resultBox.innerHTML = `<strong><i class="fa-solid fa-circle-xmark mr-1"></i> Error:</strong> Please enter an API Key first.`;
+            return;
+        }
+
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-purple-400"></i> Testing...';
+        btn.disabled = true;
+
+        resultBox.className = 'p-4 rounded-2xl border border-purple-500/40 bg-purple-950/30 text-purple-200 text-xs font-mono flex items-center gap-2 block animate-pulse';
+        resultBox.innerHTML = '<i class="fa-solid fa-brain fa-spin text-purple-400"></i> Sending test ping to ' + (base_url || 'https://api.openai.com/v1') + '...';
+
+        try {
+            const res = await fetch('/api/admin/ai/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ api_key, base_url, model })
+            });
+            const data = await res.json();
+            
+            if (res.ok && data.status === 'success') {
+                resultBox.className = 'p-4 rounded-2xl border border-emerald-500/50 bg-emerald-950/40 text-emerald-300 text-xs font-mono space-y-1 block shadow-lg';
+                resultBox.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-emerald-400 flex items-center gap-1.5"><i class="fa-solid fa-circle-check"></i> Connected Successfully!</span>
+                        <span class="text-[10px] bg-emerald-900/80 px-2 py-0.5 rounded border border-emerald-700/60">${data.latency_ms} ms</span>
+                    </div>
+                    <div class="text-[11px] text-zinc-400 mt-1">Model: <strong class="text-zinc-200">${data.model}</strong> • Response: "${data.response}"</div>
+                `;
+            } else {
+                resultBox.className = 'p-4 rounded-2xl border border-rose-500/50 bg-rose-950/40 text-rose-300 text-xs font-mono space-y-1 block shadow-lg';
+                resultBox.innerHTML = `
+                    <div class="font-bold text-rose-400 flex items-center gap-1.5"><i class="fa-solid fa-triangle-exclamation"></i> Connection Failed (${data.latency_ms || 0} ms)</div>
+                    <div class="text-[11px] text-zinc-300 mt-1 break-words">${escapeHTML(data.message || 'Unknown error occurred')}</div>
+                `;
+            }
+        } catch (err) {
+            resultBox.className = 'p-4 rounded-2xl border border-rose-500/50 bg-rose-950/40 text-rose-300 text-xs font-mono space-y-1 block shadow-lg';
+            resultBox.innerHTML = `
+                <div class="font-bold text-rose-400 flex items-center gap-1.5"><i class="fa-solid fa-triangle-exclamation"></i> Network Error</div>
+                <div class="text-[11px] text-zinc-300 mt-1">Failed to reach server: ${escapeHTML(err.message)}</div>
+            `;
+        } finally {
+            btn.innerHTML = originalHTML;
+            btn.disabled = false;
+        }
     }
 
     // --- Ignored & Aborted Pages Management ---
