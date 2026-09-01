@@ -117,6 +117,37 @@
                             <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
                         </a>
                     </div>
+
+                    <!-- Live Background Tasks & Processing Queue Widget (Under Settings) -->
+                    <div id="sidebar-background-tasks-widget" class="hidden mt-3 transition-all duration-300">
+                        <div class="p-3 bg-zinc-900/90 border border-cyan-500/40 hover:border-cyan-500/60 rounded-2xl shadow-lg backdrop-blur-sm space-y-2">
+                            <div class="flex items-center justify-between">
+                                <span class="flex items-center gap-2 text-xs font-bold text-cyan-300">
+                                    <i id="bg-widget-icon" class="fa-solid fa-circle-notch fa-spin text-cyan-400"></i>
+                                    <span id="bg-widget-title">Background Ingestion</span>
+                                </span>
+                                <span id="bg-widget-queue-badge" class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-950 text-cyan-300 border border-cyan-800/60">
+                                    0 in queue
+                                </span>
+                            </div>
+
+                            <!-- Progress Bar -->
+                            <div class="w-full bg-zinc-950 border border-zinc-800 rounded-full h-2 p-0.5 overflow-hidden">
+                                <div id="bg-widget-progress-bar" class="bg-gradient-to-r from-cyan-500 to-emerald-500 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                            </div>
+
+                            <div class="flex items-center justify-between text-[10px] font-mono text-zinc-400">
+                                <span id="bg-widget-counts">0 / 0</span>
+                                <span id="bg-widget-percentage" class="text-cyan-400 font-bold">0%</span>
+                            </div>
+
+                            <!-- Current processing item -->
+                            <div class="pt-1.5 border-t border-zinc-800/60 flex items-center gap-1.5 text-[10px] text-zinc-400 truncate">
+                                <i class="fa-solid fa-bolt text-[9px] text-amber-400 flex-shrink-0"></i>
+                                <span id="bg-widget-current-item" class="truncate font-mono">Processing...</span>
+                            </div>
+                        </div>
+                    </div>
                 </nav>
 
                 {% if active_page == 'bookmarks' and tag_swarm %}
@@ -339,6 +370,64 @@
             } catch(e) {}
         }
         checkGlobalUpdateBadge();
+
+        // Poll live background task processing status & queue
+        let bgPollTimeout = null;
+        async function pollBackgroundTasks() {
+            let nextInterval = 3000;
+            try {
+                const res = await fetch('/api/system/background-status');
+                if (res.ok) {
+                    const data = await res.json();
+                    const widget = document.getElementById('sidebar-background-tasks-widget');
+                    const titleEl = document.getElementById('bg-widget-title');
+                    const iconEl = document.getElementById('bg-widget-icon');
+                    const badgeEl = document.getElementById('bg-widget-queue-badge');
+                    const barEl = document.getElementById('bg-widget-progress-bar');
+                    const countsEl = document.getElementById('bg-widget-counts');
+                    const pctEl = document.getElementById('bg-widget-percentage');
+                    const itemEl = document.getElementById('bg-widget-current-item');
+
+                    if (widget) {
+                        if (data.tasks && data.tasks.length > 0) {
+                            const task = data.tasks[0];
+                            widget.classList.remove('hidden');
+                            if (titleEl) titleEl.textContent = task.name || 'Background Ingestion';
+                            if (iconEl) {
+                                if (task.status === 'completed') {
+                                    iconEl.className = 'fa-solid fa-circle-check text-emerald-400';
+                                } else {
+                                    iconEl.className = `fa-solid ${task.icon || 'fa-gear'} fa-spin text-cyan-400`;
+                                }
+                            }
+                            if (badgeEl) {
+                                if (task.status === 'completed') {
+                                    badgeEl.textContent = 'Complete ✓';
+                                    badgeEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-950 text-emerald-300 border border-emerald-800/60';
+                                } else {
+                                    badgeEl.textContent = `${task.queue_remaining || 0} in queue`;
+                                    badgeEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-950 text-cyan-300 border border-cyan-800/60';
+                                }
+                            }
+                            if (barEl) barEl.style.width = `${task.percentage || 0}%`;
+                            if (countsEl) countsEl.textContent = `${task.current} / ${task.total}`;
+                            if (pctEl) pctEl.textContent = `${task.percentage}%`;
+                            if (itemEl) itemEl.textContent = task.current_item || 'Working...';
+
+                            nextInterval = 2000; // active fast polling
+                        } else {
+                            widget.classList.add('hidden');
+                            nextInterval = 8000; // relaxed polling when idle
+                        }
+                    }
+                }
+            } catch(e) {
+                nextInterval = 10000;
+            }
+            bgPollTimeout = setTimeout(pollBackgroundTasks, nextInterval);
+        }
+        pollBackgroundTasks();
+
 
         // Register Progressive Web App Service Worker
         if ('serviceWorker' in navigator) {

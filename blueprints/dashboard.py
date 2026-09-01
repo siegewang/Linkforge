@@ -664,5 +664,12 @@ def api_delete_book(book_id):
     delete_downloaded_book(book_id)
     return jsonify({"status": "success"})
 
+@dashboard_bp.route("/api/system/background-status")
+def api_background_status():
+    """Return live status of all background worker tasks, progress percentages, and queue lengths."""
+    from services.task_queue import get_tasks_status
+    return jsonify(get_tasks_status())
+
+
 
 

@@ -1,4 +1,4 @@
-﻿import os
+import os
 import re
 import time
 import json
@@ -334,11 +334,29 @@ def process_browser_bookmarks_import(file_storage, filter_dead_links=True, pin_b
     
     if total_queued > 0:
         import threading
+        from services.task_queue import start_task, update_progress, complete_task
+        
         def _background_archive_worker(link_batch, video_batch):
+            total_items = len(link_batch) + len(video_batch)
             logger.info(f"Starting background ingestion for {len(link_batch)} articles and {len(video_batch)} YouTube videos...")
+            
+            start_task(
+                task_id="bookmark_ingest",
+                name="Ingesting Bookmarks",
+                total=total_items,
+                icon="fa-bookmark"
+            )
+            
+            processed_count = 0
             
             # 1. Ingest YouTube Video Metadata & Transcripts
             for v_id, v_url, v_title in video_batch:
+                processed_count += 1
+                update_progress(
+                    task_id="bookmark_ingest",
+                    current=processed_count,
+                    current_item=f"Video: {v_title[:32]}..." if len(v_title) > 32 else f"Video: {v_title}"
+                )
                 try:
                     time.sleep(0.4)
                     oembed = fetch_youtube_oembed(v_url)
@@ -363,6 +381,13 @@ def process_browser_bookmarks_import(file_storage, filter_dead_links=True, pin_b
 
             # 2. Ingest Web Articles
             for l_id, l_url in link_batch:
+                processed_count += 1
+                domain = urllib.parse.urlparse(l_url).netloc
+                update_progress(
+                    task_id="bookmark_ingest",
+                    current=processed_count,
+                    current_item=f"Article: {domain}"
+                )
                 try:
                     time.sleep(0.5)
                     scraped_title, scraped_desc, scraped_fav, auto_tags = scrape_url_data(l_url)
@@ -383,6 +408,8 @@ def process_browser_bookmarks_import(file_storage, filter_dead_links=True, pin_b
                 except Exception as e:
                     logger.debug(f"Background archiving error for link {l_id} ({l_url}): {e}")
                     
+            complete_task("bookmark_ingest", final_message=f"All {total_items} items ingested")
+
         threading.Thread(target=_background_archive_worker, args=(links_to_background_archive, videos_to_background_ingest), daemon=True, name="ImportArchiver").start()
 
     logger.info(f"Browser bookmark import complete: {report}")
