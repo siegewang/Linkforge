@@ -3,29 +3,10 @@
     "version": "2.2.2",
     "date": "2026-09-02",
     "is_major": false,
-    "title": "Book Vault Synchronization & Array Indexing Fix",
-    "highlights": [
-      "📚 Synchronized Book Vault cards with active sorting and client search filters",
-      "⚡ Instant auto-grab matching the exact clicked title and author",
-      "✨ Enhanced library deletion refresh without reloading raw lists"
-    ],
+    "title": "Book Vault Synchronization Fix",
+    "highlights": [],
     "fixes": [
-      "Fixed mismatch between sorted/filtered Book Vault grid cards and modal lookup index"
-    ]
-  },
-  {
-    "version": "2.2.1",
-    "date": "2026-09-02",
-    "is_major": false,
-    "title": "Interactive Update Modal & Live Auto-Installer",
-    "highlights": [
-      "✨ Interactive What's New modal with categorized highlights and skip controls",
-      "🚀 In-app dependency auto-installer (`pip install` during updates without rebuilds)",
-      "⚡ Live version transition indicators in the sidebar and Settings hub"
-    ],
-    "fixes": [
-      "Fixed desktop viewport visibility for update modals",
-      "Hardened asynchronous release metadata handshake"
+      "Fixed mismatch between sorted/filtered Book Vault grid cards"
     ]
   },
   {
