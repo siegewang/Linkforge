@@ -6,7 +6,7 @@
     "title": "Book Vault Synchronization Fix",
     "highlights": [],
     "fixes": [
-      "Fixed mismatch between sorted/filtered Book Vault grid cards"
+      "Book mismatch in Book Vault fixed."
     ]
   },
   {
