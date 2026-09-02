@@ -211,6 +211,7 @@
     let searchDebounceTimer = null;
     let progressPollInterval = null;
     let currentBooksList = [];
+    let displayedBooksList = [];
     let downloadedLibrary = [];
     let activeDownloads = {};
 
@@ -341,7 +342,7 @@
         try {
             await fetch(`/api/books/${id}/delete`, { method: 'POST' });
             await loadMyLibrary();
-            renderBooks(currentBooksList);
+            applyClientFilterAndSort();
         } catch(e) {
             console.error('Failed to delete book:', e);
         }
@@ -473,10 +474,11 @@
     }
 
     function renderBooks(books) {
+        displayedBooksList = books || [];
         const grid = document.getElementById('books-grid');
         if (!grid) return;
 
-        if (books.length === 0) {
+        if (displayedBooksList.length === 0) {
             grid.innerHTML = `
                 <div class="col-span-full py-16 text-center bg-zinc-900/40 rounded-3xl border border-zinc-800 text-zinc-400 text-sm">
                     <i class="fa-solid fa-book-open text-emerald-400 text-3xl mb-3 block"></i>
@@ -489,7 +491,7 @@
         const libraryKeys = new Set(downloadedLibrary.map(b => b.key));
         const libraryTitles = new Set(downloadedLibrary.map(b => (b.title || '').toLowerCase().trim()));
 
-        grid.innerHTML = books.map((b, idx) => {
+        grid.innerHTML = displayedBooksList.map((b, idx) => {
             const fallbackJacket = getFallbackJacketSvg(b.title, b.author);
             const cover = b.cover_url || fallbackJacket;
             const year = b.first_publish_year ? `(${b.first_publish_year})` : '';
@@ -566,7 +568,7 @@
         return `
             <button 
                 onclick="triggerAutoGrab(${idx}, '${safeId}')" 
-                class="w-full py-2 px-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-950/30 group/btn"
+                class="w-full py-2 px-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-950/30 group/btn cursor-pointer"
             >
                 <i class="fa-solid fa-bolt text-[11px] group-hover/btn:scale-125 transition-transform text-amber-300"></i>
                 <span>Auto-Grab Book</span>
@@ -575,7 +577,7 @@
     }
 
     async function triggerAutoGrab(idx, safeId) {
-        const b = currentBooksList[idx];
+        const b = displayedBooksList[idx] || currentBooksList[idx];
         if (!b) return;
 
         const taskKey = b.key || `book_${idx}`;
@@ -668,7 +670,7 @@
     }
 
     function openBookModal(idx) {
-        const b = currentBooksList[idx];
+        const b = displayedBooksList[idx] || currentBooksList[idx];
         if (!b) return;
 
         const modal = document.getElementById('bookDetailsModal');

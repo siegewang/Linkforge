@@ -1,5 +1,19 @@
 [
   {
+    "version": "2.2.2",
+    "date": "2026-09-02",
+    "is_major": false,
+    "title": "Book Vault Synchronization & Array Indexing Fix",
+    "highlights": [
+      "📚 Synchronized Book Vault cards with active sorting and client search filters",
+      "⚡ Instant auto-grab matching the exact clicked title and author",
+      "✨ Enhanced library deletion refresh without reloading raw lists"
+    ],
+    "fixes": [
+      "Fixed mismatch between sorted/filtered Book Vault grid cards and modal lookup index"
+    ]
+  },
+  {
     "version": "2.2.1",
     "date": "2026-09-02",
     "is_major": false,
