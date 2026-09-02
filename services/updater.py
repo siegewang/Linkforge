@@ -326,7 +326,15 @@ def apply_git_update():
                     "message": f"Update failed: {pull_res.stderr or reset_res.stderr}"
                 }
 
-        # 2. Repackage browser extensions
+        # 2. Automatically update Python dependencies if new packages were introduced
+        try:
+            req_file = os.path.join(BASE_DIR, "requirements.txt")
+            if os.path.exists(req_file):
+                subprocess.run(['pip', 'install', '--no-cache-dir', '-r', req_file], cwd=BASE_DIR, timeout=90)
+        except Exception as pip_e:
+            logger.warning(f"Dependency update during live update skipped/errored: {pip_e}")
+
+        # 3. Repackage browser extensions
         try:
             pkg_script = os.path.join(BASE_DIR, "package_extensions.py")
             if os.path.exists(pkg_script):
@@ -334,7 +342,7 @@ def apply_git_update():
         except Exception as ext_e:
             logger.warning(f"Extension repackaging after update skipped: {ext_e}")
 
-        # 3. Schedule graceful restart
+        # 4. Schedule graceful restart
         def _graceful_restart():
             time.sleep(2)
             logger.info("Restarting LinkForge to apply update...")
