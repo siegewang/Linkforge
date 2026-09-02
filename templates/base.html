@@ -390,9 +390,18 @@
         }
         checkGlobalUpdateBadge();
 
-        function openWhatsNewModal() {
+        async function openWhatsNewModal() {
             const modal = document.getElementById('whats-new-update-modal');
             if (!modal) return;
+
+            if (!latestVersionInfo) {
+                try {
+                    const res = await fetch('/api/system/version');
+                    if (res.ok) {
+                        latestVersionInfo = await res.json();
+                    }
+                } catch(e) {}
+            }
 
             const data = latestVersionInfo || {};
             const currentVer = data.version_tag || '2.1.0';
@@ -453,7 +462,17 @@
                 }
             }
 
+            // Reset updating progress state
+            const progressState = document.getElementById('modal-updating-state');
+            if (progressState) progressState.classList.add('hidden');
+            const btn = document.getElementById('btn-modal-update');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down"></i> Update & Restart Now';
+            }
+
             // Show modal
+            modal.style.display = 'flex';
             modal.classList.remove('hidden');
             setTimeout(() => {
                 modal.classList.remove('opacity-0');
@@ -465,10 +484,12 @@
             if (modal) {
                 modal.classList.add('opacity-0');
                 setTimeout(() => {
+                    modal.style.display = 'none';
                     modal.classList.add('hidden');
                 }, 250);
             }
         }
+
 
         function skipReleaseUpdate() {
             const data = latestVersionInfo || {};
@@ -952,6 +973,9 @@
         <a href="/notes" class="flex flex-col items-center gap-1 py-1 px-2 rounded-xl text-center {% if active_page == 'notes' %}text-amber-300 font-semibold{% else %}text-zinc-400 hover:text-white{% endif %} transition-colors">
             <i class="fa-solid fa-note-sticky text-base"></i>
             <span class="text-[10px]">Notes</span>
+        </a>
+    </nav>
+
     <!-- What's New & System Update Modal -->
     <div id="whats-new-update-modal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4 transition-all duration-300 opacity-0">
         <div class="relative w-full max-w-2xl bg-[#0d0e12] border border-cyan-500/40 rounded-3xl shadow-[0_0_50px_rgba(6,182,212,0.25)] overflow-hidden flex flex-col max-h-[90vh] animate-fade-in-up">
