@@ -59,6 +59,112 @@ def get_github_token():
         pass
     return None
 
+def parse_version_tuple(v_str):
+    """Safely converts version string like '2.2.0' or 'v2.2.0' to tuple of ints (2, 2, 0)."""
+    clean = str(v_str).lstrip('v').strip()
+    parts = []
+    for p in clean.split('.'):
+        try:
+            parts.append(int(p))
+        except ValueError:
+            parts.append(0)
+    while len(parts) < 3:
+        parts.append(0)
+    return tuple(parts[:3])
+
+def get_releases_data(remote_fetch=True):
+    """Load releases data from local releases.json and optionally check remote GitHub raw content."""
+    local_releases = []
+    r_path = os.path.join(BASE_DIR, "releases.json")
+    if os.path.exists(r_path):
+        try:
+            with open(r_path, 'r', encoding='utf-8-sig') as f:
+                local_releases = json.load(f)
+        except Exception as e:
+            logger.debug(f"Error reading local releases.json: {e}")
+
+
+    if not remote_fetch:
+        return local_releases
+
+    # Try fetching latest releases.json from GitHub
+    try:
+        api_url = "https://raw.githubusercontent.com/siegewang/Linkforge/main/releases.json"
+        headers = {"User-Agent": "LinkForge-App"}
+        gh_token = get_github_token()
+        if gh_token:
+            headers["Authorization"] = f"token {gh_token}"
+        resp = requests.get(api_url, timeout=4, headers=headers)
+        if resp.status_code == 200:
+            remote_releases = resp.json()
+            if isinstance(remote_releases, list) and len(remote_releases) > 0:
+                return remote_releases
+    except Exception as e:
+        logger.debug(f"Could not fetch remote releases.json: {e}")
+
+    return local_releases
+
+def get_changelog_between(current_version, releases):
+    """
+    Computes cumulative changelog highlights and fixes between current_version and latest release.
+    Returns:
+      target_version, target_date, release_title, is_major, highlights (list), fixes (list), pending_releases (list)
+    """
+    curr_tup = parse_version_tuple(current_version)
+    newer_releases = []
+    
+    for r in releases:
+        r_tup = parse_version_tuple(r.get("version", "0.0.0"))
+        if r_tup > curr_tup:
+            newer_releases.append(r)
+            
+    if not newer_releases:
+        latest = releases[0] if releases else {}
+        return {
+            "target_version": latest.get("version", current_version),
+            "target_date": latest.get("date", "Today"),
+            "release_title": latest.get("title", "LinkForge Release"),
+            "is_major": latest.get("is_major", False),
+            "highlights": latest.get("highlights", []),
+            "fixes": latest.get("fixes", []),
+            "pending_releases": []
+        }
+
+    target_version = newer_releases[0].get("version", "Latest")
+    target_date = newer_releases[0].get("date", "Today")
+    release_title = newer_releases[0].get("title", "LinkForge Update")
+    has_major = any(
+        r.get("is_major", False) or 
+        parse_version_tuple(r.get("version", "0.0.0"))[1] > curr_tup[1] or 
+        parse_version_tuple(r.get("version", "0.0.0"))[0] > curr_tup[0] 
+        for r in newer_releases
+    )
+    
+    all_highlights = []
+    all_fixes = []
+    seen_hl = set()
+    seen_fx = set()
+    
+    for r in newer_releases:
+        for hl in r.get("highlights", []):
+            if hl not in seen_hl:
+                seen_hl.add(hl)
+                all_highlights.append(hl)
+        for fx in r.get("fixes", []):
+            if fx not in seen_fx:
+                seen_fx.add(fx)
+                all_fixes.append(fx)
+
+    return {
+        "target_version": target_version,
+        "target_date": target_date,
+        "release_title": release_title,
+        "is_major": has_major,
+        "highlights": all_highlights,
+        "fixes": all_fixes,
+        "pending_releases": newer_releases
+    }
+
 def get_version_info():
     """Returns local version, commit hash, and checks remote GitHub repository for updates."""
     # 1. Read static fallback from version.json if available
@@ -71,8 +177,10 @@ def get_version_info():
         except Exception:
             pass
 
+    current_ver = v_data.get("version", "2.1.0")
+
     version_info = {
-        "version_tag": v_data.get("version", "2.1.0"),
+        "version_tag": current_ver,
         "current_commit": v_data.get("commit", "2b20c6a"),
         "current_commit_date": v_data.get("commit_date", "Today"),
         "current_commit_msg": "LinkForge Release",
@@ -81,6 +189,12 @@ def get_version_info():
         "update_available": False,
         "remote_commit": "",
         "remote_commit_msg": "",
+        "target_version": current_ver,
+        "target_date": "",
+        "release_title": "",
+        "is_major": False,
+        "highlights": [],
+        "fixes": [],
         "pending_commits": [],
         "last_checked": time.strftime("%Y-%m-%d %H:%M:%S")
     }
@@ -121,7 +235,22 @@ def get_version_info():
     except Exception:
         pass
 
-    # 4. Check Remote via GitHub REST API (Works for both public and private repositories)
+    # 4. Check Releases & Changelog Data
+    releases = get_releases_data(remote_fetch=True)
+    if releases:
+        changelog = get_changelog_between(current_ver, releases)
+        version_info["target_version"] = changelog["target_version"]
+        version_info["target_date"] = changelog["target_date"]
+        version_info["release_title"] = changelog["release_title"]
+        version_info["is_major"] = changelog["is_major"]
+        version_info["highlights"] = changelog["highlights"]
+        version_info["fixes"] = changelog["fixes"]
+        
+        # Check if remote version is strictly newer
+        if parse_version_tuple(changelog["target_version"]) > parse_version_tuple(current_ver):
+            version_info["update_available"] = True
+
+    # 5. Check Remote Git Commit via GitHub REST API
     try:
         api_url = "https://api.github.com/repos/siegewang/Linkforge/commits/main"
         headers = {"User-Agent": "LinkForge-App"}
@@ -136,11 +265,11 @@ def get_version_info():
             version_info["remote_commit"] = r_sha
             version_info["remote_commit_msg"] = gh_data.get("commit", {}).get("message", "").split('\n')[0]
             
-            # An update is available when GitHub has a newer commit hash that doesn't match local
             if r_sha and r_sha != version_info["current_commit"]:
                 version_info["update_available"] = True
     except Exception as api_err:
         logger.debug(f"GitHub API check error: {api_err}")
+
         
         # Fallback to git ls-remote if GitHub API was blocked or offline
         try:

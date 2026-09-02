@@ -1,0 +1,49 @@
+[
+  {
+    "version": "2.2.0",
+    "date": "2026-09-02",
+    "is_major": true,
+    "title": "Universal Neural Search, Live AI Monitor & Browser Importer",
+    "highlights": [
+      "✨ Universal Neural Query: Unified semantic search across all web bookmarks and YouTube videos simultaneously",
+      "⚡ Live AI Background Monitor: Neon purple animated notification widget tracking AI reasoning and routing in real time",
+      "🌐 Browser Bookmarks Importer: Full Netscape HTML importer for Brave, Chrome, Edge, and Firefox with automatic folder categorisation",
+      "🤖 AI Sysadmin Test Handshake: Instant one-click connection and latency testing in Admin Settings",
+      "🔒 Private GitHub Repository Support: Seamless update support for private repos with token authentication"
+    ],
+    "fixes": [
+      "Fixed empty tag swarm visibility for newly imported browser bookmarks",
+      "Fixed duplicate search result cards when videos existed in both links and video library",
+      "Added instant 0ms local keyword search fallback when AI API keys are not configured"
+    ]
+  },
+  {
+    "version": "2.1.1",
+    "date": "2026-08-31",
+    "is_major": false,
+    "title": "YouTube Ingestion & Auto-Backup Scheduler",
+    "highlights": [
+      "🎥 YouTube Video Chapter & Closed Caption Ingestion",
+      "⏰ Automated Background Backup Scheduler with Retention Policies",
+      "📊 Enhanced System Health & Diagnostic Diagnostics"
+    ],
+    "fixes": [
+      "Resolved SQLite write lock contention with automated WAL retry handler",
+      "Fixed sidebar active link highlighting on sub-pages"
+    ]
+  },
+  {
+    "version": "2.1.0",
+    "date": "2026-08-25",
+    "is_major": true,
+    "title": "LinkForge 2.1 Core Release",
+    "highlights": [
+      "🧠 Initial Neural Query Engine with Tag Swarms",
+      "📚 Book Vault EPUB reader and library",
+      "📡 LinkForge Pulse Real-Time Intelligence RSS Engine"
+    ],
+    "fixes": [
+      "Initial stable Docker release"
+    ]
+  }
+]
