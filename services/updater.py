@@ -44,6 +44,21 @@ def get_git_commit_pure_python(repo_dir):
         logger.debug(f"Pure python git read error: {e}")
     return None
 
+def get_github_token():
+    """Retrieve GitHub token from environment variable or SQLite settings table for private repositories."""
+    token = os.environ.get("GITHUB_TOKEN", "").strip()
+    if token:
+        return token
+    try:
+        from services.db import get_db
+        conn = get_db()
+        row = conn.execute("SELECT value FROM settings WHERE key = 'github_token'").fetchone()
+        if row and row[0]:
+            return row[0].strip()
+    except Exception:
+        pass
+    return None
+
 def get_version_info():
     """Returns local version, commit hash, and checks remote GitHub repository for updates."""
     # 1. Read static fallback from version.json if available
@@ -106,10 +121,15 @@ def get_version_info():
     except Exception:
         pass
 
-    # 4. Check Remote via GitHub REST API (Works everywhere with 0 external tools)
+    # 4. Check Remote via GitHub REST API (Works for both public and private repositories)
     try:
         api_url = "https://api.github.com/repos/siegewang/Linkforge/commits/main"
-        resp = requests.get(api_url, timeout=5, headers={"User-Agent": "LinkForge-App"})
+        headers = {"User-Agent": "LinkForge-App"}
+        gh_token = get_github_token()
+        if gh_token:
+            headers["Authorization"] = f"token {gh_token}"
+            
+        resp = requests.get(api_url, timeout=5, headers=headers)
         if resp.status_code == 200:
             gh_data = resp.json()
             r_sha = gh_data.get("sha", "")[:7]
@@ -144,9 +164,19 @@ def get_version_info():
 def apply_git_update():
     """Pulls latest updates from GitHub, repackages extensions, and triggers graceful restart."""
     try:
-        # 1. Pull latest code from GitHub
+        # 1. Pull latest code from GitHub (Supports private repos with token auth)
+        gh_token = get_github_token()
+        if gh_token:
+            import base64
+            auth_header = f"Authorization: Basic {base64.b64encode(f'token:{gh_token}'.encode()).decode()}"
+            pull_cmd = ['git', '-c', f'http.extraHeader={auth_header}', 'pull', 'origin', 'main']
+            reset_cmd = ['git', '-c', f'http.extraHeader={auth_header}', 'reset', '--hard', 'origin/main']
+        else:
+            pull_cmd = ['git', 'pull', 'origin', 'main']
+            reset_cmd = ['git', 'reset', '--hard', 'origin/main']
+
         pull_res = subprocess.run(
-            ['git', 'pull', 'origin', 'main'], 
+            pull_cmd, 
             cwd=BASE_DIR,
             capture_output=True, 
             text=True, 
@@ -155,7 +185,7 @@ def apply_git_update():
         
         if pull_res.returncode != 0:
             reset_res = subprocess.run(
-                ['git', 'reset', '--hard', 'origin/main'],
+                reset_cmd,
                 cwd=BASE_DIR,
                 capture_output=True,
                 text=True,
