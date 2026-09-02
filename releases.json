@@ -1,5 +1,20 @@
 [
   {
+    "version": "2.2.1",
+    "date": "2026-09-02",
+    "is_major": false,
+    "title": "Interactive Update Modal & Live Auto-Installer",
+    "highlights": [
+      "✨ Interactive What's New modal with categorized highlights and skip controls",
+      "🚀 In-app dependency auto-installer (`pip install` during updates without rebuilds)",
+      "⚡ Live version transition indicators in the sidebar and Settings hub"
+    ],
+    "fixes": [
+      "Fixed desktop viewport visibility for update modals",
+      "Hardened asynchronous release metadata handshake"
+    ]
+  },
+  {
     "version": "2.2.0",
     "date": "2026-09-02",
     "is_major": true,
