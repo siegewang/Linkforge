@@ -3,6 +3,8 @@ import re
 import html
 import sqlite3
 import datetime
+import email.utils
+from datetime import timezone
 import threading
 from urllib.parse import urlparse, urljoin
 import xml.etree.ElementTree as ET
@@ -22,12 +24,14 @@ STOP_WORDS = {
 DEFAULT_TOPIC_FEEDS = {
     'Tech & Code': [
         'https://feeds.arstechnica.com/arstechnica/index',
-        'http://feeds.bbci.co.uk/news/technology/rss.xml',
+        'https://www.theverge.com/rss/index.xml',
         'https://www.engadget.com/rss.xml',
+        'https://www.wired.com/feed/category/gear/latest/rss',
     ],
     'AI & ML': [
         'https://techcrunch.com/category/artificial-intelligence/feed/',
-        'https://venturebeat.com/category/ai/feed/',
+        'https://www.technologyreview.com/feed/',
+        'https://arstechnica.com/tag/ai/feed/',
         'https://www.artificialintelligence-news.com/feed/',
     ],
     'Automotive & EVs': [
@@ -41,6 +45,28 @@ DEFAULT_TOPIC_FEEDS = {
         'https://www.space.com/feeds/all',
     ]
 }
+
+def parse_feed_datetime_iso(date_str: str) -> str:
+    """Parse various RSS/Atom date formats into standard UTC ISO-8601 string (YYYY-MM-DD HH:MM:SS)."""
+    now_utc = datetime.datetime.now(timezone.utc)
+    if not date_str:
+        return now_utc.strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        dt = email.utils.parsedate_to_datetime(date_str)
+        if dt:
+            dt_utc = dt.astimezone(timezone.utc) if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+            return dt_utc.strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        pass
+    try:
+        clean = date_str.replace('Z', '+00:00')
+        dt = datetime.datetime.fromisoformat(clean)
+        if dt:
+            dt_utc = dt.astimezone(timezone.utc) if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+            return dt_utc.strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        pass
+    return now_utc.strftime("%Y-%m-%d %H:%M:%S")
 
 def extract_user_interest_keywords() -> list:
     """Analyze user library bookmarks, tags, and video titles to determine core interest topics."""
@@ -257,7 +283,7 @@ def parse_rss_feed(feed_url: str, topic_name: str = "General") -> list:
                 # Extract authentic image
                 image_url = extract_authentic_image(entry, link, title, topic_name)
 
-                # Published date
+                # Published date in ISO-8601 UTC
                 pub_date_str = ''
                 pub_elem = entry.find('pubDate')
                 if pub_elem is None:
@@ -266,6 +292,8 @@ def parse_rss_feed(feed_url: str, topic_name: str = "General") -> list:
                     pub_elem = entry.find('{http://www.w3.org/2005/Atom}updated')
                 if pub_elem is not None and pub_elem.text:
                     pub_date_str = pub_elem.text.strip()
+
+                pub_date_iso = parse_feed_datetime_iso(pub_date_str)
 
                 # Source domain and icon
                 domain = urlparse(link).netloc.replace('www.', '')
@@ -279,7 +307,7 @@ def parse_rss_feed(feed_url: str, topic_name: str = "General") -> list:
                     "summary": desc,
                     "image_url": image_url,
                     "topic": topic_name,
-                    "published_at": pub_date_str
+                    "published_at": pub_date_iso
                 })
             except Exception as item_err:
                 logger.debug(f"Error parsing RSS item: {item_err}")
@@ -324,12 +352,14 @@ def refresh_pulse_feed(topic_id: int = None) -> int:
         if custom_url:
             urls_to_fetch.append(custom_url)
         elif topic_name == '✨ For You':
-            # Curated multi-source authority feeds for authentic high-res visuals
+            # Curated multi-source authority feeds for authentic high-res visuals & live news
             urls_to_fetch.extend([
                 'https://feeds.arstechnica.com/arstechnica/index',
+                'https://www.theverge.com/rss/index.xml',
+                'https://techcrunch.com/category/artificial-intelligence/feed/',
+                'https://www.technologyreview.com/feed/',
                 'https://electrek.co/feed/',
                 'https://www.tomshardware.com/feeds/all',
-                'https://techcrunch.com/category/artificial-intelligence/feed/',
                 'https://www.space.com/feeds/all',
                 'https://www.engadget.com/rss.xml',
                 'https://insideevs.com/rss/articles/all/'
@@ -355,13 +385,13 @@ def refresh_pulse_feed(topic_id: int = None) -> int:
                         art['title'], art['url'], art['source_name'], art['source_icon'],
                         art['summary'], art['image_url'], art['topic'], art['published_at'], relevance
                     ))
-                    # If item already exists but has fallback image and now we have authentic publisher image, update it
+                    # Update image and published date if already present
                     if art['image_url'] and 'unsplash' not in art['image_url']:
                         c.execute("""
                             UPDATE pulse_items 
-                            SET image_url = ? 
-                            WHERE url = ? AND (image_url LIKE '%unsplash%' OR image_url IS NULL OR image_url = '')
-                        """, (art['image_url'], art['url']))
+                            SET image_url = ?, published_at = ?
+                            WHERE url = ?
+                        """, (art['image_url'], art['published_at'], art['url']))
                     c.commit()
                 
                 try:
@@ -370,10 +400,19 @@ def refresh_pulse_feed(topic_id: int = None) -> int:
                 except Exception as e:
                     logger.debug(f"Could not save pulse item {art['url']}: {e}")
 
-    # Clean old dismissed items > 14 days
+    # Clean old unsaved items > 7 days and old dismissed items > 3 days
     def _clean():
         c = get_db()
-        c.execute("DELETE FROM pulse_items WHERE is_dismissed=1 AND date_fetched < datetime('now', '-14 days')")
+        c.execute("DELETE FROM pulse_items WHERE is_saved = 0 AND (published_at < datetime('now', '-7 days') OR date_fetched < datetime('now', '-7 days'))")
+        c.execute("DELETE FROM pulse_items WHERE is_dismissed = 1 AND date_fetched < datetime('now', '-3 days')")
+        # Normalize legacy non-ISO published_at formats
+        try:
+            rows = c.execute("SELECT id, published_at FROM pulse_items WHERE published_at IS NOT NULL AND published_at != '' AND published_at NOT LIKE '____-__-__ __:__:__'").fetchall()
+            for r in rows:
+                iso_d = parse_feed_datetime_iso(r['published_at'])
+                c.execute("UPDATE pulse_items SET published_at = ? WHERE id = ?", (iso_d, r['id']))
+        except Exception:
+            pass
         c.commit()
     try:
         retry_write(_clean)
@@ -383,7 +422,7 @@ def refresh_pulse_feed(topic_id: int = None) -> int:
     return new_items_count
 
 def get_active_pulse_items(topic_name: str = None, limit: int = 30) -> list:
-    """Retrieve non-dismissed pulse items for UI rendering."""
+    """Retrieve non-dismissed pulse items ordered primarily by publication freshness."""
     conn = get_db()
 
     count = conn.execute("SELECT COUNT(*) as cnt FROM pulse_items WHERE is_dismissed=0").fetchone()['cnt']
@@ -397,7 +436,8 @@ def get_active_pulse_items(topic_name: str = None, limit: int = 30) -> list:
         query += " AND topic = ?"
         params.append(topic_name)
 
-    query += " ORDER BY is_saved ASC, relevance_score DESC, date_fetched DESC LIMIT ?"
+    # Order by publication date (newest first), breaking ties with relevance score
+    query += " ORDER BY published_at DESC, relevance_score DESC, date_fetched DESC LIMIT ?"
     params.append(limit)
 
     rows = conn.execute(query, params).fetchall()
