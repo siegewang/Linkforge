@@ -88,12 +88,16 @@ def nuke_system_data(options):
                 except Exception:
                     pass
 
-            # 5. Denied URLs Blacklist
+            # 5. Denied URLs Blacklist & Blacklisted Domains
             if nuke_denied:
                 try:
                     d_cnt = conn.execute("SELECT COUNT(*) FROM denied_urls").fetchone()[0]
                     report["deleted_denied_urls"] = d_cnt
                     conn.execute("DELETE FROM denied_urls")
+                except Exception:
+                    pass
+                try:
+                    conn.execute("DELETE FROM blacklisted_domains")
                 except Exception:
                     pass
 

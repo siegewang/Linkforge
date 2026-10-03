@@ -78,21 +78,39 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
 }
 
 let isUrlPermanentlyDenied = false;
+let isDomainPermanentlyBlacklisted = false;
 
 function getExactCleanUrl() {
     return window.location.href.split('#')[0];
 }
 
+function getNormalizedHostname() {
+    let host = window.location.hostname.toLowerCase();
+    if (host.startsWith("www.")) host = host.slice(4);
+    return host;
+}
+
 function checkDeniedStatus() {
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-        chrome.storage.local.get("deniedUrls", (data) => {
+        chrome.storage.local.get(["deniedUrls", "blacklistedDomains"], (data) => {
             const list = data.deniedUrls || [];
             const clean = getExactCleanUrl();
             if (list.includes(clean)) {
                 isUrlPermanentlyDenied = true;
-                if (dfUiContainer) {
-                    dfUiContainer.style.display = 'none';
+            }
+
+            const domains = data.blacklistedDomains || [];
+            const host = getNormalizedHostname();
+            for (const d of domains) {
+                const cleanD = (d || "").toLowerCase().replace(/^www\./, '').trim();
+                if (cleanD && (host === cleanD || host.endsWith('.' + cleanD))) {
+                    isDomainPermanentlyBlacklisted = true;
+                    break;
                 }
+            }
+
+            if ((isUrlPermanentlyDenied || isDomainPermanentlyBlacklisted) && dfUiContainer) {
+                dfUiContainer.style.display = 'none';
             }
         });
     }
@@ -100,7 +118,7 @@ function checkDeniedStatus() {
 checkDeniedStatus();
 
 function checkValidPage() {
-    if (isUrlPermanentlyDenied || isCancelled) {
+    if (isUrlPermanentlyDenied || isDomainPermanentlyBlacklisted || isCancelled) {
         return false;
     }
 
@@ -261,6 +279,66 @@ function initDashForgeUI() {
         }, 300);
     };
 
+    // Shield/Ban button to permanently blacklist the entire website/domain
+    const blacklistSiteButton = document.createElement('button');
+    blacklistSiteButton.innerHTML = `
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            <line x1="4.5" y1="4.5" x2="19.5" y2="19.5"></line>
+        </svg>
+    `;
+    blacklistSiteButton.style.cssText = `
+        background: transparent;
+        border: none;
+        color: #f97316; /* warning orange */
+        padding: 4px;
+        border-radius: 6px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+    `;
+    const currHost = getNormalizedHostname();
+    blacklistSiteButton.title = `Blacklist Entire Website (*.${currHost}) — Never record visits here`;
+    blacklistSiteButton.onmouseover = () => { blacklistSiteButton.style.background = 'rgba(249, 115, 22, 0.15)'; };
+    blacklistSiteButton.onmouseout = () => { blacklistSiteButton.style.background = 'transparent'; };
+    blacklistSiteButton.onclick = async () => {
+        isCancelled = true;
+        isDomainPermanentlyBlacklisted = true;
+        const host = getNormalizedHostname();
+
+        // 1. Add to blacklistedDomains list in extension storage
+        try {
+            const { blacklistedDomains = [] } = await chrome.storage.local.get("blacklistedDomains");
+            if (!blacklistedDomains.includes(host)) {
+                blacklistedDomains.push(host);
+                await chrome.storage.local.set({ blacklistedDomains });
+            }
+        } catch(e) {}
+
+        // 2. Notify background script to register blacklist with backend
+        try {
+            chrome.runtime.sendMessage({
+                type: "BLACKLIST_DOMAIN",
+                payload: { domain: host }
+            });
+        } catch(e) {}
+
+        // 3. Show status feedback and hide floating capsule
+        if (dfCountdownText) {
+            dfCountdownText.style.display = 'block';
+            dfCountdownText.style.color = '#f97316';
+            dfCountdownText.innerText = 'BANNED';
+        }
+        setTimeout(() => {
+            if (dfUiContainer) {
+                dfUiContainer.style.opacity = '0';
+                setTimeout(() => { if (dfUiContainer) dfUiContainer.style.display = 'none'; }, 300);
+            }
+        }, 1000);
+    };
+
     const homeBtn = document.createElement('button');
     homeBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>';
     homeBtn.style.cssText = `
@@ -291,6 +369,7 @@ function initDashForgeUI() {
     dfUiContainer.appendChild(dfCountdownText);
     dfUiContainer.appendChild(logNowButton);
     dfUiContainer.appendChild(cancelButton);
+    dfUiContainer.appendChild(blacklistSiteButton);
     dfUiContainer.appendChild(homeBtn);
     
     document.body.appendChild(dfUiContainer);
@@ -315,6 +394,7 @@ setInterval(() => {
         hasLogged = false;
         isCancelled = false;
         isUrlPermanentlyDenied = false;
+        isDomainPermanentlyBlacklisted = false;
         checkDeniedStatus();
         if (dfUiContainer) dfUiContainer.style.opacity = '1';
         if (dfCountdownText) dfCountdownText.style.color = '#a1a1aa';

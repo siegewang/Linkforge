@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const saveBtn = document.getElementById('saveBtn');
     const status = document.getElementById('status');
     const deniedCountEl = document.getElementById('deniedCount');
+    const bannedSitesCountEl = document.getElementById('bannedSitesCount');
     const openWebAdminBtn = document.getElementById('openWebAdminBtn');
 
     // Load stored settings with smart defaults
@@ -14,7 +15,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         showCountdownTimer: true,
         pageLogDelay: 30,
         youtubeLogDelay: 15,
-        deniedUrls: []
+        deniedUrls: [],
+        blacklistedDomains: []
     });
 
     urlInput.value = config.dashforgeUrl;
@@ -33,12 +35,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (deniedCountEl) {
         deniedCountEl.textContent = (config.deniedUrls || []).length;
     }
+    if (bannedSitesCountEl) {
+        bannedSitesCountEl.textContent = (config.blacklistedDomains || []).length;
+    }
 
     // Sync latest from backend database and refresh counter
     try {
         chrome.runtime.sendMessage({ type: "SYNC_DENIED_URLS" }, (latestList) => {
             if (latestList && Array.isArray(latestList) && deniedCountEl) {
                 deniedCountEl.textContent = latestList.length;
+            }
+        });
+        chrome.runtime.sendMessage({ type: "SYNC_BLACKLISTED_DOMAINS" }, (latestDomains) => {
+            if (latestDomains && Array.isArray(latestDomains) && bannedSitesCountEl) {
+                bannedSitesCountEl.textContent = latestDomains.length;
             }
         });
     } catch (e) {}

@@ -691,6 +691,36 @@ def debug_path():
         "files_in_data": os.listdir("data") if os.path.exists("data") else []
     })
 
+def is_url_or_domain_denied(url):
+    if not url:
+        return False, ""
+    try:
+        from urllib.parse import urlparse
+        clean_url = url.split('#')[0]
+        parsed = urlparse(url if "://" in url else f"http://{url}")
+        host = (parsed.netloc or "").split(':')[0].lower()
+        if host.startswith("www."):
+            host = host[4:]
+            
+        conn = get_db()
+        conn.execute("CREATE TABLE IF NOT EXISTS denied_urls (url TEXT PRIMARY KEY, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+        conn.execute("CREATE TABLE IF NOT EXISTS blacklisted_domains (domain TEXT PRIMARY KEY, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+        
+        # 1. Exact denied URL check
+        if conn.execute("SELECT 1 FROM denied_urls WHERE url = ?", (clean_url,)).fetchone():
+            return True, "URL explicitly aborted by user"
+            
+        # 2. Blacklisted domain check (exact match or wildcard subdomains)
+        if host:
+            domains = [r[0].lower().strip() for r in conn.execute("SELECT domain FROM blacklisted_domains").fetchall() if r[0]]
+            for d in domains:
+                d_clean = d.lstrip("www.").strip()
+                if host == d_clean or host.endswith("." + d_clean):
+                    return True, f"Domain '{d_clean}' is blacklisted"
+    except Exception as e:
+        logger.error(f"Error checking denied/blacklisted status: {e}")
+    return False, ""
+
 @links_bp.route("/api/links/denied", methods=["GET", "OPTIONS"])
 def list_denied_urls():
     if request.method == "OPTIONS":
@@ -770,6 +800,106 @@ def undeny_url_logging():
     headers = {"Access-Control-Allow-Origin": "*"}
     return jsonify({"status": "success", "removed_url": url}), 200, headers
 
+@links_bp.route("/api/links/blacklisted-domains", methods=["GET", "OPTIONS"])
+def list_blacklisted_domains():
+    if request.method == "OPTIONS":
+        headers = {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type"
+        }
+        return "", 200, headers
+    try:
+        conn = get_db()
+        conn.execute("CREATE TABLE IF NOT EXISTS blacklisted_domains (domain TEXT PRIMARY KEY, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+        rows = conn.execute("SELECT domain FROM blacklisted_domains ORDER BY created_at DESC").fetchall()
+        domains = [r[0] for r in rows if r[0]]
+    except Exception as e:
+        logger.error(f"Error fetching blacklisted domains: {e}")
+        domains = []
+    
+    headers = {"Access-Control-Allow-Origin": "*"}
+    return jsonify({"status": "success", "blacklisted_domains": domains}), 200, headers
+
+@links_bp.route("/api/links/blacklist-domain", methods=["POST", "OPTIONS"])
+def blacklist_domain():
+    if request.method == "OPTIONS":
+        headers = {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type"
+        }
+        return "", 200, headers
+
+    data = request.json or {}
+    domain_input = (data.get("domain") or data.get("url") or "").strip()
+    if not domain_input:
+        return jsonify({"error": "No domain provided"}), 400
+
+    from urllib.parse import urlparse
+    if "://" in domain_input:
+        parsed = urlparse(domain_input)
+        host = (parsed.netloc or "").split(':')[0].lower()
+    else:
+        host = domain_input.split('/')[0].split(':')[0].lower()
+    if host.startswith("www."):
+        host = host[4:]
+
+    if not host:
+        return jsonify({"error": "Invalid domain format"}), 400
+
+    def _save_domain():
+        conn = get_db()
+        conn.execute("CREATE TABLE IF NOT EXISTS blacklisted_domains (domain TEXT PRIMARY KEY, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+        conn.execute("INSERT OR IGNORE INTO blacklisted_domains (domain) VALUES (?)", (host,))
+        conn.commit()
+    
+    try:
+        retry_write(_save_domain)
+    except Exception as e:
+        logger.error(f"Failed to blacklist domain {host}: {e}")
+
+    headers = {"Access-Control-Allow-Origin": "*"}
+    return jsonify({"status": "success", "blacklisted_domain": host}), 200, headers
+
+@links_bp.route("/api/links/unblacklist-domain", methods=["POST", "OPTIONS"])
+def unblacklist_domain():
+    if request.method == "OPTIONS":
+        headers = {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type"
+        }
+        return "", 200, headers
+
+    data = request.json or {}
+    domain_input = (data.get("domain") or data.get("url") or "").strip()
+    if not domain_input:
+        return jsonify({"error": "No domain provided"}), 400
+
+    from urllib.parse import urlparse
+    if "://" in domain_input:
+        parsed = urlparse(domain_input)
+        host = (parsed.netloc or "").split(':')[0].lower()
+    else:
+        host = domain_input.split('/')[0].split(':')[0].lower()
+    if host.startswith("www."):
+        host = host[4:]
+
+    def _delete_domain():
+        conn = get_db()
+        conn.execute("CREATE TABLE IF NOT EXISTS blacklisted_domains (domain TEXT PRIMARY KEY, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+        conn.execute("DELETE FROM blacklisted_domains WHERE domain = ?", (host,))
+        conn.commit()
+    
+    try:
+        retry_write(_delete_domain)
+    except Exception as e:
+        logger.error(f"Failed to remove blacklisted domain {host}: {e}")
+
+    headers = {"Access-Control-Allow-Origin": "*"}
+    return jsonify({"status": "success", "removed_domain": host}), 200, headers
+
 @links_bp.route("/api/links/auto-log", methods=["POST", "OPTIONS"])
 def auto_log_link():
     if request.method == "OPTIONS":
@@ -783,16 +913,11 @@ def auto_log_link():
     data = request.json or {}
     url = data.get("url")
 
-    # Check if URL was explicitly denied
+    # Check if URL or Domain was explicitly denied/blacklisted
     if url:
-        try:
-            conn = get_db()
-            conn.execute("CREATE TABLE IF NOT EXISTS denied_urls (url TEXT PRIMARY KEY, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
-            is_denied = conn.execute("SELECT 1 FROM denied_urls WHERE url = ?", (url.split('#')[0],)).fetchone()
-            if is_denied:
-                return jsonify({"status": "ignored", "reason": "URL explicitly aborted by user"}), 200, {"Access-Control-Allow-Origin": "*"}
-        except Exception:
-            pass
+        denied, reason = is_url_or_domain_denied(url)
+        if denied:
+            return jsonify({"status": "ignored", "reason": reason}), 200, {"Access-Control-Allow-Origin": "*"}
     
     # DEBUG LOGGING to see if the endpoint is reached
     try:

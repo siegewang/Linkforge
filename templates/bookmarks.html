@@ -54,7 +54,7 @@
         <div id="tags-native" class="flex flex-wrap justify-center gap-3 p-4">
             {% for tag, count in top_tags.items() %}
                 <a href="#" onclick="toggleTag('{{ tag }}'); return false;" 
-                   style="font-size: {{ 10 + (count * 2) }}px; opacity: {{ 0.5 + (count * 0.1) }};"
+                   style="font-size: {{ [11 + count, 18]|min }}px; opacity: {{ [0.6 + (count * 0.05), 1.0]|min }};"
                    class="font-mono text-cyan-400 hover:text-cyan-200 hover:opacity-100 hover:scale-110 hover:drop-shadow-[0_0_10px_rgba(6,182,212,0.8)] transition-all cursor-pointer select-none">
                     #{{ tag }}
                 </a>
@@ -602,8 +602,10 @@ function switchView(view) {
             resetSearch();
             return;
         }
-        // If we are zero-state, just toggling it will auto-search if hasSearched is true.
-        // Actually, let's always auto-search when a sidebar tag is clicked.
+        const timeline = document.getElementById('timelineContainer');
+        if (timeline && timeline.style.display === 'block') {
+            switchView('query');
+        }
         if (selectedTags.has(tag)) {
             selectedTags.delete(tag);
         } else {
@@ -614,6 +616,10 @@ function switchView(view) {
     };
 
     function toggleTag(tag) {
+        const timeline = document.getElementById('timelineContainer');
+        if (timeline && timeline.style.display === 'block') {
+            switchView('query');
+        }
         if (selectedTags.has(tag)) {
             selectedTags.delete(tag);
         } else {
@@ -690,6 +696,7 @@ function switchView(view) {
         icon.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-cyan-400 text-xl"></i>';
         document.getElementById('searchInput').disabled = true;
         
+        resultsBox.style.display = 'block';
         resultsBox.classList.remove('hidden');
         resultsList.innerHTML = `
             <div class="flex flex-col items-center justify-center py-20 text-cyan-700/50 font-mono text-sm animate-pulse">
@@ -697,7 +704,9 @@ function switchView(view) {
                 <p>Querying Neural Subsystem...</p>
             </div>
         `;
+        void resultsBox.offsetWidth;
         resultsBox.classList.remove('opacity-0');
+        resultsBox.style.opacity = '1';
 
         try {
             const res = await fetch('/api/links/ai-search', {
@@ -809,7 +818,7 @@ function switchView(view) {
             const rawId = link.raw_id || link.id;
             const isVideo = link.type === 'video';
             const tagsList = (link.tags || "").split(',').map(t => t.trim()).filter(t => t);
-            const tagsHTML = tagsList.map(t => `<span data-tag="${t}" class="hover:bg-cyan-900/40 px-2 py-0.5 bg-cyan-950/40 text-cyan-500 border border-cyan-900 font-mono text-[9px] uppercase tracking-widest rounded shadow-sm">#${t}</span>`).join('');
+            const tagsHTML = tagsList.map(t => `<span data-tag="${t}" onclick="filterByTag('${t}')" class="cursor-pointer hover:bg-cyan-900/60 hover:text-cyan-300 px-2 py-0.5 bg-cyan-950/40 text-cyan-500 border border-cyan-900 font-mono text-[9px] uppercase tracking-widest rounded shadow-sm transition-colors">#${t}</span>`).join('');
 
             // Favicon & Badges
             const favHTML = link.favicon 
@@ -889,8 +898,10 @@ function switchView(view) {
         const resultsBox = document.getElementById('resultsContainer');
         
         resultsBox.classList.add('opacity-0');
+        resultsBox.style.opacity = '0';
         setTimeout(() => {
             resultsBox.classList.add('hidden');
+            resultsBox.style.display = 'none';
             
             container.classList.add('min-h-[70vh]', 'justify-center');
             container.classList.remove('min-h-0', 'mt-8');

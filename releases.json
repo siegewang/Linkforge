@@ -1,5 +1,18 @@
 [
   {
+    "version": "2.2.5",
+    "date": "2026-10-03",
+    "is_major": false,
+    "title": "Website Blacklisting & Instant Tag Filtering",
+    "highlights": [
+      "Website Blacklisting in Browser Extension: Added a Shield/Ban button to the floating extension widget to permanently block entire websites from being recorded to Neural Links or Timeline."
+    ],
+    "fixes": [
+      "Instant Tag Filtering: Clicking tags in the sidebar or tag cloud now immediately displays matching results and refines them as you select more tags.",
+      "Tag Cloud Display: Normalized tag text sizes in the Neural Query tag cloud for a cleaner layout."
+    ]
+  },
+  {
     "version": "2.2.4",
     "date": "2026-09-30",
     "is_major": false,

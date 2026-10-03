@@ -116,6 +116,35 @@ def admin_delete_denied_urls():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@admin_bp.route("/api/admin/blacklisted-domains", methods=["GET"])
+def admin_get_blacklisted_domains():
+    from services.db import get_db
+    conn = get_db()
+    conn.execute("CREATE TABLE IF NOT EXISTS blacklisted_domains (domain TEXT PRIMARY KEY, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+    rows = conn.execute("SELECT domain, created_at FROM blacklisted_domains ORDER BY created_at DESC").fetchall()
+    items = [{"domain": r[0], "created_at": str(r[1]) if r[1] else ""} for r in rows]
+    return jsonify({"status": "success", "items": items})
+
+@admin_bp.route("/api/admin/blacklisted-domains/delete", methods=["POST"])
+def admin_delete_blacklisted_domains():
+    from services.db import get_db, retry_write
+    data = request.json or {}
+    domains = data.get("domains", [])
+    if not domains:
+        return jsonify({"status": "error", "message": "No domains specified"}), 400
+    
+    def _delete():
+        conn = get_db()
+        conn.execute("CREATE TABLE IF NOT EXISTS blacklisted_domains (domain TEXT PRIMARY KEY, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+        conn.executemany("DELETE FROM blacklisted_domains WHERE domain = ?", [(d,) for d in domains])
+        conn.commit()
+    
+    try:
+        retry_write(_delete)
+        return jsonify({"status": "success", "deleted_count": len(domains)})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @admin_bp.route("/api/admin/ai/config", methods=["GET", "POST"])
 def ai_config():
     from services.db import get_db, retry_write

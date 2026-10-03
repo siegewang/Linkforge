@@ -414,6 +414,11 @@ def create_auto_backup():
             denied_rows = src_conn.execute("SELECT * FROM denied_urls ORDER BY created_at DESC").fetchall()
         except Exception:
             denied_rows = []
+
+        try:
+            blacklisted_domain_rows = src_conn.execute("SELECT * FROM blacklisted_domains ORDER BY created_at DESC").fetchall()
+        except Exception:
+            blacklisted_domain_rows = []
             
         try:
             route_history = src_conn.execute("SELECT * FROM routing_history ORDER BY created_at DESC").fetchall()
@@ -442,7 +447,7 @@ def create_auto_backup():
                 elif fallback_headers:
                     cw.writerow(fallback_headers)
 
-        # Export all 12 tables to CSVs
+        # Export all tables to CSVs
         links_csv_path = os.path.join(tmp_dir, "links.csv")
         export_rows_to_csv(links_rows, links_csv_path, ['id', 'url', 'title', 'description', 'favicon', 'tags', 'is_read', 'date_added', 'click_count', 'image_url', 'archive_path', 'full_text'])
 
@@ -470,6 +475,9 @@ def create_auto_backup():
         denied_csv_path = os.path.join(tmp_dir, "denied_urls.csv")
         export_rows_to_csv(denied_rows, denied_csv_path, ['url', 'created_at'])
 
+        blacklisted_domains_csv_path = os.path.join(tmp_dir, "blacklisted_domains.csv")
+        export_rows_to_csv(blacklisted_domain_rows, blacklisted_domains_csv_path, ['domain', 'created_at'])
+
         routing_csv_path = os.path.join(tmp_dir, "routing_history.csv")
         export_rows_to_csv(route_history, routing_csv_path, ['id', 'channel_name', 'video_title', 'chosen_category_id', 'chosen_category_path', 'created_at'])
 
@@ -495,6 +503,7 @@ def create_auto_backup():
                 "settings": len(settings_rows),
                 "config": len(config_rows),
                 "denied_urls": len(denied_rows),
+                "blacklisted_domains": len(blacklisted_domain_rows),
                 "routing_history": len(route_history),
                 "timeline_summaries": len(summaries),
                 "downloaded_books": len(book_rows)
@@ -517,6 +526,7 @@ def create_auto_backup():
             zipf.write(settings_csv_path, "settings.csv")
             zipf.write(config_csv_path, "config.csv")
             zipf.write(denied_csv_path, "denied_urls.csv")
+            zipf.write(blacklisted_domains_csv_path, "blacklisted_domains.csv")
             zipf.write(routing_csv_path, "routing_history.csv")
             zipf.write(summaries_csv_path, "timeline_summaries.csv")
             zipf.write(books_csv_path, "downloaded_books.csv")

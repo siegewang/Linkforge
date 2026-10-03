@@ -16,13 +16,40 @@ async function syncDeniedUrls() {
     return null;
 }
 
-chrome.runtime.onInstalled.addListener(() => syncDeniedUrls());
-chrome.runtime.onStartup.addListener(() => syncDeniedUrls());
-syncDeniedUrls();
+async function syncBlacklistedDomains() {
+    try {
+        const { dashforgeUrl = "http://192.168.0.77:5006" } = await chrome.storage.local.get("dashforgeUrl");
+        const baseUrl = dashforgeUrl.replace(/\/$/, "");
+        const res = await fetch(`${baseUrl}/api/links/blacklisted-domains`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data && Array.isArray(data.blacklisted_domains)) {
+                await chrome.storage.local.set({ blacklistedDomains: data.blacklisted_domains });
+                return data.blacklisted_domains;
+            }
+        }
+    } catch (e) {
+        console.warn("Could not sync blacklisted domains from backend:", e);
+    }
+    return null;
+}
+
+function syncAll() {
+    syncDeniedUrls();
+    syncBlacklistedDomains();
+}
+
+chrome.runtime.onInstalled.addListener(() => syncAll());
+chrome.runtime.onStartup.addListener(() => syncAll());
+syncAll();
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === "SYNC_DENIED_URLS") {
         syncDeniedUrls().then(res => sendResponse(res));
+        return true;
+    }
+    if (message.type === "SYNC_BLACKLISTED_DOMAINS") {
+        syncBlacklistedDomains().then(res => sendResponse(res));
         return true;
     }
     if (message.type === "LOG_PAGE") {
@@ -41,7 +68,45 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         handleUndenyUrl(message.payload).then(result => sendResponse(result));
         return true;
     }
+    if (message.type === "BLACKLIST_DOMAIN") {
+        handleBlacklistDomain(message.payload).then(result => sendResponse(result));
+        return true;
+    }
+    if (message.type === "UNBLACKLIST_DOMAIN") {
+        handleUnblacklistDomain(message.payload).then(result => sendResponse(result));
+        return true;
+    }
 });
+
+async function handleBlacklistDomain(payload) {
+    try {
+        const { dashforgeUrl = "http://192.168.0.77:5006" } = await chrome.storage.local.get("dashforgeUrl");
+        const baseUrl = dashforgeUrl.replace(/\/$/, "");
+        await fetch(`${baseUrl}/api/links/blacklist-domain`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+}
+
+async function handleUnblacklistDomain(payload) {
+    try {
+        const { dashforgeUrl = "http://192.168.0.77:5006" } = await chrome.storage.local.get("dashforgeUrl");
+        const baseUrl = dashforgeUrl.replace(/\/$/, "");
+        await fetch(`${baseUrl}/api/links/unblacklist-domain`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+}
 
 async function handleDenyUrl(payload) {
     try {
