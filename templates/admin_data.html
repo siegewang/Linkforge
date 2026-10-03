@@ -244,6 +244,58 @@
     </div>
 </div>
 
+<!-- Banned Websites & Domains Manager -->
+<div id="banned-domains-section" class="mt-8 bg-zinc-900 p-8 rounded-3xl border border-zinc-800 shadow-xl max-w-6xl">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div>
+            <div class="flex items-center gap-3">
+                <h2 class="text-xl font-bold flex items-center gap-3 text-orange-400">
+                    <i class="fa-solid fa-shield-halved"></i> Banned Websites & Domains
+                </h2>
+                <span id="banned-domains-total-badge" class="px-3 py-1 bg-zinc-950/80 text-orange-400 text-xs font-mono rounded-xl border border-zinc-800">
+                    0 sites banned
+                </span>
+            </div>
+            <p class="text-xs text-zinc-500 mt-1">Websites where you clicked 🛡️⃠ Ban Site in the browser extension. All pages and subpages on these domains are blocked from logging.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+            <div class="relative">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs pointer-events-none"></i>
+                <input type="text" id="banned-domains-search-input" oninput="filterBannedDomainsTable()" placeholder="Search banned domains..." class="bg-zinc-950/80 border border-zinc-800 text-zinc-300 text-xs rounded-xl pl-9 pr-3 py-2 focus:outline-none focus:border-orange-500 w-56 transition-colors">
+            </div>
+            <button id="batch-unban-domain-btn" onclick="deleteSelectedBannedDomains()" disabled class="px-3.5 py-2 bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 text-xs font-semibold rounded-xl border border-orange-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 shadow-sm">
+                <i class="fa-solid fa-trash-can"></i> Unban Selected (<span id="selected-banned-domains-count">0</span>)
+            </button>
+            <button onclick="loadBannedDomainsTable()" class="px-3.5 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold rounded-xl border border-zinc-700 transition-colors flex items-center gap-1.5 shadow-sm">
+                <i class="fa-solid fa-rotate-right"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <div class="overflow-x-auto rounded-2xl border border-zinc-800/80 bg-zinc-950/50">
+        <table class="w-full text-left text-xs text-zinc-300">
+            <thead class="bg-zinc-900/80 text-zinc-400 font-semibold border-b border-zinc-800">
+                <tr>
+                    <th class="p-3.5 w-10 text-center">
+                        <input type="checkbox" id="select-all-banned-domains" onchange="toggleSelectAllBannedDomains(this.checked)" class="rounded bg-zinc-800 border-zinc-700 text-orange-500 focus:ring-0 focus:ring-offset-0 cursor-pointer">
+                    </th>
+                    <th class="p-3.5">Banned Domain Pattern</th>
+                    <th class="p-3.5 w-48">Date Banned</th>
+                    <th class="p-3.5 w-28 text-right">Action</th>
+                </tr>
+            </thead>
+            <tbody id="banned-domains-tbody" class="divide-y divide-zinc-800/60">
+                <tr>
+                    <td colspan="4" class="text-center py-10 text-zinc-500">
+                        <i class="fa-solid fa-circle-notch fa-spin text-xl mb-2 block text-orange-400"></i>
+                        Loading banned domains...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
 <!-- Ignored & Aborted Pages Manager -->
 <div id="ignored-urls-section" class="mt-8 bg-zinc-900 p-8 rounded-3xl border border-zinc-800 shadow-xl max-w-6xl">
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -1131,10 +1183,137 @@
         }
     }
 
+    // --- Banned Websites & Domains Management ---
+    let allBannedDomains = [];
+
+    async function loadBannedDomainsTable() {
+        const tbody = document.getElementById('banned-domains-tbody');
+        const badge = document.getElementById('banned-domains-total-badge');
+        if (!tbody) return;
+
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="4" class="text-center py-8 text-zinc-500">
+                    <i class="fa-solid fa-circle-notch fa-spin text-xl mb-2 block text-orange-400"></i>
+                    Loading banned domains...
+                </td>
+            </tr>
+        `;
+
+        try {
+            const res = await fetch('/api/admin/blacklisted-domains');
+            const data = await res.json();
+            allBannedDomains = data.items || [];
+            if (badge) badge.textContent = `${allBannedDomains.length} sites banned`;
+            renderBannedDomainsTable(allBannedDomains);
+        } catch (e) {
+            console.error('Failed to load banned domains:', e);
+            tbody.innerHTML = `<tr><td colspan="4" class="text-center py-6 text-rose-400">Error loading banned domains</td></tr>`;
+        }
+    }
+
+    function renderBannedDomainsTable(items) {
+        const tbody = document.getElementById('banned-domains-tbody');
+        const selectAll = document.getElementById('select-all-banned-domains');
+        if (selectAll) selectAll.checked = false;
+        updateSelectedBannedDomainsCount();
+
+        if (!items || items.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center py-10 text-zinc-500">
+                        <i class="fa-solid fa-circle-check text-2xl mb-2 block text-zinc-600"></i>
+                        No banned websites found
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = items.map(item => {
+            return `
+                <tr class="hover:bg-zinc-800/40 transition-colors group">
+                    <td class="p-3.5 text-center">
+                        <input type="checkbox" value="${encodeURIComponent(item.domain)}" onchange="updateSelectedBannedDomainsCount()" class="banned-domain-item-checkbox rounded bg-zinc-800 border-zinc-700 text-orange-500 focus:ring-0 cursor-pointer">
+                    </td>
+                    <td class="p-3.5">
+                        <span class="px-2.5 py-1 bg-orange-950/40 text-orange-400 font-mono text-xs rounded-lg border border-orange-800/50 inline-flex items-center gap-1.5">
+                            <i class="fa-solid fa-shield-halved text-[10px]"></i> *.${item.domain}
+                        </span>
+                    </td>
+                    <td class="p-3.5 font-mono text-zinc-500 text-[11px]">
+                        ${item.created_at || '—'}
+                    </td>
+                    <td class="p-3.5 text-right">
+                        <button onclick="deleteSingleBannedDomain('${encodeURIComponent(item.domain)}')" class="px-2.5 py-1 bg-zinc-800 hover:bg-rose-950 text-zinc-400 hover:text-rose-400 font-semibold rounded-lg border border-zinc-700 hover:border-rose-700/60 transition-all text-xs inline-flex items-center gap-1">
+                            <i class="fa-solid fa-trash-can text-[10px]"></i> Unban
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function filterBannedDomainsTable() {
+        const query = (document.getElementById('banned-domains-search-input')?.value || '').toLowerCase().trim();
+        if (!query) {
+            renderBannedDomainsTable(allBannedDomains);
+            return;
+        }
+        const filtered = allBannedDomains.filter(it => it.domain.toLowerCase().includes(query));
+        renderBannedDomainsTable(filtered);
+    }
+
+    function toggleSelectAllBannedDomains(checked) {
+        document.querySelectorAll('.banned-domain-item-checkbox').forEach(cb => cb.checked = checked);
+        updateSelectedBannedDomainsCount();
+    }
+
+    function updateSelectedBannedDomainsCount() {
+        const selected = document.querySelectorAll('.banned-domain-item-checkbox:checked');
+        const countSpan = document.getElementById('selected-banned-domains-count');
+        const batchBtn = document.getElementById('batch-unban-domain-btn');
+        if (countSpan) countSpan.textContent = selected.length;
+        if (batchBtn) batchBtn.disabled = selected.length === 0;
+    }
+
+    async function deleteSingleBannedDomain(encodedDomain) {
+        const domain = decodeURIComponent(encodedDomain);
+        if (!confirm(`Unban this website so pages on it can be logged again?\n\n*.${domain}`)) return;
+        await performDeleteBannedDomains([domain]);
+    }
+
+    async function deleteSelectedBannedDomains() {
+        const selected = Array.from(document.querySelectorAll('.banned-domain-item-checkbox:checked')).map(cb => decodeURIComponent(cb.value));
+        if (selected.length === 0) return;
+        if (!confirm(`Unban ${selected.length} selected websites so they can be logged again?`)) return;
+        await performDeleteBannedDomains(selected);
+    }
+
+    async function performDeleteBannedDomains(domains) {
+        try {
+            const res = await fetch('/api/admin/blacklisted-domains/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ domains })
+            });
+            const data = await res.json();
+            if (res.ok && data.status === 'success') {
+                loadBannedDomainsTable();
+            } else {
+                alert('Error unbanning domains: ' + (data.message || 'Unknown error'));
+            }
+        } catch (e) {
+            console.error('Delete error:', e);
+            alert('Error unbanning domains.');
+        }
+    }
+
     loadAutoBackupConfig();
     loadBackupsList();
     loadAiConfig();
     loadArchiveStats();
+    loadBannedDomainsTable();
     loadDeniedUrlsTable();
 </script>
 
