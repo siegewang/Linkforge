@@ -623,6 +623,17 @@ chmod +x install_handlers.sh
 
 {% block extra_js %}
 <script>
+    // --- Utility: HTML Escape ---
+    function escapeHTML(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
     // --- State Variables ---
     let allModels = [];
     let currentCategory = 'all';
@@ -659,36 +670,61 @@ chmod +x install_handlers.sh
 
     // --- Load Models from API ---
     async function loadModels() {
-        const search = document.getElementById('search-input').value.trim();
-        const material = document.getElementById('material-filter').value;
-        const sortBy = document.getElementById('sort-filter').value;
+        const searchInput = document.getElementById('search-input');
+        const materialFilter = document.getElementById('material-filter');
+        const sortFilter = document.getElementById('sort-filter');
+
+        const search = searchInput ? searchInput.value.trim() : '';
+        const material = materialFilter ? materialFilter.value : 'all';
+        const sortBy = sortFilter ? sortFilter.value : 'created_at_desc';
 
         const loading = document.getElementById('loading-state');
         const grid = document.getElementById('models-grid');
         const empty = document.getElementById('empty-state');
+        const badge = document.getElementById('model-count-badge');
 
-        loading.classList.remove('hidden');
-        grid.innerHTML = '';
-        empty.classList.add('hidden');
+        if (loading) loading.classList.remove('hidden');
+        if (grid) grid.innerHTML = '';
+        if (empty) empty.classList.add('hidden');
 
         try {
             const url = `/api/models?search=${encodeURIComponent(search)}&category=${encodeURIComponent(currentCategory)}&material=${encodeURIComponent(material)}&sort_by=${encodeURIComponent(sortBy)}`;
             const res = await fetch(url);
+            if (!res.ok) throw new Error(`HTTP error ${res.status}`);
             const data = await res.json();
-            allModels = data || [];
+            allModels = Array.isArray(data) ? data : [];
 
-            loading.classList.add('hidden');
-            document.getElementById('model-count-badge').textContent = `${allModels.length} Model${allModels.length === 1 ? '' : 's'}`;
+            if (badge) {
+                badge.textContent = `${allModels.length} Model${allModels.length === 1 ? '' : 's'}`;
+            }
 
             if (allModels.length === 0) {
-                empty.classList.remove('hidden');
+                if (empty) empty.classList.remove('hidden');
                 return;
             }
 
-            grid.innerHTML = allModels.map(m => renderModelCard(m)).join('');
+            if (grid) {
+                grid.innerHTML = allModels.map(m => {
+                    try {
+                        return renderModelCard(m);
+                    } catch (err) {
+                        console.error('Error rendering model card:', err, m);
+                        return '';
+                    }
+                }).join('');
+            }
         } catch (e) {
-            loading.classList.add('hidden');
             console.error('Failed to load models:', e);
+            if (grid) {
+                grid.innerHTML = `
+                    <div class="col-span-full p-6 text-center bg-rose-950/30 border border-rose-800/50 rounded-2xl text-rose-300 text-xs">
+                        <i class="fa-solid fa-triangle-exclamation text-base mb-2 block"></i>
+                        Failed to fetch 3D model catalog: ${escapeHTML(e.message || String(e))}
+                    </div>
+                `;
+            }
+        } finally {
+            if (loading) loading.classList.add('hidden');
         }
     }
 
