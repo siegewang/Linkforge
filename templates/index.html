@@ -4,6 +4,8 @@
 {% block extra_css %}
     .dashboard-grid { column-gap: 1.5rem; }
     @media (min-width: 1024px) { .dashboard-grid { column-count: 2; } }
+    @media (min-width: 1900px) { .dashboard-grid { column-count: 3; } }
+    @media (min-width: 2500px) { .dashboard-grid { column-count: 4; } }
     .group-section { break-inside: avoid; margin-bottom: 1.5rem; }
     .card-hover { transition: all 0.2s ease-out; }
     .card-hover:hover { transform: scale(1.05); filter: brightness(1.1); }
