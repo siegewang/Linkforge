@@ -10,7 +10,7 @@ from config import Config
 from services.db import get_db, retry_write
 from services.geometry import parse_geometry
 from services.bambu_cloud import bambu_cloud
-from services.gemini_print_service import analyze_model_with_gemini, infer_tags_from_text
+from services.gemini_print_service import analyze_model_with_gemini, infer_tags_from_text, batch_auto_categorize_models
 from services.print_thumbnails import (
     extract_embedded_3mf_thumbnail,
     save_thumbnail_from_data_url,
@@ -117,6 +117,220 @@ def _format_model_row(row, base_url: str) -> dict:
 @prints_bp.route("/prints", methods=["GET"])
 def prints_page():
     return render_template("prints.html", active_page="prints")
+
+
+# --- Categories & Taxonomy API ---
+@prints_bp.route("/api/models/categories", methods=["GET"])
+def get_categories():
+    conn = get_db()
+    cat_rows = conn.execute("SELECT * FROM print_categories ORDER BY display_order ASC, id ASC").fetchall()
+    counts_rows = conn.execute("SELECT category, COUNT(*) as count FROM model_assets GROUP BY category").fetchall()
+    counts_map = {r["category"]: r["count"] for r in counts_rows if r["category"]}
+    total_models = conn.execute("SELECT COUNT(*) FROM model_assets").fetchone()[0]
+
+    categories = []
+    for r in cat_rows:
+        categories.append({
+            "id": r["id"],
+            "name": r["name"],
+            "slug": r["slug"],
+            "icon": r["icon"] or "fa-folder",
+            "color": r["color"] or "#6366f1",
+            "description": r["description"] or "",
+            "display_order": r["display_order"] or 0,
+            "count": counts_map.get(r["name"], 0)
+        })
+
+    return jsonify({
+        "categories": categories,
+        "total_count": total_models
+    })
+
+
+@prints_bp.route("/api/models/categories", methods=["POST"])
+def create_category():
+    data = request.get_json() or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "Category name is required"}), 400
+
+    slug = (data.get("slug") or re.sub(r'[^a-zA-Z0-9_-]', '-', name.lower())).strip("-")
+    icon = (data.get("icon") or "fa-folder").strip()
+    color = (data.get("color") or "#6366f1").strip()
+    description = (data.get("description") or "").strip()
+    display_order = data.get("display_order", 99)
+
+    def _insert():
+        c = get_db()
+        cursor = c.cursor()
+        cursor.execute("""
+            INSERT INTO print_categories (name, slug, icon, color, description, display_order)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (name, slug, icon, color, description, display_order))
+        c.commit()
+        return cursor.lastrowid
+
+    try:
+        new_id = retry_write(_insert)
+        conn = get_db()
+        row = conn.execute("SELECT * FROM print_categories WHERE id = ?", (new_id,)).fetchone()
+        return jsonify({
+            "id": row["id"],
+            "name": row["name"],
+            "slug": row["slug"],
+            "icon": row["icon"],
+            "color": row["color"],
+            "description": row["description"],
+            "display_order": row["display_order"],
+            "count": 0
+        }), 201
+    except Exception as e:
+        return jsonify({"error": f"Failed to create category: {e}"}), 400
+
+
+@prints_bp.route("/api/models/categories/<int:cat_id>", methods=["PUT", "POST"])
+def update_category(cat_id):
+    data = request.get_json() or {}
+    conn = get_db()
+    existing = conn.execute("SELECT * FROM print_categories WHERE id = ?", (cat_id,)).fetchone()
+    if not existing:
+        return jsonify({"error": "Category not found"}), 404
+
+    old_name = existing["name"]
+    name = (data.get("name") or existing["name"]).strip()
+    slug = (data.get("slug") or existing["slug"]).strip()
+    icon = (data.get("icon") or existing["icon"]).strip()
+    color = (data.get("color") or existing["color"]).strip()
+    description = data.get("description", existing["description"])
+    display_order = data.get("display_order", existing["display_order"])
+
+    def _update():
+        c = get_db()
+        c.execute("""
+            UPDATE print_categories 
+            SET name = ?, slug = ?, icon = ?, color = ?, description = ?, display_order = ?
+            WHERE id = ?
+        """, (name, slug, icon, color, description, display_order, cat_id))
+        if old_name != name:
+            c.execute("UPDATE model_assets SET category = ? WHERE category = ?", (name, old_name))
+        c.commit()
+
+    retry_write(_update)
+    updated = conn.execute("SELECT * FROM print_categories WHERE id = ?", (cat_id,)).fetchone()
+    count = conn.execute("SELECT COUNT(*) FROM model_assets WHERE category = ?", (name,)).fetchone()[0]
+    return jsonify({
+        "id": updated["id"],
+        "name": updated["name"],
+        "slug": updated["slug"],
+        "icon": updated["icon"],
+        "color": updated["color"],
+        "description": updated["description"],
+        "display_order": updated["display_order"],
+        "count": count
+    })
+
+
+@prints_bp.route("/api/models/categories/<int:cat_id>", methods=["DELETE"])
+def delete_category(cat_id):
+    conn = get_db()
+    existing = conn.execute("SELECT * FROM print_categories WHERE id = ?", (cat_id,)).fetchone()
+    if not existing:
+        return jsonify({"error": "Category not found"}), 404
+
+    cat_name = existing["name"]
+
+    def _delete():
+        c = get_db()
+        c.execute("DELETE FROM print_categories WHERE id = ?", (cat_id,))
+        c.execute("UPDATE model_assets SET category = 'General & Other' WHERE category = ?", (cat_name,))
+        c.commit()
+
+    retry_write(_delete)
+    return jsonify({"success": True, "message": f"Category '{cat_name}' deleted and models moved to 'General & Other'"})
+
+
+@prints_bp.route("/api/models/batch-categorize", methods=["POST"])
+def batch_categorize():
+    data = request.get_json() or {}
+    model_ids = data.get("model_ids", [])
+    target_category = (data.get("category") or "").strip()
+
+    if not model_ids or not target_category:
+        return jsonify({"error": "model_ids list and category are required"}), 400
+
+    clean_ids = [int(mid) for mid in model_ids if str(mid).isdigit()]
+    if not clean_ids:
+        return jsonify({"error": "No valid model IDs provided"}), 400
+
+    def _batch_update():
+        c = get_db()
+        placeholders = ",".join(["?"] * len(clean_ids))
+        c.execute(f"""
+            UPDATE model_assets 
+            SET category = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id IN ({placeholders})
+        """, [target_category] + clean_ids)
+        c.commit()
+
+    retry_write(_batch_update)
+    return jsonify({
+        "success": True,
+        "updated_count": len(clean_ids),
+        "target_category": target_category
+    })
+
+
+@prints_bp.route("/api/ai/auto-categorize-models", methods=["POST"])
+def auto_categorize_models():
+    data = request.get_json() or {}
+    target_model_ids = data.get("model_ids")
+
+    conn = get_db()
+    categories_rows = conn.execute("SELECT name FROM print_categories ORDER BY display_order ASC").fetchall()
+    categories = [r["name"] for r in categories_rows]
+    if not categories:
+        categories = ["Workshop & Jigs", "Desk & Gridfinity", "Electronics & Enclosures", "Home & Utility", "Art & Minis", "Multi-Plate Assemblies", "Calibration & Benchies", "General & Other"]
+
+    query = "SELECT * FROM model_assets"
+    params = []
+    if target_model_ids and isinstance(target_model_ids, list):
+        placeholders = ",".join(["?"] * len(target_model_ids))
+        query += f" WHERE id IN ({placeholders})"
+        params = target_model_ids
+
+    rows = conn.execute(query, params).fetchall()
+    models_to_categorize = []
+    for r in rows:
+        tags = []
+        if r["tags"]:
+            try:
+                tags = json.loads(r["tags"]) if isinstance(r["tags"], str) and r["tags"].startswith("[") else [t.strip() for t in r["tags"].split(",") if t.strip()]
+            except Exception:
+                tags = [r["tags"]]
+        models_to_categorize.append({
+            "id": r["id"],
+            "name": r["name"],
+            "filename": r["filename"],
+            "description": r["description"] or "",
+            "tags": tags
+        })
+
+    classifications = batch_auto_categorize_models(models_to_categorize, categories)
+
+    def _apply_classifications():
+        c = get_db()
+        for mid, cat in classifications.items():
+            c.execute("UPDATE model_assets SET category = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (cat, mid))
+        c.commit()
+
+    if classifications:
+        retry_write(_apply_classifications)
+
+    return jsonify({
+        "success": True,
+        "categorized_count": len(classifications),
+        "classifications": classifications
+    })
 
 
 # --- Model Assets API ---

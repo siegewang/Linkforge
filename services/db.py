@@ -280,6 +280,33 @@ def init_db(app=None):
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )""")
 
+        # 3D Print Library: Categories Taxonomy
+        conn.execute("""CREATE TABLE IF NOT EXISTS print_categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            slug TEXT NOT NULL UNIQUE,
+            icon TEXT DEFAULT 'fa-folder',
+            color TEXT DEFAULT '#6366f1',
+            description TEXT,
+            display_order INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""")
+
+        # Seed default print categories
+        default_print_cats = [
+            ('Workshop & Jigs', 'workshop-jigs', 'fa-wrench', '#f59e0b', 'Tool holders, pegboard mounts, drill guides, clamps, router templates', 1),
+            ('Desk & Gridfinity', 'desk-gridfinity', 'fa-table-cells', '#6366f1', 'Gridfinity bins, cable organizers, drawer dividers, pen stands', 2),
+            ('Electronics & Enclosures', 'electronics-enclosures', 'fa-microchip', '#06b6d4', 'Raspberry Pi / ESP32 cases, battery holders, sensor brackets', 3),
+            ('Home & Utility', 'home-utility', 'fa-house-chimney', '#10b981', 'Hooks, curtain clips, bathroom & kitchen organizers, repair parts', 4),
+            ('Art & Minis', 'art-minis', 'fa-palette', '#ec4899', 'Figurines, articulated dragons, lithophanes, decorative sculptures', 5),
+            ('Multi-Plate Assemblies', 'multi-plate-assemblies', 'fa-layer-group', '#8b5cf6', 'Complex multi-part prints with 2+ build plates', 6),
+            ('Calibration & Benchies', 'calibration-benchies', 'fa-vial', '#14b8a6', 'Temp towers, tolerance cubes, flow rate tests, benchies', 7),
+            ('General & Other', 'general-other', 'fa-box-open', '#71717a', 'General print models and unfiled assets', 8)
+        ]
+        for cname, cslug, cicon, ccolor, cdesc, corder in default_print_cats:
+            conn.execute("""INSERT OR IGNORE INTO print_categories (name, slug, icon, color, description, display_order) 
+                            VALUES (?, ?, ?, ?, ?, ?)""", (cname, cslug, cicon, ccolor, cdesc, corder))
+
         # 3D Print Library: Timelapses
         conn.execute("""CREATE TABLE IF NOT EXISTS timelapses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

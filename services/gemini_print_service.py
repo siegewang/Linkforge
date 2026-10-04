@@ -293,3 +293,104 @@ def infer_tags_from_text(description: str, name: str, file_format: str = "") -> 
         key=lambda t: (t in ["3dprint", "3mf", "stl"], -len(t))
     )
     return sorted_tags[:10]
+
+
+def batch_auto_categorize_models(models: List[Dict[str, Any]], categories: List[str]) -> Dict[int, str]:
+    """
+    Classifies multiple 3D models into target categories using Gemini 1.5 Flash AI,
+    with smart local heuristic classification as a reliable fallback.
+    Returns a dict mapping model_id -> category_name.
+    """
+    if not models or not categories:
+        return {}
+
+    category_names = [c if isinstance(c, str) else c.get('name', '') for c in categories]
+    category_names = [c for c in category_names if c]
+    category_str = " | ".join(category_names)
+
+    # 1. Try Gemini API
+    api_key = _get_api_key()
+    if api_key:
+        try:
+            model_name = _get_gemini_model()
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+
+            models_summary = []
+            for m in models:
+                models_summary.append({
+                    "id": m["id"],
+                    "name": m.get("name", ""),
+                    "filename": m.get("filename", ""),
+                    "description": m.get("description", ""),
+                    "tags": m.get("tags", [])
+                })
+
+            prompt = (
+                f"You are a 3D printing organization expert. Categorize the following 3D print models into exactly one of these allowed categories:\n"
+                f"Allowed Categories: {category_str}\n\n"
+                f"Models to categorize:\n{json.dumps(models_summary, indent=2)}\n\n"
+                f"Return ONLY a JSON array of objects with schema: [{{\"id\": <int>, \"category\": \"<Exact Allowed Category Name>\"}}]"
+            )
+
+            payload = {
+                "contents": [
+                    {
+                        "role": "user",
+                        "parts": [{"text": prompt}]
+                    }
+                ],
+                "generationConfig": {
+                    "temperature": 0.1,
+                    "responseMimeType": "application/json"
+                }
+            }
+
+            resp = requests.post(url, json=payload, timeout=20)
+            if resp.status_code == 200:
+                raw_json = resp.json()
+                candidate_text = raw_json["candidates"][0]["content"]["parts"][0]["text"]
+                classifications = json.loads(candidate_text)
+                if isinstance(classifications, list):
+                    results = {}
+                    for item in classifications:
+                        if isinstance(item, dict) and "id" in item and "category" in item:
+                            cat = item["category"]
+                            if cat in category_names:
+                                results[item["id"]] = cat
+                            else:
+                                for valid_c in category_names:
+                                    if valid_c.lower() in cat.lower() or cat.lower() in valid_c.lower():
+                                        results[item["id"]] = valid_c
+                                        break
+                    if len(results) >= len(models) * 0.5:
+                        return results
+        except Exception as e:
+            logger.warning(f"Gemini batch categorization call failed, falling back to heuristics: {e}")
+
+    # 2. Local Intelligent Heuristics Fallback
+    results = {}
+    for m in models:
+        text = f"{m.get('name', '')} {m.get('filename', '')} {m.get('description', '')} {' '.join(m.get('tags', []))}".lower()
+        cat = "General & Other"
+
+        if any(k in text for k in ["pegboard", "tool", "drill", "guide", "jig", "hanger", "clamp", "blade", "socket", "wrench", "vent", "router", "dewalt", "ryobi"]):
+            cat = "Workshop & Jigs"
+        elif any(k in text for k in ["gridfinity", "desk", "drawer", "tray", "organizer", "bin", "stand", "dock", "pen", "divider", "spool", "adapter"]):
+            cat = "Desk & Gridfinity"
+        elif any(k in text for k in ["case", "enclosure", "raspberry", "pi", "esp32", "doorbell", "angle", "sensor", "battery", "caddy", "wiring", "cable", "circuit"]):
+            cat = "Electronics & Enclosures"
+        elif any(k in text for k in ["shower", "basket", "handle", "knob", "hook", "kitchen", "bath", "curtain", "door", "bottle", "soap", "shelf"]):
+            cat = "Home & Utility"
+        elif any(k in text for k in ["dragon", "mini", "figure", "statue", "monarch", "crown", "art", "miniature", "sculpture", "lithophane", "toy", "kraken"]):
+            cat = "Art & Minis"
+        elif any(k in text for k in ["calibration", "cube", "benchy", "tolerance", "temp tower", "overhang", "flow"]):
+            cat = "Calibration & Benchies"
+        elif any(k in text for k in ["multi-plate", "plates", "assembly", "deck box", "mtg"]):
+            cat = "Multi-Plate Assemblies"
+
+        # Verify category exists in allowed list
+        matched_cat = next((c for c in category_names if c.lower() == cat.lower()), category_names[0] if category_names else "General & Other")
+        results[m["id"]] = matched_cat
+
+    return results
+

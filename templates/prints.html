@@ -19,6 +19,28 @@
     .bambu-green-bg { background-color: #00ae42; }
     .bambu-green-border { border-color: rgba(0, 174, 66, 0.4); }
     .bambu-glow { box-shadow: 0 0 20px rgba(0, 242, 89, 0.2); }
+
+    .category-drop-target.drag-potential {
+        border-style: dashed !important;
+        border-color: rgba(99, 102, 241, 0.6) !important;
+    }
+    .category-drop-target.drag-over {
+        border-color: #00f259 !important;
+        background-color: rgba(0, 242, 89, 0.15) !important;
+        transform: scale(1.03);
+        box-shadow: 0 0 15px rgba(0, 242, 89, 0.3) !important;
+    }
+    .model-card.dragging {
+        opacity: 0.45;
+        transform: scale(0.97);
+    }
+    @keyframes toast-slide-up {
+        from { transform: translate(-50%, 20px); opacity: 0; }
+        to { transform: translate(-50%, 0); opacity: 1; }
+    }
+    .toast-animate {
+        animation: toast-slide-up 0.25s ease-out forwards;
+    }
 </style>
 {% endblock %}
 
@@ -46,11 +68,17 @@
 
         <!-- Header Actions -->
         <div class="flex items-center gap-2.5 flex-wrap">
+            <button onclick="triggerAiAutoCategorize()" id="btn-header-ai-categorize" title="Auto-classify all models into maker categories using Gemini AI" class="px-3.5 py-2 rounded-xl bg-purple-950/70 hover:bg-purple-900/80 text-purple-300 border border-purple-800/60 text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm">
+                <i class="fa-solid fa-wand-magic-sparkles text-purple-400"></i> AI Auto-Categorize
+            </button>
+            <button onclick="openCategoryManagerModal()" title="Manage 3D model categories" class="px-3.5 py-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm">
+                <i class="fa-solid fa-folder-tree text-amber-400"></i> Categories
+            </button>
             <button onclick="openProtocolHelpModal()" class="px-3.5 py-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm">
-                <i class="fa-solid fa-desktop text-sky-400"></i> Setup Desktop Handlers
+                <i class="fa-solid fa-desktop text-sky-400"></i> Desktop Handlers
             </button>
             <button onclick="backfillThumbnails()" title="Scan & extract embedded 3MF thumbnails" class="px-3 py-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-white border border-zinc-700 text-xs font-semibold transition-all">
-                <i class="fa-solid fa-wand-magic-sparkles text-purple-400"></i>
+                <i class="fa-solid fa-camera text-indigo-400"></i>
             </button>
             <button onclick="openUploadModal()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 via-teal-600 to-emerald-600 hover:from-indigo-500 hover:to-emerald-500 text-white text-xs font-bold transition-all shadow-lg shadow-indigo-950/40 flex items-center gap-2">
                 <i class="fa-solid fa-cloud-arrow-up"></i> Ingest 3D Models
@@ -120,45 +148,122 @@
             </div>
         </div>
 
-        <!-- Category Pills -->
+        <!-- Category Top Pills (Dynamic Active Drop Targets) -->
         <div id="category-pills" class="flex items-center gap-1.5 overflow-x-auto custom-scroll pb-1">
-            <button onclick="selectCategory('all')" id="cat-pill-all" class="cat-pill px-3 py-1 rounded-lg text-xs font-semibold bg-indigo-950 text-indigo-300 border border-indigo-700/60 whitespace-nowrap transition-all">All Categories</button>
-            <button onclick="selectCategory('Tools & Utility')" id="cat-pill-Tools & Utility" class="cat-pill px-3 py-1 rounded-lg text-xs font-medium bg-zinc-950/60 text-zinc-400 hover:text-zinc-200 border border-zinc-800 whitespace-nowrap transition-all">Tools & Utility</button>
-            <button onclick="selectCategory('Desk & Organization')" id="cat-pill-Desk & Organization" class="cat-pill px-3 py-1 rounded-lg text-xs font-medium bg-zinc-950/60 text-zinc-400 hover:text-zinc-200 border border-zinc-800 whitespace-nowrap transition-all">Desk & Organization</button>
-            <button onclick="selectCategory('Home & Living')" id="cat-pill-Home & Living" class="cat-pill px-3 py-1 rounded-lg text-xs font-medium bg-zinc-950/60 text-zinc-400 hover:text-zinc-200 border border-zinc-800 whitespace-nowrap transition-all">Home & Living</button>
-            <button onclick="selectCategory('Toys & Figures')" id="cat-pill-Toys & Figures" class="cat-pill px-3 py-1 rounded-lg text-xs font-medium bg-zinc-950/60 text-zinc-400 hover:text-zinc-200 border border-zinc-800 whitespace-nowrap transition-all">Toys & Figures</button>
-            <button onclick="selectCategory('Electronics & Gadgets')" id="cat-pill-Electronics & Gadgets" class="cat-pill px-3 py-1 rounded-lg text-xs font-medium bg-zinc-950/60 text-zinc-400 hover:text-zinc-200 border border-zinc-800 whitespace-nowrap transition-all">Electronics & Gadgets</button>
-            <button onclick="selectCategory('Mechanical')" id="cat-pill-Mechanical" class="cat-pill px-3 py-1 rounded-lg text-xs font-medium bg-zinc-950/60 text-zinc-400 hover:text-zinc-200 border border-zinc-800 whitespace-nowrap transition-all">Mechanical</button>
-            <button onclick="selectCategory('Calibration & Test')" id="cat-pill-Calibration & Test" class="cat-pill px-3 py-1 rounded-lg text-xs font-medium bg-zinc-950/60 text-zinc-400 hover:text-zinc-200 border border-zinc-800 whitespace-nowrap transition-all">Calibration & Test</button>
-            <button onclick="selectCategory('Art & Decor')" id="cat-pill-Art & Decor" class="cat-pill px-3 py-1 rounded-lg text-xs font-medium bg-zinc-950/60 text-zinc-400 hover:text-zinc-200 border border-zinc-800 whitespace-nowrap transition-all">Art & Decor</button>
+            <!-- Populated dynamically by loadCategories() -->
         </div>
     </div>
 
-    <!-- Models Grid -->
-    <div id="models-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 min-[1900px]:grid-cols-6 min-[2300px]:grid-cols-7 min-[2700px]:grid-cols-8 gap-5">
-        <!-- Populated by JavaScript -->
+    <!-- Main Content Area: Category Sidebar + Models Grid -->
+    <div class="flex flex-col lg:flex-row gap-6 items-start">
+        <!-- Category Sidebar (Draggable Drop Target & Count Badges) -->
+        <aside class="w-full lg:w-72 shrink-0 bg-zinc-900/40 p-4 rounded-3xl border border-zinc-800/80 shadow-lg backdrop-blur-md space-y-4 lg:sticky lg:top-4">
+            <!-- Category Sidebar Header -->
+            <div class="flex items-center justify-between px-1">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-folder-tree text-xs text-amber-400"></i>
+                    <span class="text-xs font-bold text-zinc-300 uppercase tracking-wider">Categories</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <button onclick="openAddCategoryModal()" title="Add Custom Category" class="w-7 h-7 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white flex items-center justify-center text-xs border border-zinc-700 transition">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                    <button onclick="openCategoryManagerModal()" title="Manage Categories" class="w-7 h-7 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white flex items-center justify-center text-xs border border-zinc-700 transition">
+                        <i class="fa-solid fa-gear"></i>
+                    </button>
+                </div>
+            </div>
+
+            <p class="text-[11px] text-zinc-400 px-1 leading-snug">
+                Drag and drop 3D model cards into any category to organize your catalog.
+            </p>
+
+            <!-- Sidebar Categories List -->
+            <div id="sidebar-categories-list" class="space-y-1.5 max-h-[calc(100vh-320px)] overflow-y-auto custom-scroll pr-0.5">
+                <!-- Populated by JS loadCategories() -->
+            </div>
+
+            <!-- AI Auto-Categorize Card -->
+            <div class="p-3.5 rounded-2xl bg-gradient-to-br from-purple-950/40 via-zinc-950 to-indigo-950/40 border border-purple-900/40 text-xs space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-purple-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-sparkles text-purple-400"></i> Gemini Sorter
+                    </span>
+                    <span class="text-[10px] text-purple-400 font-mono">AI</span>
+                </div>
+                <p class="text-[11px] text-zinc-400 leading-snug">
+                    Auto-organize your 3D models with Gemini AI pattern matching.
+                </p>
+                <button onclick="triggerAiAutoCategorize()" id="btn-sidebar-ai-categorize" class="w-full py-2 px-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-md">
+                    <i class="fa-solid fa-wand-magic-sparkles text-xs"></i> Auto-Sort Library
+                </button>
+            </div>
+        </aside>
+
+        <!-- Models Content Column -->
+        <div class="flex-1 w-full min-w-0 space-y-4">
+            <!-- Models Grid -->
+            <div id="models-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 min-[1900px]:grid-cols-5 min-[2300px]:grid-cols-6 min-[2700px]:grid-cols-7 gap-5">
+                <!-- Populated by JavaScript -->
+            </div>
+
+            <!-- Loading State -->
+            <div id="loading-state" class="py-20 text-center space-y-3">
+                <i class="fa-solid fa-circle-notch fa-spin text-3xl text-indigo-400"></i>
+                <p class="text-xs text-zinc-400 font-mono">Loading 3D print assets catalog...</p>
+            </div>
+
+            <!-- Empty State -->
+            <div id="empty-state" class="hidden py-24 text-center border-2 border-dashed border-zinc-800 rounded-3xl p-8 space-y-4">
+                <div class="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-600 text-3xl mx-auto shadow-inner">
+                    <i class="fa-solid fa-cube"></i>
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-zinc-200">No 3D Models Found</h3>
+                    <p class="text-xs text-zinc-400 max-w-sm mx-auto mt-1">Upload STL, 3MF, OBJ, or STEP files to organize your 3D printing catalog.</p>
+                </div>
+                <button onclick="openUploadModal()" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-lg shadow-indigo-950/50">
+                    <i class="fa-solid fa-cloud-arrow-up mr-1.5"></i> Ingest First Model
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Floating Multi-Select & Batch Action Bar -->
+<div id="batch-action-bar" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-zinc-900/95 border border-indigo-500/50 shadow-2xl rounded-2xl px-5 py-3 hidden items-center gap-4 backdrop-blur-md transition-all">
+    <div class="flex items-center gap-2 border-r border-zinc-800 pr-4">
+        <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"></span>
+        <span id="batch-selected-count" class="font-bold text-white text-xs whitespace-nowrap">0 Selected</span>
     </div>
 
-    <!-- Loading State -->
-    <div id="loading-state" class="py-20 text-center space-y-3">
-        <i class="fa-solid fa-circle-notch fa-spin text-3xl text-indigo-400"></i>
-        <p class="text-xs text-zinc-400 font-mono">Loading 3D print assets catalog...</p>
-    </div>
+    <div class="flex items-center gap-2 flex-wrap">
+        <!-- Move to Category Select -->
+        <div class="flex items-center gap-1.5">
+            <select id="batch-category-select" class="bg-zinc-950 border border-zinc-700 rounded-xl px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500">
+                <!-- Populated dynamically -->
+            </select>
+            <button onclick="applyBatchCategorizeFromSelect()" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-sm flex items-center gap-1">
+                <i class="fa-solid fa-arrow-right-to-bracket text-[10px]"></i> Move
+            </button>
+        </div>
 
-    <!-- Empty State -->
-    <div id="empty-state" class="hidden py-24 text-center border-2 border-dashed border-zinc-800 rounded-3xl p-8 space-y-4">
-        <div class="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-600 text-3xl mx-auto shadow-inner">
-            <i class="fa-solid fa-cube"></i>
-        </div>
-        <div>
-            <h3 class="text-base font-bold text-zinc-200">No 3D Models Found</h3>
-            <p class="text-xs text-zinc-400 max-w-sm mx-auto mt-1">Upload STL, 3MF, OBJ, or STEP files to organize your 3D printing catalog.</p>
-        </div>
-        <button onclick="openUploadModal()" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-lg shadow-indigo-950/50">
-            <i class="fa-solid fa-cloud-arrow-up mr-1.5"></i> Ingest First Model
+        <button onclick="triggerAiCategorizeSelected()" class="px-3 py-1.5 rounded-xl bg-purple-900/70 hover:bg-purple-800 text-purple-200 border border-purple-700 text-xs font-semibold transition flex items-center gap-1.5">
+            <i class="fa-solid fa-sparkles text-purple-400 text-xs"></i> AI Sort Selected
+        </button>
+
+        <button onclick="selectAllVisibleModels()" class="px-2.5 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium border border-zinc-700 transition">
+            Select All
+        </button>
+
+        <button onclick="clearModelSelection()" class="px-2.5 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white text-xs font-medium border border-zinc-700 transition">
+            Clear
         </button>
     </div>
 </div>
+
+<!-- Floating Toast Container -->
+<div id="toast-container" class="fixed top-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
 <!-- ================= MODALS ================= -->
 
@@ -632,6 +737,106 @@ chmod +x install_handlers.sh
     </div>
 </div>
 
+<!-- 7. Category Manager Modal -->
+<div id="categoryManagerModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center p-4 z-50 backdrop-blur-md transition-all">
+    <div class="bg-zinc-900 border border-amber-900/60 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
+        <div class="px-6 py-4 border-b border-zinc-800 bg-zinc-950/60 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-amber-950/80 border border-amber-600/50 flex items-center justify-center text-amber-400">
+                    <i class="fa-solid fa-folder-tree"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-white">Manage 3D Print Categories</h3>
+                    <p class="text-xs text-zinc-400">Customize categories, icons, colors, and auto-sorting taxonomy</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="openAddCategoryModal()" class="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md">
+                    <i class="fa-solid fa-plus text-xs"></i> New Category
+                </button>
+                <button onclick="closeCategoryManagerModal()" class="text-zinc-400 hover:text-white p-2">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="p-6 space-y-3 overflow-y-auto custom-scroll flex-1">
+            <div id="category-manager-list" class="space-y-2">
+                <!-- Populated dynamically by loadCategories() -->
+            </div>
+        </div>
+
+        <div class="px-6 py-4 border-t border-zinc-800 bg-zinc-950/60 flex items-center justify-between">
+            <span class="text-xs text-zinc-500">Drag models directly onto category items to organize.</span>
+            <button onclick="closeCategoryManagerModal()" class="px-5 py-2 rounded-xl text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-all">Done</button>
+        </div>
+    </div>
+</div>
+
+<!-- 8. Add / Edit Category Modal -->
+<div id="categoryEditModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center p-4 z-50 backdrop-blur-md transition-all">
+    <div class="bg-zinc-900 border border-indigo-900/60 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
+        <div class="px-6 py-4 border-b border-zinc-800 bg-zinc-950/60 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div id="category-modal-icon-badge" class="w-9 h-9 rounded-xl bg-indigo-950/80 border border-indigo-600/50 flex items-center justify-center text-indigo-400">
+                    <i id="category-modal-icon-preview" class="fa-solid fa-folder-open"></i>
+                </div>
+                <div>
+                    <h3 id="category-edit-modal-title" class="text-sm font-bold text-white">Create Category</h3>
+                    <p class="text-xs text-zinc-400">Define icon, color, and taxonomy rules</p>
+                </div>
+            </div>
+            <button onclick="closeCategoryEditModal()" class="text-zinc-400 hover:text-white p-2">
+                <i class="fa-solid fa-xmark text-sm"></i>
+            </button>
+        </div>
+
+        <form id="category-form" onsubmit="saveCategoryForm(event)" class="p-6 space-y-4 overflow-y-auto custom-scroll flex-1">
+            <input type="hidden" id="category-edit-id" value="">
+
+            <div>
+                <label class="block text-xs font-bold text-zinc-400 mb-1">Category Name *</label>
+                <input id="category-input-name" type="text" required placeholder="e.g. Workshop & Jigs, Desk & Gridfinity..."
+                       class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-zinc-400 mb-1">Description</label>
+                <textarea id="category-input-desc" rows="2" placeholder="Brief description of models belonging in this category..."
+                          class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500 resize-none"></textarea>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-zinc-400 mb-2">Category Color</label>
+                <div class="flex items-center gap-2 flex-wrap mb-2" id="category-color-presets">
+                    <!-- Populated by JS -->
+                </div>
+                <div class="flex items-center gap-2">
+                    <input id="category-input-color" type="text" placeholder="#6366f1"
+                           oninput="updateCategoryColorPreview(this.value)"
+                           class="w-32 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-200 font-mono focus:outline-none focus:border-indigo-500">
+                    <span id="category-color-swatch" class="w-7 h-7 rounded-lg border border-zinc-700 inline-block" style="background-color: #6366f1;"></span>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-zinc-400 mb-2">Icon (FontAwesome)</label>
+                <div class="grid grid-cols-6 sm:grid-cols-8 gap-2 mb-2" id="category-icon-presets">
+                    <!-- Populated by JS -->
+                </div>
+                <input id="category-input-icon" type="text" placeholder="fa-solid fa-wrench"
+                       oninput="updateCategoryIconPreview(this.value)"
+                       class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-200 font-mono focus:outline-none focus:border-indigo-500">
+            </div>
+
+            <div class="pt-2 flex items-center justify-end gap-2 border-t border-zinc-800">
+                <button type="button" onclick="closeCategoryEditModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white">Cancel</button>
+                <button type="submit" id="btn-save-category" class="px-5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg transition">Save Category</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -649,12 +854,23 @@ chmod +x install_handlers.sh
 
     // --- State Variables ---
     let allModels = [];
+    let loadedCategories = [];
     let currentCategory = 'all';
+    let selectedModelIds = new Set();
+    let draggedModelBatch = [];
     let currentModelInViewer = null;
     let currentModelInSlicer = null;
     let currentModelInBambu = null;
     let currentModelInTimelapse = null;
     let queuedUploadFiles = [];
+
+    // Category presets for modal editor
+    const CATEGORY_COLOR_PRESETS = ['#f59e0b', '#10b981', '#06b6d4', '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#84cc16', '#eab308', '#64748b'];
+    const CATEGORY_ICON_PRESETS = [
+        'fa-wrench', 'fa-box-archive', 'fa-microchip', 'fa-house', 'fa-robot', 'fa-gears',
+        'fa-ruler-combined', 'fa-palette', 'fa-cube', 'fa-hammer', 'fa-print', 'fa-car',
+        'fa-shield-halved', 'fa-trophy', 'fa-scissors', 'fa-flask'
+    ];
 
     // Three.js State
     let scene, camera, renderer, controls, meshGroup;
@@ -663,6 +879,171 @@ chmod +x install_handlers.sh
     let animationFrameId = null;
     let currentModelPlates = [];
     let currentPlateId = null;
+
+    // --- Toast Notifications ---
+    function showToast(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+        const toast = document.createElement('div');
+        const icon = type === 'success' ? 'fa-circle-check text-emerald-400' :
+                     type === 'error' ? 'fa-circle-xmark text-rose-400' :
+                     type === 'warning' ? 'fa-triangle-exclamation text-amber-400' : 'fa-circle-info text-indigo-400';
+        const border = type === 'success' ? 'border-emerald-700/60 bg-zinc-900/95 shadow-emerald-950/40' :
+                       type === 'error' ? 'border-rose-700/60 bg-zinc-900/95 shadow-rose-950/40' :
+                       type === 'warning' ? 'border-amber-700/60 bg-zinc-900/95 shadow-amber-950/40' : 'border-indigo-700/60 bg-zinc-900/95 shadow-indigo-950/40';
+
+        toast.className = `toast-animate pointer-events-auto px-4 py-2.5 rounded-2xl border ${border} text-xs text-white shadow-xl flex items-center gap-2.5 backdrop-blur-md transition-all`;
+        toast.innerHTML = `<i class="fa-solid ${icon} text-sm"></i> <span class="font-medium">${escapeHTML(message)}</span>`;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(-10px)';
+            setTimeout(() => toast.remove(), 300);
+        }, 3500);
+    }
+
+    // --- Category Helper Utilities ---
+    function getCategoryObj(name) {
+        return loadedCategories.find(c => c.name.toLowerCase() === (name || '').toLowerCase());
+    }
+
+    function getCategoryIconClass(name) {
+        const cat = getCategoryObj(name);
+        if (!cat || !cat.icon) return 'fa-solid fa-cube';
+        return cat.icon.startsWith('fa-') ? `fa-solid ${cat.icon}` : cat.icon;
+    }
+
+    function getCategoryColor(name) {
+        const cat = getCategoryObj(name);
+        return cat && cat.color ? cat.color : '#818cf8';
+    }
+
+    // --- Categories API & UI Rendering ---
+    async function loadCategories() {
+        try {
+            const res = await fetch('/api/models/categories');
+            if (res.ok) {
+                loadedCategories = await res.json();
+                renderCategorySidebar();
+                renderCategoryPills();
+                populateCategorySelects();
+                renderCategoryManagerList();
+            }
+        } catch (e) {
+            console.error('Failed to load categories:', e);
+        }
+    }
+
+    function renderCategorySidebar() {
+        const list = document.getElementById('sidebar-categories-list');
+        if (!list) return;
+
+        const totalModelsCount = loadedCategories.reduce((acc, c) => acc + (c.count || 0), 0);
+        const isAllActive = currentCategory === 'all';
+
+        let html = `
+            <button onclick="selectCategory('all')"
+                    ondragover="handleCategoryDragOver(event, 'all')"
+                    ondragleave="handleCategoryDragLeave(event)"
+                    ondrop="handleCategoryDrop(event, 'all')"
+                    class="category-drop-target w-full text-left px-3 py-2.5 rounded-2xl text-xs font-semibold flex items-center justify-between transition-all duration-200 border ${isAllActive ? 'bg-indigo-950/70 border-indigo-600 text-indigo-200 shadow-md shadow-indigo-950/40' : 'bg-zinc-950/40 hover:bg-zinc-800/60 border-zinc-800/80 text-zinc-300 hover:text-white'}">
+                <div class="flex items-center gap-2.5 truncate">
+                    <div class="w-6 h-6 rounded-lg bg-zinc-800 flex items-center justify-center text-indigo-400 shrink-0">
+                        <i class="fa-solid fa-layer-group text-[11px]"></i>
+                    </div>
+                    <span class="truncate">All Models</span>
+                </div>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${isAllActive ? 'bg-indigo-900 text-indigo-300' : 'bg-zinc-900 text-zinc-400 border border-zinc-800'}">
+                    ${totalModelsCount}
+                </span>
+            </button>
+        `;
+
+        html += loadedCategories.map(cat => {
+            const isActive = currentCategory === cat.name;
+            const iconClass = getCategoryIconClass(cat.name);
+            const color = cat.color || '#818cf8';
+
+            return `
+                <button onclick="selectCategory('${escapeHTML(cat.name)}')"
+                        ondragover="handleCategoryDragOver(event, '${escapeHTML(cat.name)}')"
+                        ondragleave="handleCategoryDragLeave(event)"
+                        ondrop="handleCategoryDrop(event, '${escapeHTML(cat.name)}')"
+                        title="${escapeHTML(cat.description || cat.name)}"
+                        class="category-drop-target w-full text-left px-3 py-2 rounded-2xl text-xs font-medium flex items-center justify-between transition-all duration-200 border ${isActive ? 'bg-indigo-950/70 border-indigo-600 text-white font-semibold shadow-md' : 'bg-zinc-950/40 hover:bg-zinc-800/60 border-zinc-800/80 text-zinc-300 hover:text-white'}">
+                    <div class="flex items-center gap-2.5 truncate">
+                        <div class="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 border border-zinc-800/80" style="background-color: ${color}20; color: ${color};">
+                            <i class="${iconClass} text-[11px]"></i>
+                        </div>
+                        <span class="truncate">${escapeHTML(cat.name)}</span>
+                    </div>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${isActive ? 'bg-indigo-900 text-indigo-200' : 'bg-zinc-900 text-zinc-400 border border-zinc-800'}">
+                        ${cat.count || 0}
+                    </span>
+                </button>
+            `;
+        }).join('');
+
+        list.innerHTML = html;
+    }
+
+    function renderCategoryPills() {
+        const pillsContainer = document.getElementById('category-pills');
+        if (!pillsContainer) return;
+
+        const isAllActive = currentCategory === 'all';
+        let html = `
+            <button onclick="selectCategory('all')" id="cat-pill-all"
+                    ondragover="handleCategoryDragOver(event, 'all')"
+                    ondragleave="handleCategoryDragLeave(event)"
+                    ondrop="handleCategoryDrop(event, 'all')"
+                    class="category-drop-target cat-pill px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border ${isAllActive ? 'bg-indigo-950 text-indigo-300 border-indigo-700/60' : 'bg-zinc-950/60 text-zinc-400 hover:text-zinc-200 border-zinc-800'}">
+                All Categories
+            </button>
+        `;
+
+        html += loadedCategories.map(cat => {
+            const isActive = currentCategory === cat.name;
+            const iconClass = getCategoryIconClass(cat.name);
+            const color = cat.color || '#818cf8';
+
+            return `
+                <button onclick="selectCategory('${escapeHTML(cat.name)}')" id="cat-pill-${escapeHTML(cat.name)}"
+                        ondragover="handleCategoryDragOver(event, '${escapeHTML(cat.name)}')"
+                        ondragleave="handleCategoryDragLeave(event)"
+                        ondrop="handleCategoryDrop(event, '${escapeHTML(cat.name)}')"
+                        title="${escapeHTML(cat.description || cat.name)}"
+                        class="category-drop-target cat-pill px-3 py-1 rounded-lg text-xs whitespace-nowrap transition-all flex items-center gap-1.5 border ${isActive ? 'font-semibold bg-indigo-950 text-indigo-200 border-indigo-700/60' : 'font-medium bg-zinc-950/60 text-zinc-400 hover:text-zinc-200 border-zinc-800'}">
+                    <i class="${iconClass} text-[10px]" style="color: ${color};"></i>
+                    <span>${escapeHTML(cat.name)}</span>
+                    <span class="text-[10px] font-mono px-1 rounded bg-zinc-900 text-zinc-500">${cat.count || 0}</span>
+                </button>
+            `;
+        }).join('');
+
+        pillsContainer.innerHTML = html;
+    }
+
+    function populateCategorySelects() {
+        // 1. Batch action select
+        const batchSelect = document.getElementById('batch-category-select');
+        if (batchSelect) {
+            batchSelect.innerHTML = `
+                <option value="" disabled selected>Select category...</option>
+                ${loadedCategories.map(c => `<option value="${escapeHTML(c.name)}">${escapeHTML(c.name)}</option>`).join('')}
+            `;
+        }
+
+        // 2. Slicer modal category select
+        const slicerSelect = document.getElementById('slicer-input-category');
+        if (slicerSelect) {
+            const currentVal = slicerSelect.value;
+            slicerSelect.innerHTML = loadedCategories.map(c => `
+                <option value="${escapeHTML(c.name)}">${escapeHTML(c.name)}</option>
+            `).join('');
+            if (currentVal) slicerSelect.value = currentVal;
+        }
+    }
 
     // --- Search & Filtering ---
     let searchDebounceTimer = null;
@@ -673,13 +1054,8 @@ chmod +x install_handlers.sh
 
     function selectCategory(cat) {
         currentCategory = cat;
-        document.querySelectorAll('.cat-pill').forEach(btn => {
-            if (btn.id === `cat-pill-${cat}`) {
-                btn.className = 'cat-pill px-3 py-1 rounded-lg text-xs font-semibold bg-indigo-950 text-indigo-300 border border-indigo-700/60 whitespace-nowrap transition-all';
-            } else {
-                btn.className = 'cat-pill px-3 py-1 rounded-lg text-xs font-medium bg-zinc-950/60 text-zinc-400 hover:text-zinc-200 border border-zinc-800 whitespace-nowrap transition-all';
-            }
-        });
+        renderCategorySidebar();
+        renderCategoryPills();
         loadModels();
     }
 
@@ -740,20 +1116,276 @@ chmod +x install_handlers.sh
             }
         } finally {
             if (loading) loading.classList.add('hidden');
+            updateBatchActionBar();
         }
     }
 
+    // --- Drag and Drop Logic ---
+    function handleCardDragStart(event, modelId) {
+        if (selectedModelIds.has(modelId)) {
+            draggedModelBatch = Array.from(selectedModelIds);
+        } else {
+            draggedModelBatch = [modelId];
+        }
+
+        event.dataTransfer.setData('text/plain', JSON.stringify(draggedModelBatch));
+        event.dataTransfer.effectAllowed = 'move';
+
+        const cardEl = event.currentTarget;
+        if (cardEl) {
+            cardEl.classList.add('dragging');
+        }
+
+        // Highlight potential drop targets
+        document.querySelectorAll('.category-drop-target').forEach(el => {
+            el.classList.add('drag-potential');
+        });
+    }
+
+    function handleCardDragEnd(event) {
+        const cardEl = event.currentTarget;
+        if (cardEl) {
+            cardEl.classList.remove('dragging');
+        }
+
+        // Remove drop target indicators
+        document.querySelectorAll('.category-drop-target').forEach(el => {
+            el.classList.remove('drag-potential', 'drag-over');
+        });
+    }
+
+    function handleCategoryDragOver(event, categoryName) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+        event.currentTarget.classList.add('drag-over');
+    }
+
+    function handleCategoryDragLeave(event) {
+        event.currentTarget.classList.remove('drag-over');
+    }
+
+    async function handleCategoryDrop(event, categoryName) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.currentTarget.classList.remove('drag-over');
+
+        if (categoryName === 'all') {
+            showToast('Cannot drop directly into "All Models". Choose a specific category.', 'warning');
+            return;
+        }
+
+        let modelIds = [];
+        try {
+            const rawData = event.dataTransfer.getData('text/plain');
+            if (rawData) {
+                modelIds = JSON.parse(rawData);
+            }
+        } catch (e) {}
+
+        if (!modelIds || modelIds.length === 0) {
+            modelIds = draggedModelBatch;
+        }
+
+        if (!modelIds || modelIds.length === 0) return;
+
+        try {
+            const res = await fetch('/api/models/batch-categorize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model_ids: modelIds,
+                    category: categoryName
+                })
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                showToast(`✓ Moved ${modelIds.length} model${modelIds.length === 1 ? '' : 's'} to "${categoryName}"`, 'success');
+                // Clear selection if those models were selected
+                modelIds.forEach(id => selectedModelIds.delete(id));
+                updateBatchActionBar();
+                await loadCategories();
+                await loadModels();
+            } else {
+                showToast(`Failed to categorize: ${data.message || 'Error'}`, 'error');
+            }
+        } catch (e) {
+            showToast(`Error updating category: ${e.message}`, 'error');
+        }
+    }
+
+    // --- Multi-Select & Batch Actions ---
+    function toggleModelSelection(modelId) {
+        if (selectedModelIds.has(modelId)) {
+            selectedModelIds.delete(modelId);
+        } else {
+            selectedModelIds.add(modelId);
+        }
+        updateBatchActionBar();
+        // Update checkbox and card highlight
+        const card = document.getElementById(`model-card-${modelId}`);
+        const checkbox = document.getElementById(`model-select-check-${modelId}`);
+        if (card) {
+            if (selectedModelIds.has(modelId)) {
+                card.classList.add('ring-2', 'ring-indigo-500', 'bg-indigo-950/20');
+            } else {
+                card.classList.remove('ring-2', 'ring-indigo-500', 'bg-indigo-950/20');
+            }
+        }
+        if (checkbox) checkbox.checked = selectedModelIds.has(modelId);
+    }
+
+    function selectAllVisibleModels() {
+        allModels.forEach(m => selectedModelIds.add(m.id));
+        updateBatchActionBar();
+        loadModels();
+    }
+
+    function clearModelSelection() {
+        selectedModelIds.clear();
+        updateBatchActionBar();
+        loadModels();
+    }
+
+    function updateBatchActionBar() {
+        const bar = document.getElementById('batch-action-bar');
+        const countLabel = document.getElementById('batch-selected-count');
+        if (!bar) return;
+
+        if (selectedModelIds.size > 0) {
+            bar.classList.remove('hidden');
+            bar.classList.add('flex');
+            if (countLabel) countLabel.textContent = `${selectedModelIds.size} Selected`;
+        } else {
+            bar.classList.add('hidden');
+            bar.classList.remove('flex');
+        }
+    }
+
+    async function applyBatchCategorizeFromSelect() {
+        const select = document.getElementById('batch-category-select');
+        const targetCategory = select.value;
+        if (!targetCategory) {
+            showToast('Please select a target category.', 'warning');
+            return;
+        }
+
+        const ids = Array.from(selectedModelIds);
+        if (ids.length === 0) return;
+
+        try {
+            const res = await fetch('/api/models/batch-categorize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model_ids: ids, category: targetCategory })
+            });
+
+            if (res.ok) {
+                showToast(`✓ Categorized ${ids.length} models into "${targetCategory}"`, 'success');
+                clearModelSelection();
+                await loadCategories();
+                await loadModels();
+            } else {
+                showToast('Failed to batch categorize models.', 'error');
+            }
+        } catch (e) {
+            showToast(`Error: ${e.message}`, 'error');
+        }
+    }
+
+    // --- Gemini AI Auto-Categorization ---
+    async function triggerAiAutoCategorize() {
+        const btnHeader = document.getElementById('btn-header-ai-categorize');
+        const btnSidebar = document.getElementById('btn-sidebar-ai-categorize');
+        if (btnHeader) {
+            btnHeader.disabled = true;
+            btnHeader.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-purple-400"></i> AI Sorting...';
+        }
+        if (btnSidebar) {
+            btnSidebar.disabled = true;
+            btnSidebar.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-xs"></i> AI Sorting...';
+        }
+
+        showToast('Gemini AI is analyzing 3D model geometry and metadata...', 'info');
+
+        try {
+            const res = await fetch('/api/ai/auto-categorize-models', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
+
+            const data = await res.json();
+            if (res.ok && data.success) {
+                showToast(`✓ AI Categorization Complete: ${data.categorized_count} models sorted across ${data.categories_count} categories!`, 'success');
+                await loadCategories();
+                await loadModels();
+            } else {
+                showToast(`Auto-categorization error: ${data.message || 'Failed'}`, 'error');
+            }
+        } catch (e) {
+            showToast(`Auto-categorization failed: ${e.message}`, 'error');
+        } finally {
+            if (btnHeader) {
+                btnHeader.disabled = false;
+                btnHeader.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles text-purple-400"></i> AI Auto-Categorize';
+            }
+            if (btnSidebar) {
+                btnSidebar.disabled = false;
+                btnSidebar.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles text-xs"></i> Auto-Sort Library';
+            }
+        }
+    }
+
+    async function triggerAiCategorizeSelected() {
+        const ids = Array.from(selectedModelIds);
+        if (ids.length === 0) return;
+
+        showToast(`Gemini AI analyzing ${ids.length} selected models...`, 'info');
+
+        try {
+            const res = await fetch('/api/ai/auto-categorize-models', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model_ids: ids })
+            });
+
+            const data = await res.json();
+            if (res.ok && data.success) {
+                showToast(`✓ AI classified ${data.categorized_count} selected models!`, 'success');
+                clearModelSelection();
+                await loadCategories();
+                await loadModels();
+            } else {
+                showToast('Failed to auto-categorize selected models.', 'error');
+            }
+        } catch (e) {
+            showToast(`Error: ${e.message}`, 'error');
+        }
+    }
+
+    // --- Render Model Card ---
     function renderModelCard(model) {
         const hasTimelapse = model.timelapses && model.timelapses.length > 0;
         const isSTEP = model.file_format === 'step' || model.file_format === 'stp';
         const sizeMb = (model.file_size / (1024 * 1024)).toFixed(1);
+        const isSelected = selectedModelIds.has(model.id);
+
+        const catName = model.category || 'General & Other';
+        const catIcon = getCategoryIconClass(catName);
+        const catColor = getCategoryColor(catName);
 
         const tagsHtml = (model.tags || []).slice(0, 3).map(t => `
             <span class="text-[10px] px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-300 border border-zinc-700 font-medium">#${escapeHTML(t)}</span>
         `).join('') + ((model.tags || []).length > 3 ? `<span class="text-[10px] px-1 text-zinc-500 font-mono">+${model.tags.length - 3}</span>` : '');
 
         return `
-        <div class="group bg-zinc-900/80 hover:bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 flex flex-col justify-between">
+        <div id="model-card-${model.id}"
+             draggable="true"
+             ondragstart="handleCardDragStart(event, ${model.id})"
+             ondragend="handleCardDragEnd(event)"
+             class="model-card group bg-zinc-900/80 hover:bg-zinc-900 border ${isSelected ? 'ring-2 ring-indigo-500 bg-indigo-950/20 border-indigo-500' : 'border-zinc-800 hover:border-zinc-700'} rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 flex flex-col justify-between cursor-default select-none">
+            
             <!-- Thumbnail & Preview Trigger -->
             <div class="relative aspect-[16/10] bg-zinc-950 overflow-hidden cursor-pointer" onclick="openViewerModal(${model.id})">
                 ${model.thumbnail_url ? `
@@ -765,28 +1397,34 @@ chmod +x install_handlers.sh
                     </div>
                 `}
 
-                <!-- Format & Material Pills -->
-                <div class="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                <!-- Multi-Select Checkbox (Top Left) -->
+                <div class="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5" onclick="event.stopPropagation()">
+                    <label class="w-6 h-6 rounded-lg bg-zinc-950/90 border border-zinc-700/80 flex items-center justify-center cursor-pointer hover:border-indigo-400 backdrop-blur-md transition shadow-md">
+                        <input type="checkbox" id="model-select-check-${model.id}" ${isSelected ? 'checked' : ''}
+                               onchange="toggleModelSelection(${model.id})"
+                               class="w-3.5 h-3.5 rounded bg-zinc-900 border-zinc-600 text-indigo-600 focus:ring-0 cursor-pointer">
+                    </label>
                     <span class="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-zinc-950/90 text-emerald-400 border border-emerald-500/30 backdrop-blur-md">
                         ${escapeHTML(model.file_format)}
                     </span>
-                    ${model.material_recommendation ? `
-                        <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-indigo-950/90 text-indigo-300 border border-indigo-800/40 backdrop-blur-md">
-                            ${escapeHTML(model.material_recommendation)}
-                        </span>
-                    ` : ''}
                 </div>
 
-                <!-- Timelapse Indicator Pill -->
-                ${hasTimelapse ? `
-                    <button onclick="event.stopPropagation(); openTimelapseModal(${model.id})" class="absolute top-2.5 right-2.5 flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-rose-950/90 text-rose-300 border border-rose-800/50 backdrop-blur-md hover:bg-rose-900 transition">
-                        <i class="fa-solid fa-clapperboard text-rose-400 text-[10px]"></i>
-                        <span>${model.timelapses.length}</span>
-                    </button>
-                ` : ''}
+                <!-- Category & Timelapse Pills (Top Right) -->
+                <div class="absolute top-2.5 right-2.5 z-20 flex items-center gap-1.5">
+                    ${hasTimelapse ? `
+                        <button onclick="event.stopPropagation(); openTimelapseModal(${model.id})" class="flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-rose-950/90 text-rose-300 border border-rose-800/50 backdrop-blur-md hover:bg-rose-900 transition shadow-md">
+                            <i class="fa-solid fa-clapperboard text-rose-400 text-[10px]"></i>
+                            <span>${model.timelapses.length}</span>
+                        </button>
+                    ` : ''}
+                    <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-zinc-950/90 backdrop-blur-md border border-zinc-800 flex items-center gap-1 shadow-md" style="color: ${catColor};">
+                        <i class="${catIcon} text-[9px]"></i>
+                        <span class="max-w-[100px] truncate">${escapeHTML(catName)}</span>
+                    </span>
+                </div>
 
-                <!-- Hover Overlay -->
-                <div class="absolute inset-0 bg-zinc-950/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                <!-- Hover Overlay with Drag Handle Badge -->
+                <div class="absolute inset-0 bg-zinc-950/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-2">
                     <button onclick="event.stopPropagation(); openViewerModal(${model.id})" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-zinc-900/90 text-white border border-zinc-700 shadow-xl flex items-center gap-1.5 hover:bg-indigo-600 hover:border-indigo-600 transition">
                         <i class="fa-solid fa-eye text-xs"></i> 3D View
                     </button>
@@ -807,10 +1445,17 @@ chmod +x install_handlers.sh
                         ${escapeHTML(model.description || 'No description provided.')}
                     </p>
 
-                    <!-- Tags -->
-                    <div onclick="openSlicerModal(${model.id})" class="flex flex-wrap items-center gap-1 mb-3 cursor-pointer group/tags" title="Edit tags & metadata">
-                        ${tagsHtml}
-                        <span class="text-[10px] text-zinc-500 hover:text-purple-400 font-mono ml-0.5">edit</span>
+                    <!-- Tags & Material -->
+                    <div class="flex items-center justify-between gap-2 mb-3">
+                        <div onclick="openSlicerModal(${model.id})" class="flex flex-wrap items-center gap-1 cursor-pointer group/tags" title="Edit tags & metadata">
+                            ${tagsHtml}
+                            <span class="text-[10px] text-zinc-500 hover:text-purple-400 font-mono ml-0.5">edit</span>
+                        </div>
+                        ${model.material_recommendation ? `
+                            <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-indigo-950/80 text-indigo-300 border border-indigo-800/40 whitespace-nowrap">
+                                ${escapeHTML(model.material_recommendation)}
+                            </span>
+                        ` : ''}
                     </div>
                 </div>
 
@@ -835,7 +1480,7 @@ chmod +x install_handlers.sh
                         `}
                     </div>
 
-                    <!-- Secondary Utility Icons -->
+                    <!-- Secondary Utility Icons & Drag Grip -->
                     <div class="flex items-center justify-between text-zinc-400 pt-1 text-xs">
                         <div class="flex items-center gap-1">
                             <button onclick="openSlicerModal(${model.id})" title="Edit Slicer Profile & Metadata" class="p-1.5 rounded-lg hover:bg-zinc-800 hover:text-purple-400 transition">
@@ -848,9 +1493,14 @@ chmod +x install_handlers.sh
                                 <i class="fa-solid fa-download text-xs"></i>
                             </a>
                         </div>
-                        <button onclick="deleteModel(${model.id})" title="Delete Model" class="p-1.5 rounded-lg hover:bg-zinc-800 hover:text-rose-400 transition">
-                            <i class="fa-solid fa-trash text-xs"></i>
-                        </button>
+                        <div class="flex items-center gap-1.5">
+                            <span title="Drag to category" class="cursor-grab active:cursor-grabbing text-zinc-600 hover:text-zinc-400 p-1">
+                                <i class="fa-solid fa-grip-vertical text-xs"></i>
+                            </span>
+                            <button onclick="deleteModel(${model.id})" title="Delete Model" class="p-1.5 rounded-lg hover:bg-zinc-800 hover:text-rose-400 transition">
+                                <i class="fa-solid fa-trash text-xs"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2065,8 +2715,231 @@ chmod +x install_handlers.sh
         }
     }
 
+    // --- Category Manager & Edit Modal Handlers ---
+    function renderCategoryManagerList() {
+        const container = document.getElementById('category-manager-list');
+        if (!container) return;
+
+        if (loadedCategories.length === 0) {
+            container.innerHTML = '<p class="text-xs text-zinc-500 italic p-3 text-center">No categories found.</p>';
+            return;
+        }
+
+        container.innerHTML = loadedCategories.map(cat => {
+            const iconClass = getCategoryIconClass(cat.name);
+            const color = cat.color || '#818cf8';
+            const isSystem = cat.is_system;
+
+            return `
+                <div class="flex items-center justify-between p-3 rounded-2xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border border-zinc-700/60 shadow-sm" style="background-color: ${color}25; color: ${color};">
+                            <i class="${iconClass} text-xs"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2">
+                                <h4 class="text-xs font-bold text-zinc-200 truncate">${escapeHTML(cat.name)}</h4>
+                                ${isSystem ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 font-mono">System</span>' : ''}
+                                <span class="text-[10px] text-zinc-500 font-mono">(${cat.count || 0} models)</span>
+                            </div>
+                            <p class="text-[11px] text-zinc-400 truncate max-w-sm">${escapeHTML(cat.description || 'No description')}</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-1 shrink-0 ml-2">
+                        <button onclick="openEditCategoryModal(${cat.id})" title="Edit Category" class="p-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-indigo-400 border border-zinc-800 transition">
+                            <i class="fa-solid fa-pen text-xs"></i>
+                        </button>
+                        ${!isSystem ? `
+                            <button onclick="deleteCategory(${cat.id}, '${escapeHTML(cat.name)}')" title="Delete Category" class="p-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-rose-400 border border-zinc-800 transition">
+                                <i class="fa-solid fa-trash text-xs"></i>
+                            </button>
+                        ` : `
+                            <button disabled title="System category cannot be deleted" class="p-1.5 rounded-lg bg-zinc-900 text-zinc-600 border border-zinc-900 cursor-not-allowed">
+                                <i class="fa-solid fa-lock text-xs"></i>
+                            </button>
+                        `}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function openCategoryManagerModal() {
+        renderCategoryManagerList();
+        const modal = document.getElementById('categoryManagerModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeCategoryManagerModal() {
+        const modal = document.getElementById('categoryManagerModal');
+        if (modal) {
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+        }
+    }
+
+    function renderCategoryPresets() {
+        // Color presets
+        const colorContainer = document.getElementById('category-color-presets');
+        if (colorContainer) {
+            colorContainer.innerHTML = CATEGORY_COLOR_PRESETS.map(c => `
+                <button type="button" onclick="selectCategoryPresetColor('${c}')"
+                        class="w-6 h-6 rounded-full border border-zinc-700 hover:scale-110 transition-transform shadow-sm" style="background-color: ${c};"></button>
+            `).join('');
+        }
+
+        // Icon presets
+        const iconContainer = document.getElementById('category-icon-presets');
+        if (iconContainer) {
+            iconContainer.innerHTML = CATEGORY_ICON_PRESETS.map(ic => `
+                <button type="button" onclick="selectCategoryPresetIcon('${ic}')"
+                        class="p-2 rounded-xl bg-zinc-950 border border-zinc-800 hover:border-indigo-500 hover:text-indigo-400 text-zinc-300 text-xs flex items-center justify-center transition">
+                    <i class="fa-solid ${ic}"></i>
+                </button>
+            `).join('');
+        }
+    }
+
+    function selectCategoryPresetColor(color) {
+        document.getElementById('category-input-color').value = color;
+        updateCategoryColorPreview(color);
+    }
+
+    function selectCategoryPresetIcon(icon) {
+        const fullIcon = icon.startsWith('fa-') ? `fa-solid ${icon}` : icon;
+        document.getElementById('category-input-icon').value = fullIcon;
+        updateCategoryIconPreview(fullIcon);
+    }
+
+    function updateCategoryColorPreview(color) {
+        const swatch = document.getElementById('category-color-swatch');
+        const badge = document.getElementById('category-modal-icon-badge');
+        if (swatch) swatch.style.backgroundColor = color;
+        if (badge) {
+            badge.style.color = color;
+            badge.style.borderColor = color + '50';
+        }
+    }
+
+    function updateCategoryIconPreview(icon) {
+        const preview = document.getElementById('category-modal-icon-preview');
+        if (preview) {
+            preview.className = icon.startsWith('fa-') ? (icon.includes('fa-solid') ? icon : `fa-solid ${icon}`) : `fa-solid ${icon}`;
+        }
+    }
+
+    function openAddCategoryModal() {
+        renderCategoryPresets();
+        document.getElementById('category-edit-id').value = '';
+        document.getElementById('category-edit-modal-title').textContent = 'Create Category';
+        document.getElementById('category-input-name').value = '';
+        document.getElementById('category-input-desc').value = '';
+        document.getElementById('category-input-color').value = '#6366f1';
+        document.getElementById('category-input-icon').value = 'fa-solid fa-cube';
+        updateCategoryColorPreview('#6366f1');
+        updateCategoryIconPreview('fa-solid fa-cube');
+
+        const modal = document.getElementById('categoryEditModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function openEditCategoryModal(catId) {
+        const cat = loadedCategories.find(c => c.id === catId);
+        if (!cat) return;
+
+        renderCategoryPresets();
+        document.getElementById('category-edit-id').value = cat.id;
+        document.getElementById('category-edit-modal-title').textContent = 'Edit Category';
+        document.getElementById('category-input-name').value = cat.name || '';
+        document.getElementById('category-input-desc').value = cat.description || '';
+        document.getElementById('category-input-color').value = cat.color || '#6366f1';
+        document.getElementById('category-input-icon').value = cat.icon || 'fa-solid fa-cube';
+        updateCategoryColorPreview(cat.color || '#6366f1');
+        updateCategoryIconPreview(cat.icon || 'fa-solid fa-cube');
+
+        const modal = document.getElementById('categoryEditModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeCategoryEditModal() {
+        const modal = document.getElementById('categoryEditModal');
+        if (modal) {
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+        }
+    }
+
+    async function saveCategoryForm(event) {
+        event.preventDefault();
+        const id = document.getElementById('category-edit-id').value;
+        const name = document.getElementById('category-input-name').value.trim();
+        const description = document.getElementById('category-input-desc').value.trim();
+        const color = document.getElementById('category-input-color').value.trim() || '#6366f1';
+        const icon = document.getElementById('category-input-icon').value.trim() || 'fa-solid fa-cube';
+
+        if (!name) {
+            showToast('Category name is required', 'warning');
+            return;
+        }
+
+        const payload = { name, description, color, icon };
+        const isEdit = Boolean(id);
+        const url = isEdit ? `/api/models/categories/${id}` : '/api/models/categories';
+        const method = isEdit ? 'PUT' : 'POST';
+
+        const btn = document.getElementById('btn-save-category');
+        btn.disabled = true;
+
+        try {
+            const res = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                showToast(`✓ Category "${name}" saved successfully`, 'success');
+                closeCategoryEditModal();
+                await loadCategories();
+                await loadModels();
+            } else {
+                showToast(`Error: ${data.message || 'Failed to save'}`, 'error');
+            }
+        } catch (e) {
+            showToast(`Save failed: ${e.message}`, 'error');
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    async function deleteCategory(catId, catName) {
+        if (!confirm(`Are you sure you want to delete category "${catName}"?\nAll models in this category will be moved to "General & Other".`)) {
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/models/categories/${catId}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (res.ok) {
+                showToast(`✓ Category "${catName}" deleted`, 'success');
+                await loadCategories();
+                await loadModels();
+            } else {
+                showToast(`Delete failed: ${data.message || 'Error'}`, 'error');
+            }
+        } catch (e) {
+            showToast(`Error: ${e.message}`, 'error');
+        }
+    }
+
     // Initial load & setup
     setupDragAndDrop();
+    loadCategories();
     loadModels();
     pollPrinterStatus();
 </script>
