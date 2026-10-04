@@ -1448,7 +1448,30 @@ chmod +x install_handlers.sh
 
     function handleModelFilesSelected(event) {
         const files = Array.from(event.target.files || []);
-        queuedUploadFiles.push(...files);
+        addFilesToQueue(files);
+        event.target.value = '';
+    }
+
+    function addFilesToQueue(files) {
+        const validExtensions = ['.stl', '.3mf', '.obj', '.step', '.stp'];
+        const validFiles = files.filter(f => {
+            const ext = '.' + f.name.split('.').pop().toLowerCase();
+            return validExtensions.includes(ext);
+        });
+
+        if (validFiles.length < files.length) {
+            const rejected = files.length - validFiles.length;
+            console.warn(`Filtered out ${rejected} non-3D model file(s).`);
+        }
+
+        // Avoid exact duplicate file names/sizes already queued
+        validFiles.forEach(newFile => {
+            const exists = queuedUploadFiles.some(existing => existing.name === newFile.name && existing.size === newFile.size);
+            if (!exists) {
+                queuedUploadFiles.push(newFile);
+            }
+        });
+
         renderQueuedFiles();
     }
 
@@ -1549,7 +1572,57 @@ chmod +x install_handlers.sh
         setTimeout(pollPrinterStatus, 8000);
     }
 
-    // Initial load
+    // Setup Drag & Drop Event Listeners
+    function setupDragAndDrop() {
+        // Prevent default browser behavior (opening files in new tabs) everywhere on window
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            window.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
+            document.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
+        });
+
+        const dropZone = document.getElementById('drop-zone');
+        if (dropZone) {
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropZone.classList.add('border-indigo-400', 'bg-indigo-950/40', 'ring-2', 'ring-indigo-500/30');
+                    dropZone.classList.remove('border-zinc-800', 'bg-zinc-950/60');
+                }, false);
+            });
+
+            ['dragleave', 'dragend'].forEach(eventName => {
+                dropZone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropZone.classList.remove('border-indigo-400', 'bg-indigo-950/40', 'ring-2', 'ring-indigo-500/30');
+                    dropZone.classList.add('border-zinc-800', 'bg-zinc-950/60');
+                }, false);
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.remove('border-indigo-400', 'bg-indigo-950/40', 'ring-2', 'ring-indigo-500/30');
+                dropZone.classList.add('border-zinc-800', 'bg-zinc-950/60');
+
+                const dt = e.dataTransfer;
+                if (dt && dt.files && dt.files.length > 0) {
+                    const files = Array.from(dt.files);
+                    addFilesToQueue(files);
+                }
+            }, false);
+        }
+    }
+
+    // Initial load & setup
+    setupDragAndDrop();
     loadModels();
     pollPrinterStatus();
 </script>
