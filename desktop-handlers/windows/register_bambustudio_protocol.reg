@@ -1,0 +1,15 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CLASSES_ROOT\bambustudio]
+@="URL:Bambu Studio Protocol"
+"URL Protocol"=""
+
+[HKEY_CLASSES_ROOT\bambustudio\DefaultIcon]
+@="\"C:\\Program Files\\Bambu Studio\\bambu-studio.exe\",0"
+
+[HKEY_CLASSES_ROOT\bambustudio\shell]
+
+[HKEY_CLASSES_ROOT\bambustudio\shell\open]
+
+[HKEY_CLASSES_ROOT\bambustudio\shell\open\command]
+@="\"C:\\Program Files\\3DPrintLib\\desktop-handlers\\bambustudio_launcher.bat\" \"%1\""

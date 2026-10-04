@@ -435,6 +435,21 @@ def create_auto_backup():
         except Exception:
             book_rows = []
 
+        try:
+            model_rows = src_conn.execute("SELECT * FROM model_assets ORDER BY created_at DESC").fetchall()
+        except Exception:
+            model_rows = []
+
+        try:
+            timelapse_rows = src_conn.execute("SELECT * FROM timelapses ORDER BY created_at DESC").fetchall()
+        except Exception:
+            timelapse_rows = []
+
+        try:
+            printer_cfg_rows = src_conn.execute("SELECT * FROM printer_configs").fetchall()
+        except Exception:
+            printer_cfg_rows = []
+
         # Helper to export any SQLite Row list to a CSV with full headers
         def export_rows_to_csv(rows, path, fallback_headers=None):
             with open(path, 'w', newline='', encoding='utf-8') as f:
@@ -487,9 +502,18 @@ def create_auto_backup():
         books_csv_path = os.path.join(tmp_dir, "downloaded_books.csv")
         export_rows_to_csv(book_rows, books_csv_path, ['id', 'book_key', 'title', 'author', 'year', 'cover_url', 'filename', 'file_path', 'file_size', 'date_added'])
 
+        models_csv_path = os.path.join(tmp_dir, "model_assets.csv")
+        export_rows_to_csv(model_rows, models_csv_path, ['id', 'name', 'filename', 'file_path', 'file_size', 'file_format', 'thumbnail_path', 'description', 'tags', 'category', 'material_recommendation', 'slicer_settings', 'geometry_metadata', 'created_at', 'updated_at'])
+
+        timelapses_csv_path = os.path.join(tmp_dir, "timelapses.csv")
+        export_rows_to_csv(timelapse_rows, timelapses_csv_path, ['id', 'model_id', 'title', 'filename', 'file_path', 'file_size', 'duration_seconds', 'created_at'])
+
+        printer_cfg_csv_path = os.path.join(tmp_dir, "printer_configs.csv")
+        export_rows_to_csv(printer_cfg_rows, printer_cfg_csv_path, ['id', 'cloud_username', 'cloud_password', 'cloud_token', 'device_serial', 'device_model', 'region', 'ams_tray_mapping', 'updated_at'])
+
         # Export manifest.json
         manifest = {
-            "version": "2.1",
+            "version": "2.2",
             "backup_type": "full_system_archive",
             "created_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "includes_archives": include_archives,
@@ -506,7 +530,10 @@ def create_auto_backup():
                 "blacklisted_domains": len(blacklisted_domain_rows),
                 "routing_history": len(route_history),
                 "timeline_summaries": len(summaries),
-                "downloaded_books": len(book_rows)
+                "downloaded_books": len(book_rows),
+                "model_assets": len(model_rows),
+                "timelapses": len(timelapse_rows),
+                "printer_configs": len(printer_cfg_rows)
             }
         }
         manifest_path = os.path.join(tmp_dir, "manifest.json")
@@ -530,6 +557,9 @@ def create_auto_backup():
             zipf.write(routing_csv_path, "routing_history.csv")
             zipf.write(summaries_csv_path, "timeline_summaries.csv")
             zipf.write(books_csv_path, "downloaded_books.csv")
+            zipf.write(models_csv_path, "model_assets.csv")
+            zipf.write(timelapses_csv_path, "timelapses.csv")
+            zipf.write(printer_cfg_csv_path, "printer_configs.csv")
 
             # Package active data/archives into ZIP under archives/
             db_dir = os.path.dirname(os.path.abspath(Config.DB_PATH))
@@ -550,6 +580,33 @@ def create_auto_backup():
                         abs_file_path = os.path.join(root, file_name)
                         rel_book_path = os.path.join("books", os.path.relpath(abs_file_path, books_dir)).replace('\\', '/')
                         zipf.write(abs_file_path, rel_book_path)
+
+            # Package 3D models into ZIP under models/
+            models_dir = getattr(Config, 'MODELS_DIR', os.path.join(db_dir, 'models'))
+            if os.path.exists(models_dir):
+                for root, dirs, files in os.walk(models_dir):
+                    for file_name in files:
+                        abs_file_path = os.path.join(root, file_name)
+                        rel_model_path = os.path.join("models", os.path.relpath(abs_file_path, models_dir)).replace('\\', '/')
+                        zipf.write(abs_file_path, rel_model_path)
+
+            # Package 3D thumbnails into ZIP under thumbnails/
+            thumbs_dir = getattr(Config, 'THUMBNAILS_DIR', os.path.join(db_dir, 'thumbnails'))
+            if os.path.exists(thumbs_dir):
+                for root, dirs, files in os.walk(thumbs_dir):
+                    for file_name in files:
+                        abs_file_path = os.path.join(root, file_name)
+                        rel_thumb_path = os.path.join("thumbnails", os.path.relpath(abs_file_path, thumbs_dir)).replace('\\', '/')
+                        zipf.write(abs_file_path, rel_thumb_path)
+
+            # Package 3D timelapses into ZIP under timelapses/
+            timelapses_dir = getattr(Config, 'TIMELAPSES_DIR', os.path.join(db_dir, 'timelapses'))
+            if os.path.exists(timelapses_dir):
+                for root, dirs, files in os.walk(timelapses_dir):
+                    for file_name in files:
+                        abs_file_path = os.path.join(root, file_name)
+                        rel_tl_path = os.path.join("timelapses", os.path.relpath(abs_file_path, timelapses_dir)).replace('\\', '/')
+                        zipf.write(abs_file_path, rel_tl_path)
 
     # Update last run timestamp
     now_formatted = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -610,7 +667,9 @@ def list_auto_backups():
                         arch_tag = " • with Article Archives" if has_arch else ""
                         bks_cnt = counts.get('downloaded_books', 0)
                         bks_tag = f", {bks_cnt} books" if bks_cnt > 0 else ""
-                        summary_info = f"{counts.get('links', 0)} links, {counts.get('video_bookmarks', 0)} videos, {counts.get('notes', 0)} notes{bks_tag}{arch_tag}"
+                        models_cnt = counts.get('model_assets', 0)
+                        models_tag = f", {models_cnt} 3D models" if models_cnt > 0 else ""
+                        summary_info = f"{counts.get('links', 0)} links, {counts.get('video_bookmarks', 0)} videos, {counts.get('notes', 0)} notes{models_tag}{bks_tag}{arch_tag}"
             except Exception:
                 pass
 
@@ -741,11 +800,75 @@ def restore_backup(file_storage):
                         except Exception as book_e:
                             logger.warning(f"Could not extract book file {member}: {book_e}")
 
+                # Restore 3D models if present in ZIP
+                restored_models_count = 0
+                target_models_dir = getattr(Config, 'MODELS_DIR', os.path.join(db_dir, 'models'))
+                os.makedirs(target_models_dir, exist_ok=True)
+
+                for member in namelist:
+                    if member.startswith("models/") and not member.endswith('/'):
+                        try:
+                            zf.extract(member, tmp_dir)
+                            src_file = os.path.join(tmp_dir, member)
+                            rel_sub = member[len("models/"):].replace('/', os.sep).replace('\\', os.sep)
+                            dest_file = os.path.join(target_models_dir, rel_sub)
+                            os.makedirs(os.path.dirname(dest_file), exist_ok=True)
+                            if os.path.exists(dest_file):
+                                try:
+                                    os.chmod(dest_file, stat.S_IWRITE)
+                                    shutil.copy2(src_file, dest_file)
+                                except Exception:
+                                    pass
+                            else:
+                                shutil.copy2(src_file, dest_file)
+                            restored_models_count += 1
+                        except Exception as m_e:
+                            logger.warning(f"Could not extract model file {member}: {m_e}")
+
+                # Restore 3D thumbnails if present in ZIP
+                target_thumbs_dir = getattr(Config, 'THUMBNAILS_DIR', os.path.join(db_dir, 'thumbnails'))
+                os.makedirs(target_thumbs_dir, exist_ok=True)
+                for member in namelist:
+                    if member.startswith("thumbnails/") and not member.endswith('/'):
+                        try:
+                            zf.extract(member, tmp_dir)
+                            src_file = os.path.join(tmp_dir, member)
+                            rel_sub = member[len("thumbnails/"):].replace('/', os.sep).replace('\\', os.sep)
+                            dest_file = os.path.join(target_thumbs_dir, rel_sub)
+                            os.makedirs(os.path.dirname(dest_file), exist_ok=True)
+                            shutil.copy2(src_file, dest_file)
+                        except Exception:
+                            pass
+
+                # Restore 3D timelapses if present in ZIP
+                target_tls_dir = getattr(Config, 'TIMELAPSES_DIR', os.path.join(db_dir, 'timelapses'))
+                os.makedirs(target_tls_dir, exist_ok=True)
+                for member in namelist:
+                    if member.startswith("timelapses/") and not member.endswith('/'):
+                        try:
+                            zf.extract(member, tmp_dir)
+                            src_file = os.path.join(tmp_dir, member)
+                            rel_sub = member[len("timelapses/"):].replace('/', os.sep).replace('\\', os.sep)
+                            dest_file = os.path.join(target_tls_dir, rel_sub)
+                            os.makedirs(os.path.dirname(dest_file), exist_ok=True)
+                            shutil.copy2(src_file, dest_file)
+                        except Exception:
+                            pass
+
+                models_cnt = 0
+                try:
+                    test_conn = sqlite3.connect(extracted_db)
+                    models_cnt = test_conn.execute("SELECT COUNT(*) FROM model_assets").fetchone()[0]
+                    test_conn.close()
+                except Exception:
+                    pass
+
                 arch_msg = f", {restored_archives_count} article archives" if restored_archives_count > 0 else ""
-                books_msg = f", {books_cnt} books ({restored_books_count} EPUB files)" if books_cnt > 0 else ""
+                books_msg = f", {books_cnt} books ({restored_books_count} files)" if books_cnt > 0 else ""
+                models_msg = f", {models_cnt} 3D models ({restored_models_count} files)" if models_cnt > 0 else ""
                 return {
                     "status": "success",
-                    "message": f"Full system restore successful! Restored {links_cnt} links, {vids_cnt} videos, {notes_cnt} notes{books_msg}{arch_msg}."
+                    "message": f"Full system restore successful! Restored {links_cnt} links, {vids_cnt} videos, {notes_cnt} notes{models_msg}{books_msg}{arch_msg}."
                 }
 
         # 2. Restore from raw .db snapshot

@@ -1,0 +1,1556 @@
+{% extends "base.html" %}
+
+{% block title %}3D Print Library - LinkForge{% endblock %}
+
+{% block head_extra %}
+<!-- Three.js and loaders from CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .bambu-green-text { color: #00ae42; }
+    .bambu-neon { color: #00f259; }
+    .bambu-green-bg { background-color: #00ae42; }
+    .bambu-green-border { border-color: rgba(0, 174, 66, 0.4); }
+    .bambu-glow { box-shadow: 0 0 20px rgba(0, 242, 89, 0.2); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header Section -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-zinc-900/40 p-6 rounded-3xl border border-zinc-800/80 shadow-lg backdrop-blur-md">
+        <div class="flex items-center gap-4">
+            <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-950 via-zinc-900 to-emerald-950 border border-indigo-500/40 flex items-center justify-center shadow-inner">
+                <i class="fa-solid fa-cubes text-2xl text-indigo-400 animate-pulse"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2.5 flex-wrap">
+                    <h2 class="text-2xl font-bold text-white tracking-tight">3D Print Library</h2>
+                    <span class="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-indigo-950 text-indigo-300 border border-indigo-700/60">
+                        Bambu P2S & AMS 2 Pro
+                    </span>
+                    <span id="model-count-badge" class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-zinc-800 text-zinc-400 border border-zinc-700">
+                        0 Models
+                    </span>
+                </div>
+                <p class="text-xs text-zinc-400 mt-0.5">Asset Catalog, Three.js 3D Viewer, Gemini Slicer Engine & 1-Click Launchers</p>
+            </div>
+        </div>
+
+        <!-- Header Actions -->
+        <div class="flex items-center gap-2.5 flex-wrap">
+            <button onclick="openProtocolHelpModal()" class="px-3.5 py-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm">
+                <i class="fa-solid fa-desktop text-sky-400"></i> Setup Desktop Handlers
+            </button>
+            <button onclick="backfillThumbnails()" title="Scan & extract embedded 3MF thumbnails" class="px-3 py-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-white border border-zinc-700 text-xs font-semibold transition-all">
+                <i class="fa-solid fa-wand-magic-sparkles text-purple-400"></i>
+            </button>
+            <button onclick="openUploadModal()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 via-teal-600 to-emerald-600 hover:from-indigo-500 hover:to-emerald-500 text-white text-xs font-bold transition-all shadow-lg shadow-indigo-950/40 flex items-center gap-2">
+                <i class="fa-solid fa-cloud-arrow-up"></i> Ingest 3D Models
+            </button>
+        </div>
+    </div>
+
+    <!-- Live Bambu Printer & AMS Status Widget -->
+    <div id="printer-status-bar" class="p-4 bg-zinc-900/60 border border-zinc-800 rounded-2xl shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+            <span id="printer-status-dot" class="w-3 h-3 rounded-full bg-emerald-400 animate-ping"></span>
+            <div>
+                <div class="text-xs font-bold text-zinc-200 flex items-center gap-2">
+                    <span id="printer-model-name">Bambu Lab P2S</span>
+                    <span id="printer-serial-badge" class="text-[10px] text-zinc-500 font-mono">(01P2S999990001)</span>
+                </div>
+                <span class="text-[11px] text-zinc-400">Status: <b id="printer-state-text" class="text-emerald-400">IDLE</b></span>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-4 text-xs">
+            <div class="flex items-center gap-1.5 text-zinc-400">
+                <i class="fa-solid fa-temperature-half text-amber-400"></i>
+                <span>Nozzle: <b id="printer-temp-nozzle" class="text-zinc-200">28°C</b></span>
+            </div>
+            <div class="flex items-center gap-1.5 text-zinc-400">
+                <i class="fa-solid fa-temperature-high text-rose-400"></i>
+                <span>Bed: <b id="printer-temp-bed" class="text-zinc-200">24°C</b></span>
+            </div>
+            <div id="ams-mini-pills" class="hidden sm:flex items-center gap-1.5 border-l border-zinc-800 pl-4">
+                <span class="text-[10px] text-zinc-500 font-mono mr-1">AMS:</span>
+                <span class="w-3 h-3 rounded-full bg-blue-600 border border-zinc-700" title="Slot 1: PLA Blue"></span>
+                <span class="w-3 h-3 rounded-full bg-slate-100 border border-zinc-700" title="Slot 2: PLA White"></span>
+                <span class="w-3 h-3 rounded-full bg-zinc-800 border border-zinc-700" title="Slot 3: PETG Black"></span>
+                <span class="w-3 h-3 rounded-full bg-slate-300 border border-zinc-700" title="Slot 4: Support W"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters & Search Toolbar -->
+    <div class="space-y-3 bg-zinc-900/30 p-4 rounded-2xl border border-zinc-800/60">
+        <div class="flex flex-col sm:flex-row items-center gap-3">
+            <div class="relative flex-1 w-full">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 text-xs"></i>
+                <input id="search-input" type="text" placeholder="Search models by name, tag, description, or filename..."
+                       oninput="debouncedSearch()"
+                       class="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-2.5 pl-9 pr-4 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 shadow-inner">
+            </div>
+
+            <div class="flex items-center gap-2 w-full sm:w-auto">
+                <select id="material-filter" onchange="loadModels()" class="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-zinc-300 focus:outline-none focus:border-indigo-500">
+                    <option value="all">Filament: All</option>
+                    <option value="PLA">PLA</option>
+                    <option value="PETG">PETG</option>
+                    <option value="TPU">TPU</option>
+                    <option value="ABS">ABS</option>
+                    <option value="ASA">ASA</option>
+                    <option value="PC">PC</option>
+                </select>
+
+                <select id="sort-filter" onchange="loadModels()" class="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-zinc-300 focus:outline-none focus:border-indigo-500">
+                    <option value="created_at_desc">Newest First</option>
+                    <option value="created_at_asc">Oldest First</option>
+                    <option value="name_asc">Name (A-Z)</option>
+                    <option value="size_desc">File Size</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Category Pills -->
+        <div id="category-pills" class="flex items-center gap-1.5 overflow-x-auto custom-scroll pb-1">
+            <button onclick="selectCategory('all')" id="cat-pill-all" class="cat-pill px-3 py-1 rounded-lg text-xs font-semibold bg-indigo-950 text-indigo-300 border border-indigo-700/60 whitespace-nowrap transition-all">All Categories</button>
+            <button onclick="selectCategory('Tools & Utility')" id="cat-pill-Tools & Utility" class="cat-pill px-3 py-1 rounded-lg text-xs font-medium bg-zinc-950/60 text-zinc-400 hover:text-zinc-200 border border-zinc-800 whitespace-nowrap transition-all">Tools & Utility</button>
+            <button onclick="selectCategory('Desk & Organization')" id="cat-pill-Desk & Organization" class="cat-pill px-3 py-1 rounded-lg text-xs font-medium bg-zinc-950/60 text-zinc-400 hover:text-zinc-200 border border-zinc-800 whitespace-nowrap transition-all">Desk & Organization</button>
+            <button onclick="selectCategory('Home & Living')" id="cat-pill-Home & Living" class="cat-pill px-3 py-1 rounded-lg text-xs font-medium bg-zinc-950/60 text-zinc-400 hover:text-zinc-200 border border-zinc-800 whitespace-nowrap transition-all">Home & Living</button>
+            <button onclick="selectCategory('Toys & Figures')" id="cat-pill-Toys & Figures" class="cat-pill px-3 py-1 rounded-lg text-xs font-medium bg-zinc-950/60 text-zinc-400 hover:text-zinc-200 border border-zinc-800 whitespace-nowrap transition-all">Toys & Figures</button>
+            <button onclick="selectCategory('Electronics & Gadgets')" id="cat-pill-Electronics & Gadgets" class="cat-pill px-3 py-1 rounded-lg text-xs font-medium bg-zinc-950/60 text-zinc-400 hover:text-zinc-200 border border-zinc-800 whitespace-nowrap transition-all">Electronics & Gadgets</button>
+            <button onclick="selectCategory('Mechanical')" id="cat-pill-Mechanical" class="cat-pill px-3 py-1 rounded-lg text-xs font-medium bg-zinc-950/60 text-zinc-400 hover:text-zinc-200 border border-zinc-800 whitespace-nowrap transition-all">Mechanical</button>
+            <button onclick="selectCategory('Calibration & Test')" id="cat-pill-Calibration & Test" class="cat-pill px-3 py-1 rounded-lg text-xs font-medium bg-zinc-950/60 text-zinc-400 hover:text-zinc-200 border border-zinc-800 whitespace-nowrap transition-all">Calibration & Test</button>
+            <button onclick="selectCategory('Art & Decor')" id="cat-pill-Art & Decor" class="cat-pill px-3 py-1 rounded-lg text-xs font-medium bg-zinc-950/60 text-zinc-400 hover:text-zinc-200 border border-zinc-800 whitespace-nowrap transition-all">Art & Decor</button>
+        </div>
+    </div>
+
+    <!-- Models Grid -->
+    <div id="models-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+        <!-- Populated by JavaScript -->
+    </div>
+
+    <!-- Loading State -->
+    <div id="loading-state" class="py-20 text-center space-y-3">
+        <i class="fa-solid fa-circle-notch fa-spin text-3xl text-indigo-400"></i>
+        <p class="text-xs text-zinc-400 font-mono">Loading 3D print assets catalog...</p>
+    </div>
+
+    <!-- Empty State -->
+    <div id="empty-state" class="hidden py-24 text-center border-2 border-dashed border-zinc-800 rounded-3xl p-8 space-y-4">
+        <div class="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-600 text-3xl mx-auto shadow-inner">
+            <i class="fa-solid fa-cube"></i>
+        </div>
+        <div>
+            <h3 class="text-base font-bold text-zinc-200">No 3D Models Found</h3>
+            <p class="text-xs text-zinc-400 max-w-sm mx-auto mt-1">Upload STL, 3MF, OBJ, or STEP files to organize your 3D printing catalog.</p>
+        </div>
+        <button onclick="openUploadModal()" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-lg shadow-indigo-950/50">
+            <i class="fa-solid fa-cloud-arrow-up mr-1.5"></i> Ingest First Model
+        </button>
+    </div>
+</div>
+
+<!-- ================= MODALS ================= -->
+
+<!-- 1. Interactive 3D Model Viewer Modal -->
+<div id="viewerModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center p-4 z-50 backdrop-blur-md transition-all">
+    <div class="bg-zinc-900 border border-indigo-900/60 rounded-3xl w-full max-w-4xl overflow-hidden shadow-[0_0_50px_rgba(99,102,241,0.2)] flex flex-col max-h-[90vh]">
+        <!-- Viewer Header -->
+        <div class="px-6 py-4 border-b border-zinc-800 bg-zinc-950/60 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <span id="viewer-format-badge" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-950 text-indigo-300 border border-indigo-700/60 uppercase">
+                    STL
+                </span>
+                <h3 id="viewer-model-name" class="text-sm font-bold text-white truncate max-w-md">3D Model Preview</h3>
+                <span id="viewer-dimensions" class="hidden md:inline text-xs text-zinc-400 bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800 font-mono">
+                    -- × -- × -- mm
+                </span>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button onclick="toggleViewerRotation()" id="btn-viewer-rotate" title="Toggle Auto-Rotation" class="p-2 rounded-lg bg-zinc-800 text-zinc-300 hover:text-white text-xs border border-zinc-700">
+                    <i class="fa-solid fa-rotate text-xs"></i>
+                </button>
+                <button onclick="toggleViewerWireframe()" id="btn-viewer-wireframe" title="Toggle Wireframe" class="p-2 rounded-lg bg-zinc-800 text-zinc-300 hover:text-white text-xs border border-zinc-700">
+                    <i class="fa-solid fa-border-all text-xs"></i>
+                </button>
+                <button onclick="resetViewerCamera()" title="Reset Camera View" class="p-2 rounded-lg bg-zinc-800 text-zinc-300 hover:text-white text-xs border border-zinc-700">
+                    <i class="fa-solid fa-arrows-rotate text-xs"></i>
+                </button>
+                <button onclick="captureCanvasThumbnail()" title="Update Thumbnail from Current 3D View" class="p-2 rounded-lg bg-zinc-800 text-zinc-300 hover:text-amber-400 text-xs border border-zinc-700">
+                    <i class="fa-solid fa-camera text-xs"></i>
+                </button>
+                <button onclick="closeViewerModal()" class="p-2 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white text-xs border border-zinc-700 ml-2">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- 3D Canvas Viewport -->
+        <div class="relative w-full h-[520px] bg-[#090b14] overflow-hidden flex items-center justify-center">
+            <div id="threejs-container" class="w-full h-full cursor-grab active:cursor-grabbing"></div>
+
+            <div id="viewer-loading" class="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950/80 backdrop-blur-sm z-10">
+                <i class="fa-solid fa-circle-notch fa-spin text-3xl text-indigo-400 mb-3"></i>
+                <p class="text-xs text-zinc-200 font-medium">Parsing 3D Mesh Geometry...</p>
+                <span class="text-[10px] text-zinc-500 mt-1">Generating dark-mode grid canvas</span>
+            </div>
+
+            <!-- Bambu Plate Badge -->
+            <div class="absolute bottom-3 left-4 z-10 text-[11px] text-zinc-500 font-mono flex items-center gap-2 pointer-events-none">
+                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span>Bambu P2S Build Plate (256 × 256 mm)</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 2. Bambu Lab Cloud Print Modal -->
+<div id="bambuPrintModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center p-4 z-50 backdrop-blur-md transition-all">
+    <div class="bg-zinc-900 border border-emerald-800/60 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+        <div class="px-6 py-4 border-b border-zinc-800 bg-zinc-950/60 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-emerald-950/80 border border-emerald-600/50 flex items-center justify-center text-emerald-400">
+                    <i class="fa-solid fa-microchip"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                        Send to Bambu Lab P2S
+                        <span class="text-[10px] bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded-full font-mono border border-emerald-800">Cloud MQTT</span>
+                    </h3>
+                    <p class="text-xs text-zinc-400">Target Model: <span id="bambu-modal-model-title" class="text-zinc-200 font-medium">--</span></p>
+                </div>
+            </div>
+            <button onclick="closeBambuPrintModal()" class="text-zinc-400 hover:text-white p-2">
+                <i class="fa-solid fa-xmark text-sm"></i>
+            </button>
+        </div>
+
+        <div class="p-6 space-y-6 overflow-y-auto custom-scroll flex-1">
+            <!-- AMS 2 Pro Tray Selector -->
+            <div>
+                <label class="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-layer-group text-emerald-400"></i> AMS 2 Pro Filament Slot Mapping
+                </label>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" id="ams-trays-container">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Slicer Profile Match Note -->
+            <div id="bambu-slicer-match-note" class="p-3.5 bg-indigo-950/30 border border-indigo-800/50 rounded-2xl text-xs flex items-start gap-2.5">
+                <i class="fa-solid fa-sparkles text-indigo-400 mt-0.5"></i>
+                <div class="text-zinc-300">
+                    <strong class="text-indigo-300">AI Print Profile:</strong>
+                    <span id="bambu-slicer-details">Layer: 0.20mm • Infill: 15% Gyroid • Walls: 3</span>
+                </div>
+            </div>
+
+            <!-- Print Options -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-zinc-400 mb-1.5 uppercase tracking-wider">Build Plate Type</label>
+                    <select id="bambu-bed-type" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500">
+                        <option value="textured_plate">Textured PEI Plate (Default)</option>
+                        <option value="smooth_plate">Smooth PEI Plate / High Temp</option>
+                        <option value="engineering_plate">Engineering Plate</option>
+                        <option value="cool_plate">Cool Plate</option>
+                    </select>
+                </div>
+
+                <div class="space-y-2 pt-1">
+                    <label class="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
+                        <input type="checkbox" id="bambu-abl-check" checked class="rounded bg-zinc-800 border-zinc-700 text-emerald-500">
+                        <span>Auto Bed Leveling (ABL)</span>
+                    </label>
+                    <label class="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
+                        <input type="checkbox" id="bambu-flow-check" checked class="rounded bg-zinc-800 border-zinc-700 text-emerald-500">
+                        <span>Dynamic Flow Calibration</span>
+                    </label>
+                    <label class="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
+                        <input type="checkbox" id="bambu-timelapse-check" checked class="rounded bg-zinc-800 border-zinc-700 text-emerald-500">
+                        <span>Chamber Timelapse Recording</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Result alert -->
+            <div id="bambu-print-result" class="hidden p-4 rounded-xl text-xs border"></div>
+        </div>
+
+        <div class="px-6 py-4 border-t border-zinc-800 bg-zinc-950/60 flex items-center justify-between">
+            <button onclick="closeBambuPrintModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white">Cancel</button>
+            <button onclick="submitBambuPrintTask()" id="btn-submit-bambu-print" class="px-5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-950/50 flex items-center gap-2 transition-all">
+                <i class="fa-solid fa-paper-plane"></i> Send to Bambu P2S
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 3. Slicer Settings & Metadata Modal -->
+<div id="slicerModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center p-4 z-50 backdrop-blur-md transition-all">
+    <div class="bg-zinc-900 border border-purple-900/60 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+        <div class="px-6 py-4 border-b border-zinc-800 bg-zinc-950/60 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-purple-950/80 border border-purple-600/50 flex items-center justify-center text-purple-400">
+                    <i class="fa-solid fa-sliders"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-white">Model Metadata, Tags & Slicer Profile</h3>
+                    <p id="slicer-modal-model-title" class="text-xs text-zinc-400 truncate max-w-sm">--</p>
+                </div>
+            </div>
+            <button onclick="closeSlicerModal()" class="text-zinc-400 hover:text-white p-2">
+                <i class="fa-solid fa-xmark text-sm"></i>
+            </button>
+        </div>
+
+        <div class="p-6 space-y-6 overflow-y-auto custom-scroll flex-1">
+            <!-- General Info -->
+            <div class="space-y-4 p-4 rounded-2xl bg-zinc-950/60 border border-zinc-800">
+                <h4 class="text-xs font-bold text-zinc-200 uppercase tracking-wider flex items-center gap-1.5">
+                    <i class="fa-solid fa-cube text-sky-400"></i> General Information
+                </h4>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-semibold text-zinc-400 mb-1">Model Name</label>
+                        <input id="slicer-input-name" type="text" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-zinc-400 mb-1">Category</label>
+                        <select id="slicer-input-category" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500">
+                            <option value="General">General</option>
+                            <option value="Tools & Utility">Tools & Utility</option>
+                            <option value="Desk & Organization">Desk & Organization</option>
+                            <option value="Home & Living">Home & Living</option>
+                            <option value="Toys & Figures">Toys & Figures</option>
+                            <option value="Electronics & Gadgets">Electronics & Gadgets</option>
+                            <option value="Mechanical">Mechanical</option>
+                            <option value="Calibration & Test">Calibration & Test</option>
+                            <option value="Art & Decor">Art & Decor</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-semibold text-zinc-400 mb-1">Description</label>
+                    <textarea id="slicer-input-desc" rows="2" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500 resize-none"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-semibold text-zinc-400 mb-1">Recommended Filament Material</label>
+                    <div id="material-buttons" class="flex flex-wrap gap-2">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tags Manager -->
+            <div class="space-y-3 p-4 rounded-2xl bg-zinc-950/60 border border-zinc-800">
+                <div class="flex items-center justify-between">
+                    <h4 class="text-xs font-bold text-zinc-200 uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-solid fa-tags text-amber-400"></i> Model Tags
+                    </h4>
+                    <button onclick="inferModelTags()" type="button" class="text-xs text-purple-300 hover:text-purple-200 bg-purple-950/60 border border-purple-800/60 px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5">
+                        <i class="fa-solid fa-wand-magic-sparkles text-xs"></i> Infer Tags from Description
+                    </button>
+                </div>
+
+                <div id="slicer-tags-chips" class="flex flex-wrap gap-1.5 min-h-[32px] p-2 bg-zinc-900 border border-zinc-800 rounded-xl"></div>
+
+                <div class="flex gap-2">
+                    <input id="slicer-new-tag-input" type="text" placeholder="Add a new tag and press Enter..."
+                           onkeydown="if(event.key === 'Enter') { event.preventDefault(); addSlicerTag(); }"
+                           class="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-amber-400">
+                    <button onclick="addSlicerTag()" type="button" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-xl text-xs font-semibold border border-zinc-700">Add</button>
+                </div>
+            </div>
+
+            <!-- Gemini AI Re-analysis Prompt -->
+            <div class="p-4 rounded-2xl bg-purple-950/20 border border-purple-800/40 space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-purple-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-sparkles text-purple-400"></i> Google Gemini 1.5 Flash Re-analysis
+                    </span>
+                    <span class="text-[10px] text-purple-400 font-mono uppercase">Bambu P2S</span>
+                </div>
+                <input id="gemini-reanalyze-prompt" type="text" placeholder="e.g. Optimize for high mechanical strength in PETG with 4 walls..."
+                       class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-purple-500">
+                <button onclick="reanalyzeWithGemini()" id="btn-gemini-reanalyze" class="w-full py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-purple-950/40 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-arrows-rotate"></i> Re-analyze with Gemini
+                </button>
+            </div>
+
+            <!-- Slicer Profile Form -->
+            <div class="p-4 rounded-2xl bg-zinc-950/60 border border-zinc-800 space-y-3">
+                <h4 class="text-xs font-bold text-zinc-200 uppercase tracking-wider flex items-center gap-1.5">
+                    <i class="fa-solid fa-sliders text-emerald-400"></i> Slicer Configuration
+                </h4>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-semibold text-zinc-400 mb-1">Layer Height</label>
+                        <input id="slicer-input-layer" type="text" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-zinc-400 mb-1">Infill Percentage (%)</label>
+                        <input id="slicer-input-infill" type="number" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-zinc-400 mb-1">Infill Pattern</label>
+                        <input id="slicer-input-pattern" type="text" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-zinc-400 mb-1">Wall Loops</label>
+                        <input id="slicer-input-walls" type="number" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-zinc-400 mb-1">Supports</label>
+                        <input id="slicer-input-supports" type="text" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-zinc-400 mb-1">Brim</label>
+                        <input id="slicer-input-brim" type="text" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-zinc-400 mb-1">Bed Temp (°C)</label>
+                        <input id="slicer-input-bedtemp" type="number" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-zinc-400 mb-1">Nozzle Temp (°C)</label>
+                        <input id="slicer-input-nozzletemp" type="number" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="px-6 py-4 border-t border-zinc-800 bg-zinc-950/60 flex items-center justify-between">
+            <button onclick="closeSlicerModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white">Close</button>
+            <button onclick="saveSlicerSettings()" id="btn-save-slicer" class="px-5 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-950/50 flex items-center gap-2 transition-all">
+                <i class="fa-solid fa-check"></i> Save Changes
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 4. Timelapse Video Player Modal -->
+<div id="timelapseModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center p-4 z-50 backdrop-blur-md transition-all">
+    <div class="bg-zinc-900 border border-rose-900/60 rounded-3xl w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+        <div class="px-6 py-4 border-b border-zinc-800 bg-zinc-950/60 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-rose-950/80 border border-rose-600/50 flex items-center justify-center text-rose-400">
+                    <i class="fa-solid fa-clapperboard"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                        Print Timelapse
+                        <span id="timelapse-count-badge" class="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full font-mono">0 recorded</span>
+                    </h3>
+                    <p id="timelapse-modal-model-title" class="text-xs text-zinc-400 truncate max-w-lg">--</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <input type="file" id="timelapse-file-input" accept="video/mp4,video/webm" onchange="uploadTimelapseVideo(event)" class="hidden">
+                <button onclick="document.getElementById('timelapse-file-input').click()" class="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold border border-zinc-700 transition-all flex items-center gap-1.5">
+                    <i class="fa-solid fa-plus text-xs"></i> Add Video
+                </button>
+                <button onclick="closeTimelapseModal()" class="text-zinc-400 hover:text-white p-2">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="p-6 overflow-y-auto custom-scroll flex-1 space-y-4">
+            <div id="timelapse-player-container" class="space-y-4">
+                <div class="relative rounded-2xl overflow-hidden bg-black aspect-video border border-zinc-800 shadow-inner">
+                    <video id="timelapse-video" controls autoplay loop class="w-full h-full object-contain"></video>
+                </div>
+                <div id="timelapse-takes-bar" class="flex gap-2 overflow-x-auto pb-1"></div>
+            </div>
+
+            <div id="timelapse-empty-view" class="hidden py-16 text-center border-2 border-dashed border-zinc-800 rounded-2xl p-6 space-y-3">
+                <i class="fa-solid fa-film text-3xl text-zinc-600 mx-auto"></i>
+                <h4 class="text-sm font-bold text-zinc-200">No Timelapse Linked Yet</h4>
+                <p class="text-xs text-zinc-400 max-w-sm mx-auto">Upload Bambu Lab chamber timelapse recordings (.mp4/.webm) to document print execution.</p>
+                <button onclick="document.getElementById('timelapse-file-input').click()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-all shadow-md">
+                    <i class="fa-solid fa-cloud-arrow-up mr-1"></i> Upload Timelapse Video
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 5. Ingest 3D Models Upload Modal -->
+<div id="uploadModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center p-4 z-50 backdrop-blur-md transition-all">
+    <div class="bg-zinc-900 border border-indigo-900/60 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+        <div class="px-6 py-4 border-b border-zinc-800 bg-zinc-950/60 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-indigo-950/80 border border-indigo-600/50 flex items-center justify-center text-indigo-400">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-white">Ingest 3D Print Assets</h3>
+                    <p class="text-xs text-zinc-400">Supports .stl, .3mf, .obj, .step with auto-AI analysis</p>
+                </div>
+            </div>
+            <button onclick="closeUploadModal()" class="text-zinc-400 hover:text-white p-2">
+                <i class="fa-solid fa-xmark text-sm"></i>
+            </button>
+        </div>
+
+        <div class="p-6 space-y-5 overflow-y-auto custom-scroll flex-1">
+            <!-- Drag & Drop Zone -->
+            <div id="drop-zone" onclick="document.getElementById('model-files-input').click()"
+                 class="border-2 border-dashed border-zinc-800 hover:border-indigo-500 bg-zinc-950/60 hover:bg-zinc-950/90 rounded-2xl p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center">
+                <input type="file" id="model-files-input" multiple accept=".stl,.3mf,.obj,.step,.stp" onchange="handleModelFilesSelected(event)" class="hidden">
+                <div class="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-indigo-400 text-2xl mb-3 shadow-inner">
+                    <i class="fa-solid fa-cube"></i>
+                </div>
+                <p class="text-sm font-bold text-zinc-200">Drag & drop 3D files here, or <span class="text-indigo-400 underline">browse</span></p>
+                <p class="text-xs text-zinc-500 mt-1">Supports multiple files (.stl, .3mf, .obj, .step)</p>
+            </div>
+
+            <!-- Queued Files List -->
+            <div id="queued-files-container" class="hidden space-y-2">
+                <div class="flex items-center justify-between text-xs text-zinc-400">
+                    <span>Selected Files (<span id="queued-count">0</span>)</span>
+                    <button onclick="clearQueuedFiles()" class="text-rose-400 hover:text-rose-300">Clear all</button>
+                </div>
+                <div id="queued-files-list" class="max-h-40 overflow-y-auto custom-scroll space-y-1.5 pr-1"></div>
+            </div>
+
+            <!-- Gemini AI Custom Instructions -->
+            <div class="p-4 rounded-2xl bg-zinc-950/60 border border-zinc-800 space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-sparkles text-purple-400"></i> Google Gemini 1.5 Flash AI Pipeline
+                    </span>
+                    <span class="text-[10px] text-zinc-500">Auto tags & slicer profile</span>
+                </div>
+                <input id="upload-custom-prompt" type="text" placeholder="Optional context (e.g. 'Functional tool for garage organizer, PETG preferred')"
+                       class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-indigo-500">
+            </div>
+
+            <!-- Progress state -->
+            <div id="upload-progress-state" class="hidden p-3 bg-indigo-950/30 border border-indigo-800/50 rounded-xl text-indigo-300 text-xs flex items-center gap-2">
+                <i class="fa-solid fa-circle-notch fa-spin"></i>
+                <span id="upload-progress-msg">Uploading files and analyzing geometry...</span>
+            </div>
+        </div>
+
+        <div class="px-6 py-4 border-t border-zinc-800 bg-zinc-950/60 flex items-center justify-between">
+            <button onclick="closeUploadModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white">Cancel</button>
+            <button onclick="submitUploadModels()" id="btn-submit-upload" class="px-5 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-950/50 flex items-center gap-2 transition-all">
+                <i class="fa-solid fa-cloud-arrow-up"></i> Ingest & Analyze
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 6. Desktop Protocol Handlers Setup Modal -->
+<div id="protocolHelpModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center p-4 z-50 backdrop-blur-md transition-all">
+    <div class="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
+        <div class="px-6 py-4 border-b border-zinc-800 bg-zinc-950/60 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-sky-950/80 border border-sky-600/50 flex items-center justify-center text-sky-400">
+                    <i class="fa-solid fa-desktop"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-white">Desktop Protocol Handlers Setup</h3>
+                    <p class="text-xs text-zinc-400">Enable 1-click launch for Bambu Studio & Fusion 360</p>
+                </div>
+            </div>
+            <button onclick="closeProtocolHelpModal()" class="text-zinc-400 hover:text-white p-2">
+                <i class="fa-solid fa-xmark text-sm"></i>
+            </button>
+        </div>
+
+        <div class="p-6 space-y-6 overflow-y-auto custom-scroll flex-1 text-xs text-zinc-300">
+            <div>
+                <h4 class="text-sm font-bold text-white mb-1 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span> How Protocol Handlers Work
+                </h4>
+                <p class="text-zinc-400 leading-relaxed">
+                    When you click <b class="text-emerald-400">Open in Bambu Studio</b> or <b class="text-amber-300">Open in Fusion 360</b>, your web browser invokes a custom URL scheme (<code class="text-zinc-200 bg-zinc-950 px-1 py-0.5 rounded border border-zinc-800">bambustudio://</code> or <code class="text-zinc-200 bg-zinc-950 px-1 py-0.5 rounded border border-zinc-800">fusion360://</code>).
+                    A lightweight launcher script on your workstation automatically downloads the 3D model into your temporary cache and launches the desktop app with the model placed onto the virtual build plate.
+                </p>
+            </div>
+
+            <!-- Windows Setup Guide -->
+            <div class="p-4 rounded-2xl bg-zinc-950/80 border border-zinc-800 space-y-3">
+                <div class="flex items-center gap-2 text-zinc-200 font-bold text-xs">
+                    <i class="fa-brands fa-windows text-sky-400"></i> Windows Setup (1-Click Installer)
+                </div>
+                <p class="text-zinc-400">
+                    In the LinkForge repository's <code class="text-zinc-200">desktop-handlers/windows/</code> folder:
+                </p>
+                <ol class="list-decimal list-inside space-y-1.5 text-zinc-300 pl-1">
+                    <li>Right-click <code class="text-emerald-300 bg-zinc-900 px-1.5 py-0.5 rounded border border-zinc-800">install_handlers.bat</code> and select <b>Run as administrator</b>.</li>
+                    <li>The script automatically registers both <code class="text-zinc-200">bambustudio://</code> and <code class="text-zinc-200">fusion360://</code> in the Windows Registry.</li>
+                    <li>Return to your browser and click <b>Bambu Studio</b>. When prompted by your browser, check <i>Always allow</i> and click Open!</li>
+                </ol>
+            </div>
+
+            <!-- Linux Setup Guide -->
+            <div class="p-4 rounded-2xl bg-zinc-950/80 border border-zinc-800 space-y-2">
+                <div class="flex items-center gap-2 text-zinc-200 font-bold text-xs">
+                    <i class="fa-brands fa-linux text-emerald-400"></i> Linux Setup (GNOME / KDE)
+                </div>
+                <pre class="p-2.5 rounded-xl bg-zinc-900 text-zinc-200 font-mono text-[11px] overflow-x-auto border border-zinc-800">
+cd desktop-handlers/linux
+chmod +x install_handlers.sh
+./install_handlers.sh</pre>
+            </div>
+        </div>
+
+        <div class="px-6 py-4 border-t border-zinc-800 bg-zinc-950/60 flex items-center justify-end">
+            <button onclick="closeProtocolHelpModal()" class="px-5 py-2 rounded-xl text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-all">Got it</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // --- State Variables ---
+    let allModels = [];
+    let currentCategory = 'all';
+    let currentModelInViewer = null;
+    let currentModelInSlicer = null;
+    let currentModelInBambu = null;
+    let currentModelInTimelapse = null;
+    let queuedUploadFiles = [];
+
+    // Three.js State
+    let scene, camera, renderer, controls, meshGroup;
+    let autoRotate = true;
+    let isWireframe = false;
+    let animationFrameId = null;
+
+    // --- Search & Filtering ---
+    let searchDebounceTimer = null;
+    function debouncedSearch() {
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(loadModels, 300);
+    }
+
+    function selectCategory(cat) {
+        currentCategory = cat;
+        document.querySelectorAll('.cat-pill').forEach(btn => {
+            if (btn.id === `cat-pill-${cat}`) {
+                btn.className = 'cat-pill px-3 py-1 rounded-lg text-xs font-semibold bg-indigo-950 text-indigo-300 border border-indigo-700/60 whitespace-nowrap transition-all';
+            } else {
+                btn.className = 'cat-pill px-3 py-1 rounded-lg text-xs font-medium bg-zinc-950/60 text-zinc-400 hover:text-zinc-200 border border-zinc-800 whitespace-nowrap transition-all';
+            }
+        });
+        loadModels();
+    }
+
+    // --- Load Models from API ---
+    async function loadModels() {
+        const search = document.getElementById('search-input').value.trim();
+        const material = document.getElementById('material-filter').value;
+        const sortBy = document.getElementById('sort-filter').value;
+
+        const loading = document.getElementById('loading-state');
+        const grid = document.getElementById('models-grid');
+        const empty = document.getElementById('empty-state');
+
+        loading.classList.remove('hidden');
+        grid.innerHTML = '';
+        empty.classList.add('hidden');
+
+        try {
+            const url = `/api/models?search=${encodeURIComponent(search)}&category=${encodeURIComponent(currentCategory)}&material=${encodeURIComponent(material)}&sort_by=${encodeURIComponent(sortBy)}`;
+            const res = await fetch(url);
+            const data = await res.json();
+            allModels = data || [];
+
+            loading.classList.add('hidden');
+            document.getElementById('model-count-badge').textContent = `${allModels.length} Model${allModels.length === 1 ? '' : 's'}`;
+
+            if (allModels.length === 0) {
+                empty.classList.remove('hidden');
+                return;
+            }
+
+            grid.innerHTML = allModels.map(m => renderModelCard(m)).join('');
+        } catch (e) {
+            loading.classList.add('hidden');
+            console.error('Failed to load models:', e);
+        }
+    }
+
+    function renderModelCard(model) {
+        const hasTimelapse = model.timelapses && model.timelapses.length > 0;
+        const isSTEP = model.file_format === 'step' || model.file_format === 'stp';
+        const sizeMb = (model.file_size / (1024 * 1024)).toFixed(1);
+
+        const tagsHtml = (model.tags || []).slice(0, 3).map(t => `
+            <span class="text-[10px] px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-300 border border-zinc-700 font-medium">#${escapeHTML(t)}</span>
+        `).join('') + ((model.tags || []).length > 3 ? `<span class="text-[10px] px-1 text-zinc-500 font-mono">+${model.tags.length - 3}</span>` : '');
+
+        return `
+        <div class="group bg-zinc-900/80 hover:bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 flex flex-col justify-between">
+            <!-- Thumbnail & Preview Trigger -->
+            <div class="relative aspect-[16/10] bg-zinc-950 overflow-hidden cursor-pointer" onclick="openViewerModal(${model.id})">
+                ${model.thumbnail_url ? `
+                    <img src="${escapeHTML(model.thumbnail_url)}" alt="${escapeHTML(model.name)}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onerror="this.onerror=null; this.src=''; this.parentElement.innerHTML='<div class=\\'w-full h-full flex flex-col items-center justify-center text-zinc-700\\'><i class=\\'fa-solid fa-cube text-4xl mb-1\\'></i><span class=\\'text-[11px] font-mono text-zinc-500\\'>3D Mesh</span></div>';">
+                ` : `
+                    <div class="w-full h-full flex flex-col items-center justify-center text-zinc-700 group-hover:text-zinc-500 transition">
+                        <i class="fa-solid fa-cube text-4xl mb-1"></i>
+                        <span class="text-[11px] font-mono text-zinc-500">3D Mesh</span>
+                    </div>
+                `}
+
+                <!-- Format & Material Pills -->
+                <div class="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                    <span class="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-zinc-950/90 text-emerald-400 border border-emerald-500/30 backdrop-blur-md">
+                        ${escapeHTML(model.file_format)}
+                    </span>
+                    ${model.material_recommendation ? `
+                        <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-indigo-950/90 text-indigo-300 border border-indigo-800/40 backdrop-blur-md">
+                            ${escapeHTML(model.material_recommendation)}
+                        </span>
+                    ` : ''}
+                </div>
+
+                <!-- Timelapse Indicator Pill -->
+                ${hasTimelapse ? `
+                    <button onclick="event.stopPropagation(); openTimelapseModal(${model.id})" class="absolute top-2.5 right-2.5 flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-rose-950/90 text-rose-300 border border-rose-800/50 backdrop-blur-md hover:bg-rose-900 transition">
+                        <i class="fa-solid fa-clapperboard text-rose-400 text-[10px]"></i>
+                        <span>${model.timelapses.length}</span>
+                    </button>
+                ` : ''}
+
+                <!-- Hover Overlay -->
+                <div class="absolute inset-0 bg-zinc-950/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                    <button onclick="event.stopPropagation(); openViewerModal(${model.id})" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-zinc-900/90 text-white border border-zinc-700 shadow-xl flex items-center gap-1.5 hover:bg-indigo-600 hover:border-indigo-600 transition">
+                        <i class="fa-solid fa-eye text-xs"></i> 3D View
+                    </button>
+                </div>
+            </div>
+
+            <!-- Card Body -->
+            <div class="p-4 flex-1 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-start justify-between gap-2 mb-1">
+                        <h3 onclick="openViewerModal(${model.id})" class="text-xs font-bold text-zinc-100 hover:text-indigo-400 transition truncate cursor-pointer" title="${escapeHTML(model.name)}">
+                            ${escapeHTML(model.name)}
+                        </h3>
+                        <span class="text-[10px] text-zinc-500 font-mono whitespace-nowrap">${sizeMb} MB</span>
+                    </div>
+
+                    <p class="text-[11px] text-zinc-400 line-clamp-2 mb-3 h-7 leading-3.5">
+                        ${escapeHTML(model.description || 'No description provided.')}
+                    </p>
+
+                    <!-- Tags -->
+                    <div onclick="openSlicerModal(${model.id})" class="flex flex-wrap items-center gap-1 mb-3 cursor-pointer group/tags" title="Edit tags & metadata">
+                        ${tagsHtml}
+                        <span class="text-[10px] text-zinc-500 hover:text-purple-400 font-mono ml-0.5">edit</span>
+                    </div>
+                </div>
+
+                <!-- Action Button Row -->
+                <div class="space-y-2 pt-2 border-t border-zinc-800/80">
+                    <div class="grid grid-cols-2 gap-2">
+                        <a href="${escapeHTML(model.bambu_studio_uri)}" title="Launch in Bambu Studio via bambustudio:// URL handler"
+                           class="px-2 py-1.5 rounded-xl text-xs font-semibold bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-700/50 flex items-center justify-center gap-1.5 transition truncate text-center">
+                            <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i> Bambu Studio
+                        </a>
+
+                        ${isSTEP ? `
+                            <a href="${escapeHTML(model.fusion360_uri)}" title="Launch in Autodesk Fusion 360 via fusion360:// URL handler"
+                               class="px-2 py-1.5 rounded-xl text-xs font-semibold bg-amber-950/60 hover:bg-amber-900/60 text-amber-300 border border-amber-700/50 flex items-center justify-center gap-1.5 transition truncate text-center">
+                                <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i> Fusion 360
+                            </a>
+                        ` : `
+                            <button onclick="openBambuPrintModal(${model.id})" title="Send directly to Bambu Lab P2S via Cloud MQTT"
+                                    class="px-2 py-1.5 rounded-xl text-xs font-semibold bg-indigo-950/60 hover:bg-indigo-900/60 text-indigo-300 border border-indigo-700/50 flex items-center justify-center gap-1.5 transition truncate">
+                                <i class="fa-solid fa-paper-plane text-[10px]"></i> To P2S Printer
+                            </button>
+                        `}
+                    </div>
+
+                    <!-- Secondary Utility Icons -->
+                    <div class="flex items-center justify-between text-zinc-400 pt-1 text-xs">
+                        <div class="flex items-center gap-1">
+                            <button onclick="openSlicerModal(${model.id})" title="Edit Slicer Profile & Metadata" class="p-1.5 rounded-lg hover:bg-zinc-800 hover:text-purple-400 transition">
+                                <i class="fa-solid fa-sliders text-xs"></i>
+                            </button>
+                            <button onclick="openTimelapseModal(${model.id})" title="Timelapse Video" class="p-1.5 rounded-lg hover:bg-zinc-800 ${hasTimelapse ? 'text-rose-400' : 'hover:text-zinc-200'} transition">
+                                <i class="fa-solid fa-clapperboard text-xs"></i>
+                            </button>
+                            <a href="${escapeHTML(model.download_url)}" download title="Download Model File" class="p-1.5 rounded-lg hover:bg-zinc-800 hover:text-zinc-200 transition">
+                                <i class="fa-solid fa-download text-xs"></i>
+                            </a>
+                        </div>
+                        <button onclick="deleteModel(${model.id})" title="Delete Model" class="p-1.5 rounded-lg hover:bg-zinc-800 hover:text-rose-400 transition">
+                            <i class="fa-solid fa-trash text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        `;
+    }
+
+    // --- Three.js 3D Viewer Logic ---
+    function openViewerModal(modelId) {
+        const model = allModels.find(m => m.id === modelId);
+        if (!model) return;
+        currentModelInViewer = model;
+
+        document.getElementById('viewer-model-name').textContent = model.name;
+        document.getElementById('viewer-format-badge').textContent = model.file_format.toUpperCase();
+        document.getElementById('viewer-dimensions').textContent = '-- × -- × -- mm';
+
+        const modal = document.getElementById('viewerModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+
+        initThreeJsViewer(model);
+    }
+
+    function closeViewerModal() {
+        const modal = document.getElementById('viewerModal');
+        if (modal) {
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+        }
+        cleanupThreeJs();
+    }
+
+    function initThreeJsViewer(model) {
+        cleanupThreeJs();
+
+        const container = document.getElementById('threejs-container');
+        const loading = document.getElementById('viewer-loading');
+        loading.classList.remove('hidden');
+
+        const width = container.clientWidth || 800;
+        const height = container.clientHeight || 520;
+
+        // 1. Scene
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x090b14);
+
+        // 2. Camera
+        camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 2000);
+        camera.position.set(180, 160, 220);
+
+        // 3. Renderer
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+        renderer.setSize(width, height);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        // 4. Orbit Controls
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxPolarAngle = Math.PI / 2 + 0.05;
+        controls.minDistance = 20;
+        controls.maxDistance = 800;
+
+        // 5. Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        scene.add(ambientLight);
+
+        const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.2);
+        dirLight1.position.set(150, 250, 150);
+        dirLight1.castShadow = true;
+        scene.add(dirLight1);
+
+        const dirLight2 = new THREE.DirectionalLight(0x6366f1, 0.5); // Indigo rim light
+        dirLight2.position.set(-150, 100, -150);
+        scene.add(dirLight2);
+
+        // 6. Build Plate (Bambu Lab 256x256mm style)
+        const plateSize = 256;
+        const gridHelper = new THREE.GridHelper(plateSize, 32, 0x00ae42, 0x1e293b);
+        scene.add(gridHelper);
+
+        const plateGeo = new THREE.PlaneGeometry(plateSize, plateSize);
+        const plateMat = new THREE.MeshStandardMaterial({ color: 0x0a0f1d, roughness: 0.9, metalness: 0.1 });
+        const plateMesh = new THREE.Mesh(plateGeo, plateMat);
+        plateMesh.rotation.x = -Math.PI / 2;
+        plateMesh.position.y = -0.1;
+        plateMesh.receiveShadow = true;
+        scene.add(plateMesh);
+
+        // Mesh container
+        meshGroup = new THREE.Group();
+        scene.add(meshGroup);
+
+        // 7. Load Mesh
+        const fileUrl = `/api/models/${model.id}/file`;
+        const format = model.file_format.toLowerCase();
+
+        const defaultMaterial = new THREE.MeshStandardMaterial({
+            color: 0x38bdf8,
+            roughness: 0.35,
+            metalness: 0.15,
+            wireframe: isWireframe
+        });
+
+        const onMeshLoaded = (geometryOrObject) => {
+            meshGroup.clear();
+            let targetMesh;
+
+            if (geometryOrObject.isBufferGeometry || geometryOrObject instanceof THREE.BufferGeometry) {
+                geometryOrObject.computeVertexNormals();
+                targetMesh = new THREE.Mesh(geometryOrObject, defaultMaterial);
+            } else {
+                geometryOrObject.traverse(child => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                        if (!child.material) child.material = defaultMaterial;
+                    }
+                });
+                targetMesh = geometryOrObject;
+            }
+
+            targetMesh.castShadow = true;
+            targetMesh.receiveShadow = true;
+            meshGroup.add(targetMesh);
+
+            // Bounds and dimensions
+            const box = new THREE.Box3().setFromObject(targetMesh);
+            const size = new THREE.Vector3();
+            box.getSize(size);
+            const center = new THREE.Vector3();
+            box.getCenter(center);
+
+            document.getElementById('viewer-dimensions').textContent = `${(size.x).toFixed(1)} × ${(size.y).toFixed(1)} × ${(size.z).toFixed(1)} mm`;
+
+            // Center geometry resting on plate y=0
+            targetMesh.position.x = -center.x;
+            targetMesh.position.z = -center.z;
+            targetMesh.position.y = -box.min.y;
+
+            // Fit camera
+            const maxDim = Math.max(size.x, size.y, size.z, 50);
+            camera.position.set(maxDim * 1.5, maxDim * 1.3, maxDim * 1.8);
+            controls.target.set(0, size.y / 2, 0);
+            controls.update();
+
+            loading.classList.add('hidden');
+        };
+
+        const onMeshError = (err) => {
+            loading.classList.add('hidden');
+            console.error('Error loading 3D mesh:', err);
+        };
+
+        if (format === 'stl' || format === '3mf') {
+            const loader = new THREE.STLLoader();
+            loader.load(fileUrl, onMeshLoaded, undefined, onMeshError);
+        } else if (format === 'obj') {
+            const loader = new THREE.OBJLoader();
+            loader.load(fileUrl, onMeshLoaded, undefined, onMeshError);
+        } else {
+            loading.classList.add('hidden');
+        }
+
+        // 8. Animation Loop
+        const animate = () => {
+            animationFrameId = requestAnimationFrame(animate);
+            if (autoRotate && meshGroup) {
+                meshGroup.rotation.y += 0.006;
+            }
+            controls.update();
+            renderer.render(scene, camera);
+        };
+        animate();
+    }
+
+    function cleanupThreeJs() {
+        if (animationFrameId) cancelAnimationFrame(animationFrameId);
+        if (controls) controls.dispose();
+        if (renderer) renderer.dispose();
+        const container = document.getElementById('threejs-container');
+        if (container) container.innerHTML = '';
+        scene = null; camera = null; renderer = null; controls = null; meshGroup = null;
+    }
+
+    function toggleViewerRotation() {
+        autoRotate = !autoRotate;
+        const btn = document.getElementById('btn-viewer-rotate');
+        if (autoRotate) {
+            btn.classList.replace('text-zinc-300', 'text-emerald-400');
+        } else {
+            btn.classList.replace('text-emerald-400', 'text-zinc-300');
+        }
+    }
+
+    function toggleViewerWireframe() {
+        isWireframe = !isWireframe;
+        if (meshGroup) {
+            meshGroup.traverse(child => {
+                if (child.isMesh && child.material) {
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach(m => m.wireframe = isWireframe);
+                    } else {
+                        child.material.wireframe = isWireframe;
+                    }
+                }
+            });
+        }
+    }
+
+    function resetViewerCamera() {
+        if (camera && controls) {
+            camera.position.set(180, 160, 220);
+            controls.target.set(0, 30, 0);
+            controls.update();
+        }
+    }
+
+    async function captureCanvasThumbnail() {
+        if (!renderer || !currentModelInViewer) return;
+        try {
+            const canvas = renderer.domElement;
+            const dataUrl = canvas.toDataURL('image/webp', 0.88);
+            const res = await fetch(`/api/models/${currentModelInViewer.id}/thumbnail`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data_url: dataUrl })
+            });
+            if (res.ok) {
+                alert('Thumbnail captured and updated successfully!');
+                loadModels();
+            }
+        } catch (e) {
+            console.error('Failed to capture thumbnail:', e);
+        }
+    }
+
+    // --- Bambu Lab Cloud Print Modal ---
+    let selectedAmsSlot = 1;
+    async function openBambuPrintModal(modelId) {
+        const model = allModels.find(m => m.id === modelId);
+        if (!model) return;
+        currentModelInBambu = model;
+
+        document.getElementById('bambu-modal-model-title').textContent = model.name;
+        const slicer = model.slicer_settings || {};
+        document.getElementById('bambu-slicer-details').textContent = `Layer: ${slicer.layer_height || '0.20mm'} • Infill: ${slicer.infill_percentage || 15}% ${slicer.infill_pattern || 'Gyroid'} • Walls: ${slicer.wall_loops || 3}`;
+
+        // Fetch AMS live info
+        try {
+            const res = await fetch('/api/printer/status');
+            const data = await res.json();
+            const trays = data.ams?.trays || [
+                { slot: 1, filament_type: 'PLA Basic', color_hex: '#1E40AF', remain_percent: 80, name: 'Bambu PLA Blue' },
+                { slot: 2, filament_type: 'PLA Matte', color_hex: '#F8FAFC', remain_percent: 65, name: 'Bambu Matte White' },
+                { slot: 3, filament_type: 'PETG-CF', color_hex: '#1F2937', remain_percent: 90, name: 'Bambu PETG-CF' },
+                { slot: 4, filament_type: 'Support W', color_hex: '#E2E8F0', remain_percent: 40, name: 'Bambu Support' }
+            ];
+
+            const container = document.getElementById('ams-trays-container');
+            container.innerHTML = trays.map(t => `
+                <button type="button" onclick="selectAmsSlot(${t.slot})" id="ams-tray-btn-${t.slot}"
+                        class="p-3 rounded-2xl border text-left transition flex flex-col justify-between ${selectedAmsSlot === t.slot ? 'border-emerald-500 bg-emerald-950/40 ring-1 ring-emerald-500' : 'border-zinc-800 bg-zinc-950/60 hover:border-zinc-700'}">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[11px] font-bold text-zinc-400 font-mono">SLOT #${t.slot}</span>
+                        <div class="w-4 h-4 rounded-full border border-zinc-700 shadow-sm" style="background-color: ${escapeHTML(t.color_hex)}"></div>
+                    </div>
+                    <div>
+                        <p class="text-xs font-bold text-zinc-200 truncate">${escapeHTML(t.filament_type)}</p>
+                        <p class="text-[10px] text-zinc-400 truncate">${escapeHTML(t.name || 'Spool')}</p>
+                        ${t.remain_percent !== undefined ? `
+                            <div class="mt-2 w-full bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+                                <div class="bg-emerald-400 h-full rounded-full" style="width: ${t.remain_percent}%"></div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </button>
+            `).join('');
+        } catch (e) {}
+
+        const modal = document.getElementById('bambuPrintModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function selectAmsSlot(slot) {
+        selectedAmsSlot = slot;
+        document.querySelectorAll('#ams-trays-container button').forEach((btn, idx) => {
+            if (idx + 1 === slot) {
+                btn.className = 'p-3 rounded-2xl border text-left transition flex flex-col justify-between border-emerald-500 bg-emerald-950/40 ring-1 ring-emerald-500';
+            } else {
+                btn.className = 'p-3 rounded-2xl border text-left transition flex flex-col justify-between border-zinc-800 bg-zinc-950/60 hover:border-zinc-700';
+            }
+        });
+    }
+
+    function closeBambuPrintModal() {
+        const modal = document.getElementById('bambuPrintModal');
+        if (modal) {
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+        }
+        document.getElementById('bambu-print-result').classList.add('hidden');
+    }
+
+    async function submitBambuPrintTask() {
+        if (!currentModelInBambu) return;
+        const btn = document.getElementById('btn-submit-bambu-print');
+        const alertBox = document.getElementById('bambu-print-result');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Submitting...';
+
+        try {
+            const payload = {
+                model_id: currentModelInBambu.id,
+                ams_tray_id: selectedAmsSlot,
+                bed_type: document.getElementById('bambu-bed-type').value,
+                auto_bed_leveling: document.getElementById('bambu-abl-check').checked,
+                flow_cali: document.getElementById('bambu-flow-check').checked,
+                timelapse_enabled: document.getElementById('bambu-timelapse-check').checked,
+                use_ams: true
+            };
+
+            const res = await fetch('/api/printer/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+
+            alertBox.classList.remove('hidden');
+            if (data.success) {
+                alertBox.className = 'p-4 rounded-xl text-xs border bg-emerald-950/40 border-emerald-800/60 text-emerald-300';
+                alertBox.innerHTML = `<strong>Task Queued:</strong> ${escapeHTML(data.message)}`;
+            } else {
+                alertBox.className = 'p-4 rounded-xl text-xs border bg-rose-950/40 border-rose-800/60 text-rose-300';
+                alertBox.innerHTML = `<strong>Dispatch Failed:</strong> ${escapeHTML(data.message || 'Error sending print')}`;
+            }
+        } catch (e) {
+            alertBox.classList.remove('hidden');
+            alertBox.className = 'p-4 rounded-xl text-xs border bg-rose-950/40 border-rose-800/60 text-rose-300';
+            alertBox.innerHTML = `Network error communicating with Bambu Cloud API.`;
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send to Bambu P2S';
+        }
+    }
+
+    // --- Slicer Settings & Metadata Modal ---
+    let currentSlicerTags = [];
+    let currentSlicerMaterial = 'PLA';
+    const MATERIALS_LIST = ['PLA', 'PETG', 'TPU', 'ABS', 'ASA', 'PC', 'PVA', 'PA-CF'];
+
+    function openSlicerModal(modelId) {
+        const model = allModels.find(m => m.id === modelId);
+        if (!model) return;
+        currentModelInSlicer = model;
+
+        document.getElementById('slicer-modal-model-title').textContent = model.name;
+        document.getElementById('slicer-input-name').value = model.name || '';
+        document.getElementById('slicer-input-category').value = model.category || 'General';
+        document.getElementById('slicer-input-desc').value = model.description || '';
+
+        currentSlicerMaterial = model.material_recommendation || 'PLA';
+        renderMaterialButtons();
+
+        currentSlicerTags = [...(model.tags || [])];
+        renderSlicerTagChips();
+
+        const s = model.slicer_settings || {};
+        document.getElementById('slicer-input-layer').value = s.layer_height || '0.20mm';
+        document.getElementById('slicer-input-infill').value = s.infill_percentage ?? 15;
+        document.getElementById('slicer-input-pattern').value = s.infill_pattern || 'Gyroid';
+        document.getElementById('slicer-input-walls').value = s.wall_loops ?? 3;
+        document.getElementById('slicer-input-supports').value = s.supports || 'None';
+        document.getElementById('slicer-input-brim').value = s.brim || 'Auto';
+        document.getElementById('slicer-input-bedtemp').value = s.bed_temp_c ?? 60;
+        document.getElementById('slicer-input-nozzletemp').value = s.nozzle_temp_c ?? 215;
+
+        const modal = document.getElementById('slicerModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function renderMaterialButtons() {
+        const container = document.getElementById('material-buttons');
+        container.innerHTML = MATERIALS_LIST.map(mat => `
+            <button type="button" onclick="selectSlicerMaterial('${mat}')"
+                    class="px-3 py-1 rounded-lg text-xs font-semibold border transition-all ${currentSlicerMaterial === mat ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-zinc-200'}">
+                ${mat}
+            </button>
+        `).join('');
+    }
+
+    function selectSlicerMaterial(mat) {
+        currentSlicerMaterial = mat;
+        renderMaterialButtons();
+    }
+
+    function renderSlicerTagChips() {
+        const container = document.getElementById('slicer-tags-chips');
+        if (currentSlicerTags.length === 0) {
+            container.innerHTML = '<span class="text-xs text-zinc-500 italic py-0.5">No tags yet.</span>';
+            return;
+        }
+        container.innerHTML = currentSlicerTags.map(tag => `
+            <span class="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-zinc-800 text-zinc-200 border border-zinc-700 font-medium">
+                <span>#${escapeHTML(tag)}</span>
+                <button type="button" onclick="removeSlicerTag('${escapeHTML(tag)}')" class="hover:text-rose-400"><i class="fa-solid fa-xmark text-[10px]"></i></button>
+            </span>
+        `).join('');
+    }
+
+    function addSlicerTag() {
+        const input = document.getElementById('slicer-new-tag-input');
+        const val = input.value.trim().toLowerCase().replace(/^#/, '');
+        if (val && !currentSlicerTags.includes(val)) {
+            currentSlicerTags.push(val);
+            input.value = '';
+            renderSlicerTagChips();
+        }
+    }
+
+    function removeSlicerTag(tag) {
+        currentSlicerTags = currentSlicerTags.filter(t => t !== tag);
+        renderSlicerTagChips();
+    }
+
+    async function inferModelTags() {
+        if (!currentModelInSlicer) return;
+        try {
+            const res = await fetch(`/api/models/${currentModelInSlicer.id}/infer-tags`, { method: 'POST' });
+            const data = await res.json();
+            currentSlicerTags = data.tags || [];
+            renderSlicerTagChips();
+        } catch (e) {}
+    }
+
+    async function reanalyzeWithGemini() {
+        if (!currentModelInSlicer) return;
+        const btn = document.getElementById('btn-gemini-reanalyze');
+        const customPrompt = document.getElementById('gemini-reanalyze-prompt').value.trim();
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Consulting Gemini AI...';
+
+        try {
+            const res = await fetch(`/api/ai/analyze/${currentModelInSlicer.id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ custom_instructions: customPrompt })
+            });
+            const data = await res.json();
+            if (data.name) document.getElementById('slicer-input-name').value = data.name;
+            if (data.category) document.getElementById('slicer-input-category').value = data.category;
+            if (data.description) document.getElementById('slicer-input-desc').value = data.description;
+            if (data.material_recommendation) {
+                currentSlicerMaterial = data.material_recommendation;
+                renderMaterialButtons();
+            }
+            if (data.tags) {
+                currentSlicerTags = data.tags;
+                renderSlicerTagChips();
+            }
+            if (data.slicer_settings) {
+                const s = data.slicer_settings;
+                document.getElementById('slicer-input-layer').value = s.layer_height || '0.20mm';
+                document.getElementById('slicer-input-infill').value = s.infill_percentage ?? 15;
+                document.getElementById('slicer-input-pattern').value = s.infill_pattern || 'Gyroid';
+                document.getElementById('slicer-input-walls').value = s.wall_loops ?? 3;
+                document.getElementById('slicer-input-supports').value = s.supports || 'None';
+                document.getElementById('slicer-input-brim').value = s.brim || 'Auto';
+                document.getElementById('slicer-input-bedtemp').value = s.bed_temp_c ?? 60;
+                document.getElementById('slicer-input-nozzletemp').value = s.nozzle_temp_c ?? 215;
+            }
+        } catch (e) {
+            alert('Gemini re-analysis failed.');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Re-analyze with Gemini';
+        }
+    }
+
+    async function saveSlicerSettings() {
+        if (!currentModelInSlicer) return;
+        const btn = document.getElementById('btn-save-slicer');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Saving...';
+
+        const payload = {
+            name: document.getElementById('slicer-input-name').value.trim(),
+            category: document.getElementById('slicer-input-category').value,
+            description: document.getElementById('slicer-input-desc').value.trim(),
+            material_recommendation: currentSlicerMaterial,
+            tags: currentSlicerTags,
+            slicer_settings: {
+                layer_height: document.getElementById('slicer-input-layer').value.trim(),
+                infill_percentage: parseInt(document.getElementById('slicer-input-infill').value) || 15,
+                infill_pattern: document.getElementById('slicer-input-pattern').value.trim(),
+                wall_loops: parseInt(document.getElementById('slicer-input-walls').value) || 3,
+                supports: document.getElementById('slicer-input-supports').value.trim(),
+                brim: document.getElementById('slicer-input-brim').value.trim(),
+                bed_temp_c: parseInt(document.getElementById('slicer-input-bedtemp').value) || 60,
+                nozzle_temp_c: parseInt(document.getElementById('slicer-input-nozzletemp').value) || 215,
+            }
+        };
+
+        try {
+            const res = await fetch(`/api/models/${currentModelInSlicer.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                closeSlicerModal();
+                loadModels();
+            }
+        } catch (e) {
+            alert('Failed to save settings.');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> Save Changes';
+        }
+    }
+
+    function closeSlicerModal() {
+        const modal = document.getElementById('slicerModal');
+        if (modal) {
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+        }
+    }
+
+    // --- Timelapse Modal ---
+    function openTimelapseModal(modelId) {
+        const model = allModels.find(m => m.id === modelId);
+        if (!model) return;
+        currentModelInTimelapse = model;
+
+        document.getElementById('timelapse-modal-model-title').textContent = model.name;
+        const timelapses = model.timelapses || [];
+        document.getElementById('timelapse-count-badge').textContent = `${timelapses.length} recorded`;
+
+        const playerContainer = document.getElementById('timelapse-player-container');
+        const emptyView = document.getElementById('timelapse-empty-view');
+        const videoEl = document.getElementById('timelapse-video');
+
+        if (timelapses.length > 0) {
+            playerContainer.classList.remove('hidden');
+            emptyView.classList.add('hidden');
+            videoEl.src = timelapses[0].stream_url;
+
+            const takesBar = document.getElementById('timelapse-takes-bar');
+            takesBar.innerHTML = timelapses.map((t, idx) => `
+                <button onclick="document.getElementById('timelapse-video').src='${escapeHTML(t.stream_url)}'"
+                        class="px-3 py-1.5 rounded-xl bg-zinc-800 text-zinc-300 text-xs font-semibold hover:bg-zinc-700 border border-zinc-700 whitespace-nowrap">
+                    Take #${idx + 1} (${(t.file_size / (1024 * 1024)).toFixed(1)} MB)
+                </button>
+            `).join('');
+        } else {
+            playerContainer.classList.add('hidden');
+            emptyView.classList.remove('hidden');
+        }
+
+        const modal = document.getElementById('timelapseModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeTimelapseModal() {
+        const modal = document.getElementById('timelapseModal');
+        if (modal) {
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+        }
+        const videoEl = document.getElementById('timelapse-video');
+        if (videoEl) videoEl.pause();
+    }
+
+    async function uploadTimelapseVideo(event) {
+        const file = event.target.files?.[0];
+        if (!file || !currentModelInTimelapse) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('model_id', currentModelInTimelapse.id);
+        formData.append('title', file.name);
+
+        try {
+            const res = await fetch('/api/timelapses/upload', {
+                method: 'POST',
+                body: formData
+            });
+            if (res.ok) {
+                await loadModels();
+                openTimelapseModal(currentModelInTimelapse.id);
+            }
+        } catch (e) {
+            alert('Failed to upload timelapse video.');
+        }
+    }
+
+    // --- Delete Model ---
+    async function deleteModel(modelId) {
+        if (!confirm('Are you sure you want to delete this 3D model asset and its files?')) return;
+        try {
+            const res = await fetch(`/api/models/${modelId}`, { method: 'DELETE' });
+            if (res.ok) loadModels();
+        } catch (e) {
+            alert('Failed to delete model.');
+        }
+    }
+
+    // --- Backfill Thumbnails ---
+    async function backfillThumbnails() {
+        try {
+            const res = await fetch('/api/models/backfill-thumbnails', { method: 'POST' });
+            const data = await res.json();
+            alert(`Thumbnail backfill complete. Updated ${data.updated_models || 0} models.`);
+            loadModels();
+        } catch (e) {
+            alert('Failed to backfill thumbnails.');
+        }
+    }
+
+    // --- Ingest / Upload Models Modal ---
+    function openUploadModal() {
+        queuedUploadFiles = [];
+        renderQueuedFiles();
+        document.getElementById('upload-custom-prompt').value = '';
+        document.getElementById('upload-progress-state').classList.add('hidden');
+
+        const modal = document.getElementById('uploadModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeUploadModal() {
+        const modal = document.getElementById('uploadModal');
+        if (modal) {
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+        }
+    }
+
+    function handleModelFilesSelected(event) {
+        const files = Array.from(event.target.files || []);
+        queuedUploadFiles.push(...files);
+        renderQueuedFiles();
+    }
+
+    function renderQueuedFiles() {
+        const container = document.getElementById('queued-files-container');
+        const list = document.getElementById('queued-files-list');
+        const count = document.getElementById('queued-count');
+
+        if (queuedUploadFiles.length === 0) {
+            container.classList.add('hidden');
+            return;
+        }
+
+        container.classList.remove('hidden');
+        count.textContent = queuedUploadFiles.length;
+        list.innerHTML = queuedUploadFiles.map((f, idx) => `
+            <div class="flex items-center justify-between px-3 py-2 rounded-xl bg-zinc-950/80 border border-zinc-800 text-xs text-zinc-200">
+                <div class="flex items-center gap-2 truncate">
+                    <span class="uppercase text-[10px] px-1.5 py-0.5 rounded font-mono bg-zinc-800 text-emerald-400 border border-zinc-700">${f.name.split('.').pop()}</span>
+                    <span class="truncate max-w-sm">${escapeHTML(f.name)}</span>
+                    <span class="text-[11px] text-zinc-500">(${(f.size / (1024 * 1024)).toFixed(2)} MB)</span>
+                </div>
+                <button type="button" onclick="removeQueuedFile(${idx})" class="text-zinc-500 hover:text-rose-400 p-1"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        `).join('');
+    }
+
+    function removeQueuedFile(idx) {
+        queuedUploadFiles.splice(idx, 1);
+        renderQueuedFiles();
+    }
+
+    function clearQueuedFiles() {
+        queuedUploadFiles = [];
+        renderQueuedFiles();
+    }
+
+    async function submitUploadModels() {
+        if (queuedUploadFiles.length === 0) return;
+        const btn = document.getElementById('btn-submit-upload');
+        const progressBox = document.getElementById('upload-progress-state');
+        btn.disabled = true;
+        progressBox.classList.remove('hidden');
+
+        const formData = new FormData();
+        queuedUploadFiles.forEach(f => formData.append('files', f));
+        formData.append('custom_instructions', document.getElementById('upload-custom-prompt').value.trim());
+
+        try {
+            const res = await fetch('/api/models/upload', {
+                method: 'POST',
+                body: formData
+            });
+            if (res.ok) {
+                closeUploadModal();
+                loadModels();
+            } else {
+                alert('Upload failed.');
+            }
+        } catch (e) {
+            alert('Error during upload.');
+        } finally {
+            btn.disabled = false;
+            progressBox.classList.add('hidden');
+        }
+    }
+
+    // --- Desktop Protocol Handlers Modal ---
+    function openProtocolHelpModal() {
+        const modal = document.getElementById('protocolHelpModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeProtocolHelpModal() {
+        const modal = document.getElementById('protocolHelpModal');
+        if (modal) {
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+        }
+    }
+
+    // --- Live Printer Status Poll ---
+    async function pollPrinterStatus() {
+        try {
+            const res = await fetch('/api/printer/status');
+            if (res.ok) {
+                const data = await res.json();
+                document.getElementById('printer-model-name').textContent = data.model || 'Bambu Lab P2S';
+                document.getElementById('printer-serial-badge').textContent = `(${data.device_serial || '01P2S999990001'})`;
+                document.getElementById('printer-state-text').textContent = data.state || 'IDLE';
+                if (data.temperatures) {
+                    document.getElementById('printer-temp-nozzle').textContent = `${data.temperatures.nozzle || 28}°C`;
+                    document.getElementById('printer-temp-bed').textContent = `${data.temperatures.bed || 24}°C`;
+                }
+            }
+        } catch (e) {}
+        setTimeout(pollPrinterStatus, 8000);
+    }
+
+    // Initial load
+    loadModels();
+    pollPrinterStatus();
+</script>
+{% endblock %}

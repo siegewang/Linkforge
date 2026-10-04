@@ -56,12 +56,6 @@ def init_db(app=None):
         
     conn = _create_connection()
     try:
-        existing = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='downloaded_books'").fetchone()
-        if existing:
-            _db_initialized = True
-            conn.close()
-            return
-
         conn.execute("""CREATE TABLE IF NOT EXISTS downloaded_books (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             key TEXT UNIQUE,
@@ -267,6 +261,59 @@ def init_db(app=None):
             date_added TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )""")
 
+        # 3D Print Library: Model Assets Catalog
+        conn.execute("""CREATE TABLE IF NOT EXISTS model_assets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            filename TEXT NOT NULL,
+            file_path TEXT NOT NULL,
+            file_size INTEGER DEFAULT 0,
+            file_format TEXT NOT NULL,
+            thumbnail_path TEXT,
+            description TEXT,
+            tags TEXT,
+            category TEXT DEFAULT 'General',
+            material_recommendation TEXT DEFAULT 'PLA',
+            slicer_settings TEXT,
+            geometry_metadata TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""")
+
+        # 3D Print Library: Timelapses
+        conn.execute("""CREATE TABLE IF NOT EXISTS timelapses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            model_id INTEGER,
+            title TEXT,
+            filename TEXT NOT NULL,
+            file_path TEXT NOT NULL,
+            file_size INTEGER DEFAULT 0,
+            duration_seconds REAL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (model_id) REFERENCES model_assets(id) ON DELETE SET NULL
+        )""")
+
+        # 3D Print Library: Printer Config & AMS
+        conn.execute("""CREATE TABLE IF NOT EXISTS printer_configs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cloud_username TEXT DEFAULT '',
+            cloud_password TEXT DEFAULT '',
+            cloud_token TEXT DEFAULT '',
+            device_serial TEXT DEFAULT '',
+            device_model TEXT DEFAULT 'P2S',
+            region TEXT DEFAULT 'us',
+            ams_tray_mapping TEXT DEFAULT '{}',
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""")
+
+        # Seed Bambu / 3D settings
+        conn.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('bambu_device_serial', '01P2S999990001')")
+        conn.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('bambu_device_model', 'Bambu Lab P2S')")
+        conn.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('bambu_region', 'us')")
+        conn.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('bambu_cloud_username', '')")
+        conn.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('bambu_cloud_password', '')")
+        conn.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('bambu_access_token', '')")
+
         # Ensure all imported bookmarks are marked is_read = 1 so they appear in Neural Links and Tag Swarms
         try:
             conn.execute("UPDATE links SET is_read = 1 WHERE is_read = 0")
@@ -274,6 +321,9 @@ def init_db(app=None):
             pass
 
         os.makedirs(Config.BACKUP_DIR, exist_ok=True)
+        os.makedirs(Config.MODELS_DIR, exist_ok=True)
+        os.makedirs(Config.TIMELAPSES_DIR, exist_ok=True)
+        os.makedirs(Config.THUMBNAILS_DIR, exist_ok=True)
         conn.commit()
         _db_initialized = True
     except Exception as e:

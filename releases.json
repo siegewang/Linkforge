@@ -1,5 +1,19 @@
 [
   {
+    "version": "2.3.0",
+    "date": "2026-10-04",
+    "is_major": true,
+    "title": "3D Print Library Integration",
+    "highlights": [
+      "3D Print Library: Integrated 3D model asset catalog supporting STL, 3MF, OBJ, and STEP files.",
+      "Interactive 3D Viewer: Built-in 3D model viewer with build plate grid, wireframe toggle, and rotation.",
+      "Bambu Lab Integration: Send print jobs directly to Bambu Lab P2S with AMS 2 Pro filament mapping.",
+      "1-Click Desktop Launchers: Open models directly in Bambu Studio or Autodesk Fusion 360.",
+      "Print Timelapses: Upload and play back chamber timelapse recordings with instant video streaming."
+    ],
+    "fixes": []
+  },
+  {
     "version": "2.2.5",
     "date": "2026-10-03",
     "is_major": false,

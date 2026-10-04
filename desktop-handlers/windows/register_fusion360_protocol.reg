@@ -1,0 +1,12 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CLASSES_ROOT\fusion360]
+@="URL:Autodesk Fusion 360 Protocol"
+"URL Protocol"=""
+
+[HKEY_CLASSES_ROOT\fusion360\shell]
+
+[HKEY_CLASSES_ROOT\fusion360\shell\open]
+
+[HKEY_CLASSES_ROOT\fusion360\shell\open\command]
+@="\"C:\\Program Files\\3DPrintLib\\desktop-handlers\\fusion360_launcher.bat\" \"%1\""

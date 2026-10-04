@@ -7,6 +7,7 @@ from blueprints.links import links_bp
 from blueprints.notes import notes_bp
 from blueprints.admin import admin_bp
 from blueprints.videos import videos_bp
+from blueprints.prints import prints_bp
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,6 +35,7 @@ def create_app():
     app.register_blueprint(notes_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(videos_bp)
+    app.register_blueprint(prints_bp)
 
     @app.context_processor
     def inject_global_settings():

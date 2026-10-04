@@ -29,6 +29,7 @@ def nuke_system_data(options):
     nuke_homepage = bool(options.get("nuke_homepage", True))
     nuke_denied = bool(options.get("nuke_denied", True))
     nuke_books = bool(options.get("nuke_books", True))
+    nuke_models = bool(options.get("nuke_models", True))
     nuke_backups = bool(options.get("nuke_backups", False))
     retain_settings = bool(options.get("retain_settings", True))
 
@@ -42,6 +43,8 @@ def nuke_system_data(options):
         "deleted_denied_urls": 0,
         "deleted_books": 0,
         "deleted_book_files": 0,
+        "deleted_models": 0,
+        "deleted_model_files": 0,
         "deleted_backups": 0,
         "retained_settings": retain_settings
     }
@@ -110,7 +113,17 @@ def nuke_system_data(options):
                 except Exception:
                     pass
 
-            # 7. Settings Table
+            # 7. 3D Print Library Models & Timelapses
+            if nuke_models:
+                try:
+                    m_cnt = conn.execute("SELECT COUNT(*) FROM model_assets").fetchone()[0]
+                    report["deleted_models"] = m_cnt
+                    conn.execute("DELETE FROM model_assets")
+                    conn.execute("DELETE FROM timelapses")
+                except Exception:
+                    pass
+
+            # 8. Settings Table
             if not retain_settings:
                 # Reset settings to clean default keys
                 conn.execute("DELETE FROM settings")
@@ -144,7 +157,7 @@ def nuke_system_data(options):
         except Exception:
             pass
 
-    # 8. Filesystem: Wipe Offline Article Archives
+    # 9. Filesystem: Wipe Offline Article Archives
     if nuke_archives:
         db_dir = os.path.dirname(os.path.abspath(Config.DB_PATH))
         archives_dir = os.path.join(db_dir, 'archives')
@@ -160,7 +173,7 @@ def nuke_system_data(options):
                 logger.error(f"Error removing archives directory: {e}")
             os.makedirs(archives_dir, exist_ok=True)
 
-    # 9. Filesystem: Wipe Downloaded EPUB Books
+    # 10. Filesystem: Wipe Downloaded EPUB Books
     if nuke_books:
         db_dir = os.path.dirname(os.path.abspath(Config.DB_PATH))
         books_dir = os.path.join(db_dir, 'books')
@@ -176,7 +189,26 @@ def nuke_system_data(options):
                 logger.error(f"Error removing books storage directory: {e}")
             os.makedirs(books_dir, exist_ok=True)
 
-    # 10. Filesystem: Wipe Stored System Backups
+    # 11. Filesystem: Wipe 3D Models, Timelapses, and Thumbnails
+    if nuke_models:
+        db_dir = os.path.dirname(os.path.abspath(Config.DB_PATH))
+        m_count = 0
+        for d_key, dir_path in [
+            ('MODELS_DIR', getattr(Config, 'MODELS_DIR', os.path.join(db_dir, 'models'))),
+            ('TIMELAPSES_DIR', getattr(Config, 'TIMELAPSES_DIR', os.path.join(db_dir, 'timelapses'))),
+            ('THUMBNAILS_DIR', getattr(Config, 'THUMBNAILS_DIR', os.path.join(db_dir, 'thumbnails')))
+        ]:
+            if os.path.exists(dir_path):
+                for root, dirs, files in os.walk(dir_path):
+                    m_count += len(files)
+                try:
+                    shutil.rmtree(dir_path, onerror=_remove_readonly)
+                except Exception as e:
+                    logger.error(f"Error removing {d_key} directory: {e}")
+                os.makedirs(dir_path, exist_ok=True)
+        report["deleted_model_files"] = m_count
+
+    # 12. Filesystem: Wipe Stored System Backups
     if nuke_backups:
         if os.path.exists(Config.BACKUP_DIR):
             backup_files = glob.glob(os.path.join(Config.BACKUP_DIR, "linkforge_auto_backup_*.zip"))

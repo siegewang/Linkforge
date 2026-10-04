@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Bambu Studio URL Handler
+Comment=Open 3D Models in Bambu Studio from 3DPrintLib
+Exec=/usr/local/bin/bambustudio-launcher.sh %u
+Icon=bambu-studio
+Terminal=false
+Type=Application
+MimeType=x-scheme-handler/bambustudio;
+Categories=Utility;3DGraphics;
+NoDisplay=true

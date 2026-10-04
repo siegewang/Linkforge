@@ -5,3 +5,5 @@ icalevents
 openai
 pillow
 youtube-transcript-api
+trimesh
+numpy
