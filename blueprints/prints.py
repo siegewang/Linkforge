@@ -351,41 +351,29 @@ def download_model(model_id, filename=None):
 
 @prints_bp.route("/api/models/<int:model_id>/file", methods=["GET"])
 def get_raw_model_file(model_id):
-    """Serves the 3D file for Three.js client loading with CORS. 3MF files are converted to cached binary STL for web rendering."""
+    """Serves the 3D file for Three.js client loading with CORS."""
     conn = get_db()
     row = conn.execute("SELECT * FROM model_assets WHERE id = ?", (model_id,)).fetchone()
     if not row:
         return jsonify({"error": "Model not found"}), 404
 
     models_dir = get_models_dir()
-    thumbs_dir = get_thumbnails_dir()
     file_path = models_dir / row["file_path"]
     if not file_path.exists():
         return jsonify({"error": "Model file not found on disk"}), 404
 
-    # If it's a 3MF file, convert to cached binary STL so Three.js STLLoader renders it reliably
-    if row["file_format"] == "3mf":
-        cached_stl = thumbs_dir / f"mesh_{row['id']}.stl"
-        if not cached_stl.exists():
-            try:
-                import trimesh
-                m = trimesh.load(str(file_path))
-                if isinstance(m, trimesh.Scene):
-                    meshes = [g for g in m.geometry.values() if isinstance(g, trimesh.Trimesh)]
-                    mesh = trimesh.util.concatenate(meshes) if meshes else None
-                else:
-                    mesh = m
-                if mesh is not None:
-                    mesh.export(str(cached_stl), file_type="stl")
-            except Exception as e:
-                logger.warning(f"Could not convert 3MF to STL preview: {e}")
+    ext = (row["file_format"] or "").lower()
+    if ext == "stl":
+        media_type = "model/stl"
+    elif ext == "3mf":
+        media_type = "model/3mf"
+    elif ext == "obj":
+        media_type = "model/obj"
+    elif ext in ("step", "stp"):
+        media_type = "model/step"
+    else:
+        media_type = "application/octet-stream"
 
-        if cached_stl.exists():
-            resp = send_file(str(cached_stl), mimetype="model/stl")
-            resp.headers["Access-Control-Allow-Origin"] = "*"
-            return resp
-
-    media_type = "model/stl" if row["file_format"] == "stl" else "application/octet-stream"
     resp = send_file(str(file_path), mimetype=media_type)
     resp.headers["Access-Control-Allow-Origin"] = "*"
     return resp

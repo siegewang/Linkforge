@@ -8,6 +8,8 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/fflate.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/3MFLoader.js"></script>
 {% endblock %}
 
 {% block extra_css %}
@@ -897,7 +899,7 @@ chmod +x install_handlers.sh
 
         // 7. Load Mesh
         const fileUrl = `/api/models/${model.id}/file`;
-        const format = model.file_format.toLowerCase();
+        const format = (model.file_format || '').toLowerCase();
 
         const defaultMaterial = new THREE.MeshStandardMaterial({
             color: 0x38bdf8,
@@ -918,7 +920,19 @@ chmod +x install_handlers.sh
                     if (child.isMesh) {
                         child.castShadow = true;
                         child.receiveShadow = true;
-                        if (!child.material) child.material = defaultMaterial;
+                        if (!child.material) {
+                            child.material = defaultMaterial;
+                        } else {
+                            if (Array.isArray(child.material)) {
+                                child.material.forEach(m => {
+                                    m.wireframe = isWireframe;
+                                    if (m.roughness === undefined) m.roughness = 0.35;
+                                });
+                            } else {
+                                child.material.wireframe = isWireframe;
+                                if (child.material.roughness === undefined) child.material.roughness = 0.35;
+                            }
+                        }
                     }
                 });
                 targetMesh = geometryOrObject;
@@ -935,35 +949,77 @@ chmod +x install_handlers.sh
             const center = new THREE.Vector3();
             box.getCenter(center);
 
-            document.getElementById('viewer-dimensions').textContent = `${(size.x).toFixed(1)} × ${(size.y).toFixed(1)} × ${(size.z).toFixed(1)} mm`;
+            if (size.x > 0 || size.y > 0 || size.z > 0) {
+                document.getElementById('viewer-dimensions').textContent = `${(size.x).toFixed(1)} × ${(size.y).toFixed(1)} × ${(size.z).toFixed(1)} mm`;
 
-            // Center geometry resting on plate y=0
-            targetMesh.position.x = -center.x;
-            targetMesh.position.z = -center.z;
-            targetMesh.position.y = -box.min.y;
+                // Center geometry resting on plate y=0
+                targetMesh.position.x = -center.x;
+                targetMesh.position.z = -center.z;
+                targetMesh.position.y = -box.min.y;
 
-            // Fit camera
-            const maxDim = Math.max(size.x, size.y, size.z, 50);
-            camera.position.set(maxDim * 1.5, maxDim * 1.3, maxDim * 1.8);
-            controls.target.set(0, size.y / 2, 0);
-            controls.update();
+                // Fit camera
+                const maxDim = Math.max(size.x, size.y, size.z, 50);
+                camera.position.set(maxDim * 1.5, maxDim * 1.3, maxDim * 1.8);
+                controls.target.set(0, size.y / 2, 0);
+                controls.update();
+            }
 
             loading.classList.add('hidden');
         };
 
         const onMeshError = (err) => {
             loading.classList.add('hidden');
-            console.error('Error loading 3D mesh:', err);
+            console.error('Error loading 3D mesh in WebGL:', err);
+            const errMsg = document.createElement('div');
+            errMsg.className = 'absolute inset-0 flex flex-col items-center justify-center text-center p-6 bg-zinc-950/85 backdrop-blur-sm z-10';
+            errMsg.innerHTML = `
+                <i class="fa-solid fa-triangle-exclamation text-3xl text-amber-400 mb-2"></i>
+                <h4 class="text-sm font-bold text-white mb-1">Could Not Render 3D Model</h4>
+                <p class="text-xs text-zinc-400 max-w-sm mb-4">The file format or geometry could not be parsed in WebGL, but can still be opened or downloaded.</p>
+                <div class="flex items-center gap-2">
+                    <a href="${escapeHTML(model.download_url)}" download class="px-3.5 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-xl text-xs font-semibold border border-zinc-700">
+                        <i class="fa-solid fa-download mr-1"></i> Download
+                    </a>
+                    <a href="${escapeHTML(model.bambu_studio_uri)}" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow-md">
+                        <i class="fa-solid fa-cube mr-1"></i> Open in Bambu Studio
+                    </a>
+                </div>
+            `;
+            container.appendChild(errMsg);
         };
 
-        if (format === 'stl' || format === '3mf') {
+        if (format === 'stl') {
             const loader = new THREE.STLLoader();
             loader.load(fileUrl, onMeshLoaded, undefined, onMeshError);
+        } else if (format === '3mf') {
+            const LoaderClass = THREE.ThreeMFLoader || THREE.3MFLoader;
+            if (LoaderClass) {
+                const loader = new LoaderClass();
+                loader.load(fileUrl, onMeshLoaded, undefined, onMeshError);
+            } else {
+                onMeshError(new Error('3MFLoader not available'));
+            }
         } else if (format === 'obj') {
             const loader = new THREE.OBJLoader();
             loader.load(fileUrl, onMeshLoaded, undefined, onMeshError);
         } else {
             loading.classList.add('hidden');
+            const fallbackMsg = document.createElement('div');
+            fallbackMsg.className = 'absolute inset-0 flex flex-col items-center justify-center text-center p-6 bg-zinc-950/85 backdrop-blur-sm z-10';
+            fallbackMsg.innerHTML = `
+                <i class="fa-solid fa-cube text-4xl text-sky-400 mb-3"></i>
+                <h4 class="text-sm font-bold text-white mb-1">Direct CAD Format (.${escapeHTML(format)})</h4>
+                <p class="text-xs text-zinc-400 max-w-sm mb-4">Parametric CAD files (STEP/STP) are solid models best viewed directly in CAD software.</p>
+                <div class="flex items-center gap-2">
+                    <a href="${escapeHTML(model.download_url)}" download class="px-3.5 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-xl text-xs font-semibold border border-zinc-700">
+                        <i class="fa-solid fa-download mr-1"></i> Download
+                    </a>
+                    <a href="${escapeHTML(model.bambu_studio_uri)}" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow-md">
+                        <i class="fa-solid fa-cube mr-1"></i> Open in Bambu Studio
+                    </a>
+                </div>
+            `;
+            container.appendChild(fallbackMsg);
         }
 
         // 8. Animation Loop
