@@ -904,7 +904,8 @@ chmod +x install_handlers.sh
 
     // --- Category Helper Utilities ---
     function getCategoryObj(name) {
-        return loadedCategories.find(c => c.name.toLowerCase() === (name || '').toLowerCase());
+        if (!Array.isArray(loadedCategories) || !name) return null;
+        return loadedCategories.find(c => c && c.name && c.name.toLowerCase() === name.toLowerCase());
     }
 
     function getCategoryIconClass(name) {
@@ -923,7 +924,8 @@ chmod +x install_handlers.sh
         try {
             const res = await fetch('/api/models/categories');
             if (res.ok) {
-                loadedCategories = await res.json();
+                const data = await res.json();
+                loadedCategories = Array.isArray(data) ? data : (data.categories || []);
                 renderCategorySidebar();
                 renderCategoryPills();
                 populateCategorySelects();
@@ -931,6 +933,7 @@ chmod +x install_handlers.sh
             }
         } catch (e) {
             console.error('Failed to load categories:', e);
+            loadedCategories = [];
         }
     }
 
@@ -938,7 +941,8 @@ chmod +x install_handlers.sh
         const list = document.getElementById('sidebar-categories-list');
         if (!list) return;
 
-        const totalModelsCount = loadedCategories.reduce((acc, c) => acc + (c.count || 0), 0);
+        const cats = Array.isArray(loadedCategories) ? loadedCategories : [];
+        const totalModelsCount = cats.reduce((acc, c) => acc + (c.count || 0), 0);
         const isAllActive = currentCategory === 'all';
 
         let html = `
@@ -959,7 +963,7 @@ chmod +x install_handlers.sh
             </button>
         `;
 
-        html += loadedCategories.map(cat => {
+        html += cats.map(cat => {
             const isActive = currentCategory === cat.name;
             const iconClass = getCategoryIconClass(cat.name);
             const color = cat.color || '#818cf8';
@@ -991,6 +995,7 @@ chmod +x install_handlers.sh
         const pillsContainer = document.getElementById('category-pills');
         if (!pillsContainer) return;
 
+        const cats = Array.isArray(loadedCategories) ? loadedCategories : [];
         const isAllActive = currentCategory === 'all';
         let html = `
             <button onclick="selectCategory('all')" id="cat-pill-all"
@@ -1002,7 +1007,7 @@ chmod +x install_handlers.sh
             </button>
         `;
 
-        html += loadedCategories.map(cat => {
+        html += cats.map(cat => {
             const isActive = currentCategory === cat.name;
             const iconClass = getCategoryIconClass(cat.name);
             const color = cat.color || '#818cf8';
@@ -1025,12 +1030,13 @@ chmod +x install_handlers.sh
     }
 
     function populateCategorySelects() {
+        const cats = Array.isArray(loadedCategories) ? loadedCategories : [];
         // 1. Batch action select
         const batchSelect = document.getElementById('batch-category-select');
         if (batchSelect) {
             batchSelect.innerHTML = `
                 <option value="" disabled selected>Select category...</option>
-                ${loadedCategories.map(c => `<option value="${escapeHTML(c.name)}">${escapeHTML(c.name)}</option>`).join('')}
+                ${cats.map(c => `<option value="${escapeHTML(c.name)}">${escapeHTML(c.name)}</option>`).join('')}
             `;
         }
 
@@ -1038,7 +1044,7 @@ chmod +x install_handlers.sh
         const slicerSelect = document.getElementById('slicer-input-category');
         if (slicerSelect) {
             const currentVal = slicerSelect.value;
-            slicerSelect.innerHTML = loadedCategories.map(c => `
+            slicerSelect.innerHTML = cats.map(c => `
                 <option value="${escapeHTML(c.name)}">${escapeHTML(c.name)}</option>
             `).join('');
             if (currentVal) slicerSelect.value = currentVal;
@@ -2720,12 +2726,13 @@ chmod +x install_handlers.sh
         const container = document.getElementById('category-manager-list');
         if (!container) return;
 
-        if (loadedCategories.length === 0) {
+        const cats = Array.isArray(loadedCategories) ? loadedCategories : [];
+        if (cats.length === 0) {
             container.innerHTML = '<p class="text-xs text-zinc-500 italic p-3 text-center">No categories found.</p>';
             return;
         }
 
-        container.innerHTML = loadedCategories.map(cat => {
+        container.innerHTML = cats.map(cat => {
             const iconClass = getCategoryIconClass(cat.name);
             const color = cat.color || '#818cf8';
             const isSystem = cat.is_system;
@@ -2847,7 +2854,8 @@ chmod +x install_handlers.sh
     }
 
     function openEditCategoryModal(catId) {
-        const cat = loadedCategories.find(c => c.id === catId);
+        const cats = Array.isArray(loadedCategories) ? loadedCategories : [];
+        const cat = cats.find(c => c.id === catId);
         if (!cat) return;
 
         renderCategoryPresets();
@@ -2938,9 +2946,12 @@ chmod +x install_handlers.sh
     }
 
     // Initial load & setup
-    setupDragAndDrop();
-    loadCategories();
-    loadModels();
-    pollPrinterStatus();
+    async function initPage() {
+        setupDragAndDrop();
+        await loadCategories();
+        await loadModels();
+        pollPrinterStatus();
+    }
+    initPage();
 </script>
 {% endblock %}
