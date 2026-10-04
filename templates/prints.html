@@ -1028,7 +1028,7 @@ chmod +x install_handlers.sh
             const loader = new THREE.STLLoader();
             loader.load(fileUrl, onMeshLoaded, undefined, onMeshError);
         } else if (format === '3mf') {
-            const LoaderClass = THREE.ThreeMFLoader || THREE.3MFLoader;
+            const LoaderClass = THREE.ThreeMFLoader || THREE['3MFLoader'];
             if (LoaderClass) {
                 const loader = new LoaderClass();
                 loader.load(fileUrl, onMeshLoaded, undefined, onMeshError);
