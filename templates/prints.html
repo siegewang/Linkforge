@@ -1028,13 +1028,75 @@ chmod +x install_handlers.sh
             const loader = new THREE.STLLoader();
             loader.load(fileUrl, onMeshLoaded, undefined, onMeshError);
         } else if (format === '3mf') {
-            const LoaderClass = THREE.ThreeMFLoader || THREE['3MFLoader'];
-            if (LoaderClass) {
-                const loader = new LoaderClass();
-                loader.load(fileUrl, onMeshLoaded, undefined, onMeshError);
-            } else {
-                onMeshError(new Error('3MFLoader not available'));
-            }
+            // High-compatibility multi-part 3MF parser (supports Bambu Studio, OrcaSlicer, PrusaSlicer, and standard 3MF)
+            fetch(fileUrl)
+                .then(res => {
+                    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+                    return res.arrayBuffer();
+                })
+                .then(buffer => {
+                    const unzipped = fflate.unzipSync(new Uint8Array(buffer));
+                    const group = new THREE.Group();
+                    let totalMeshes = 0;
+
+                    for (const filename in unzipped) {
+                        if (!filename.endsWith('.model')) continue;
+                        const xmlStr = fflate.strFromU8(unzipped[filename]);
+                        const doc = new DOMParser().parseFromString(xmlStr, 'application/xml');
+                        const meshNodes = doc.querySelectorAll('mesh');
+
+                        meshNodes.forEach(meshNode => {
+                            const vertexNodes = meshNode.querySelectorAll('vertices > vertex');
+                            const triangleNodes = meshNode.querySelectorAll('triangles > triangle');
+
+                            if (vertexNodes.length === 0 || triangleNodes.length === 0) return;
+
+                            const positions = new Float32Array(vertexNodes.length * 3);
+                            for (let i = 0; i < vertexNodes.length; i++) {
+                                const v = vertexNodes[i];
+                                positions[i * 3] = parseFloat(v.getAttribute('x') || 0);
+                                positions[i * 3 + 1] = parseFloat(v.getAttribute('y') || 0);
+                                positions[i * 3 + 2] = parseFloat(v.getAttribute('z') || 0);
+                            }
+
+                            const indices = new Uint32Array(triangleNodes.length * 3);
+                            for (let i = 0; i < triangleNodes.length; i++) {
+                                const t = triangleNodes[i];
+                                indices[i * 3] = parseInt(t.getAttribute('v1') || 0);
+                                indices[i * 3 + 1] = parseInt(t.getAttribute('v2') || 0);
+                                indices[i * 3 + 2] = parseInt(t.getAttribute('v3') || 0);
+                            }
+
+                            const geo = new THREE.BufferGeometry();
+                            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                            geo.setIndex(new THREE.BufferAttribute(indices, 1));
+                            geo.computeVertexNormals();
+
+                            const mat = defaultMaterial.clone();
+                            const mesh = new THREE.Mesh(geo, mat);
+                            mesh.castShadow = true;
+                            mesh.receiveShadow = true;
+                            group.add(mesh);
+                            totalMeshes++;
+                        });
+                    }
+
+                    if (totalMeshes > 0) {
+                        onMeshLoaded(group);
+                    } else {
+                        const LoaderClass = THREE.ThreeMFLoader || THREE['3MFLoader'];
+                        if (LoaderClass) {
+                            const loader = new LoaderClass();
+                            loader.load(fileUrl, onMeshLoaded, undefined, onMeshError);
+                        } else {
+                            throw new Error('No mesh data found in 3MF package');
+                        }
+                    }
+                })
+                .catch(err => {
+                    console.error('Error parsing 3MF model:', err);
+                    onMeshError(err);
+                });
         } else if (format === 'obj') {
             const loader = new THREE.OBJLoader();
             loader.load(fileUrl, onMeshLoaded, undefined, onMeshError);
