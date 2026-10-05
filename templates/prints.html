@@ -610,7 +610,7 @@
 
 <!-- 5. Ingest 3D Models Upload Modal (Selective Batch Staging) -->
 <div id="uploadModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center p-4 z-50 backdrop-blur-md transition-all">
-    <div class="bg-zinc-900 border border-indigo-900/60 rounded-3xl w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+    <div class="bg-zinc-900 border border-indigo-900/60 rounded-3xl w-full max-w-5xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
         <div class="px-6 py-4 border-b border-zinc-800 bg-zinc-950/60 flex items-center justify-between">
             <div class="flex items-center gap-3">
                 <div class="w-9 h-9 rounded-xl bg-indigo-950/80 border border-indigo-600/50 flex items-center justify-center text-indigo-400">
@@ -618,7 +618,7 @@
                 </div>
                 <div>
                     <h3 class="text-sm font-bold text-white">Ingest 3D Print Assets</h3>
-                    <p class="text-xs text-zinc-400">Batch upload .stl, .3mf, .obj, .step & .zip archives with model preview & selective import</p>
+                    <p class="text-xs text-zinc-400">Batch upload .stl, .3mf, .obj, .step & .zip archives with large model preview & selective import</p>
                 </div>
             </div>
             <button onclick="closeUploadModal()" class="text-zinc-400 hover:text-white p-2">
@@ -671,8 +671,8 @@
                     </div>
                 </div>
 
-                <!-- Staged Files List (with Previews) -->
-                <div id="queued-files-list" class="max-h-72 overflow-y-auto custom-scroll space-y-2 pr-1"></div>
+                <!-- Staged Files List (with Large Previews) -->
+                <div id="queued-files-list" class="max-h-[32rem] overflow-y-auto custom-scroll space-y-3 pr-1"></div>
             </div>
 
             <!-- Gemini AI Custom Instructions -->
@@ -702,6 +702,24 @@
             <button onclick="submitUploadModels()" id="btn-submit-upload" class="px-5 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-950/50 flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                 <i class="fa-solid fa-cloud-arrow-up"></i> <span id="btn-submit-upload-label">Ingest Selected</span>
             </button>
+        </div>
+    </div>
+</div>
+
+<!-- 5b. Staging Full Preview Lightbox Modal -->
+<div id="stagingPreviewModal" class="fixed inset-0 bg-black/95 hidden items-center justify-center p-4 z-[60] backdrop-blur-md transition-all" onclick="closeStagingPreviewModal()">
+    <div class="relative max-w-4xl w-full max-h-[90vh] flex flex-col items-center justify-center bg-zinc-900/90 border border-zinc-800 rounded-3xl p-4 shadow-2xl" onclick="event.stopPropagation()">
+        <div class="w-full flex items-center justify-between pb-3 border-b border-zinc-800 mb-3">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-cube text-indigo-400"></i>
+                <h4 id="staging-preview-modal-title" class="text-xs font-bold text-zinc-200 truncate max-w-lg">Model Preview</h4>
+            </div>
+            <button onclick="closeStagingPreviewModal()" class="w-8 h-8 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white flex items-center justify-center text-xs border border-zinc-700 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="w-full flex items-center justify-center bg-black/50 rounded-2xl overflow-hidden p-2 min-h-[300px]">
+            <img id="staging-preview-modal-img" src="" alt="3D Model Full Preview" class="max-w-full max-h-[70vh] object-contain rounded-xl">
         </div>
     </div>
 </div>
@@ -2715,59 +2733,97 @@ chmod +x install_handlers.sh
         const cats = Array.isArray(loadedCategories) ? loadedCategories : [];
 
         list.innerHTML = queuedUploadFiles.map((item, idx) => `
-            <div class="flex items-center justify-between gap-3 p-3 rounded-2xl border transition-all ${item.selected ? 'bg-zinc-950/90 border-zinc-700/80 shadow-sm' : 'bg-zinc-950/40 border-zinc-900 opacity-60'}">
-                <!-- Checkbox -->
-                <label class="flex items-center justify-center w-6 h-6 rounded-lg bg-zinc-900 border border-zinc-700 cursor-pointer hover:border-indigo-400 shrink-0">
-                    <input type="checkbox" ${item.selected ? 'checked' : ''} onchange="toggleStagedFileSelection(${idx})" class="w-3.5 h-3.5 rounded bg-zinc-800 border-zinc-600 text-indigo-600 focus:ring-0 cursor-pointer">
-                </label>
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl border transition-all ${item.selected ? 'bg-zinc-950/90 border-zinc-700/80 shadow-md' : 'bg-zinc-950/40 border-zinc-900 opacity-60'}">
+                <!-- Checkbox & Large Preview Thumbnail Card -->
+                <div class="flex items-center gap-3 w-full sm:w-auto shrink-0">
+                    <!-- Checkbox -->
+                    <label class="flex items-center justify-center w-7 h-7 rounded-xl bg-zinc-900 border border-zinc-700 cursor-pointer hover:border-indigo-400 shrink-0 transition" title="Include in import">
+                        <input type="checkbox" ${item.selected ? 'checked' : ''} onchange="toggleStagedFileSelection(${idx})" class="w-4 h-4 rounded bg-zinc-800 border-zinc-600 text-indigo-600 focus:ring-0 cursor-pointer">
+                    </label>
 
-                <!-- Model Thumbnail / Preview -->
-                <div class="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center relative">
-                    ${item.thumbnailUrl ? `
-                        <img src="${item.thumbnailUrl}" alt="${escapeHTML(item.name)}" class="w-full h-full object-cover">
-                    ` : `
-                        <div class="flex flex-col items-center justify-center text-zinc-600">
-                            <i class="fa-solid fa-cube text-base"></i>
-                            <span class="text-[8px] font-mono uppercase text-zinc-500 mt-0.5">${escapeHTML(item.format)}</span>
-                        </div>
-                    `}
+                    <!-- Large Model Preview Box (Clickable to Lightbox Zoom if image exists) -->
+                    <div ${item.thumbnailUrl ? `onclick="openStagingPreviewModal('${item.thumbnailUrl}', '${escapeHTML(item.name)}')"` : ''}
+                         class="group relative w-28 h-24 sm:w-36 sm:h-28 md:w-44 md:h-32 rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center shadow-inner ${item.thumbnailUrl ? 'cursor-zoom-in hover:border-indigo-500/80 transition-all' : ''}">
+                        ${item.thumbnailUrl ? `
+                            <img src="${item.thumbnailUrl}" alt="${escapeHTML(item.name)}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-2">
+                                <span class="text-[10px] font-bold text-white flex items-center gap-1">
+                                    <i class="fa-solid fa-magnifying-glass-plus text-indigo-400"></i> Zoom
+                                </span>
+                                <span class="text-[9px] font-mono bg-zinc-900/90 text-emerald-400 px-1.5 py-0.5 rounded border border-zinc-700">Preview</span>
+                            </div>
+                        ` : `
+                            <div class="flex flex-col items-center justify-center text-zinc-600 p-2 text-center">
+                                <i class="fa-solid fa-cube text-2xl text-zinc-500 mb-1"></i>
+                                <span class="text-[10px] font-bold font-mono uppercase text-indigo-400 bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">${escapeHTML(item.format)}</span>
+                                <span class="text-[9px] text-zinc-500 mt-1">${(item.size / (1024 * 1024)).toFixed(1)} MB</span>
+                            </div>
+                        `}
+                    </div>
                 </div>
 
                 <!-- Model Info & Name Input -->
-                <div class="flex-1 min-w-0 space-y-1">
-                    <div class="flex items-center gap-2">
+                <div class="flex-1 min-w-0 w-full space-y-2">
+                    <div class="space-y-1">
+                        <div class="flex items-center justify-between gap-2">
+                            <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Model Name</label>
+                            ${item.isDuplicate ? `
+                                <span title="A model with this filename already exists in your library" class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950/80 text-amber-300 border border-amber-800/80 whitespace-nowrap shrink-0 flex items-center gap-1">
+                                    <i class="fa-solid fa-triangle-exclamation text-[9px]"></i> Existing Duplicate
+                                </span>
+                            ` : ''}
+                        </div>
                         <input type="text" value="${escapeHTML(item.name)}" oninput="updateStagedFileName(${idx}, this.value)"
                                placeholder="Model display name"
-                               class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500 font-medium shadow-inner">
-                        ${item.isDuplicate ? `
-                            <span title="A model with this filename already exists in your library" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-950/80 text-amber-300 border border-amber-800/80 whitespace-nowrap shrink-0 flex items-center gap-1">
-                                <i class="fa-solid fa-triangle-exclamation text-[9px]"></i> Duplicate
-                            </span>
-                        ` : ''}
+                               class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500 font-medium shadow-inner">
                     </div>
-                    <div class="flex items-center gap-2 text-[10px] text-zinc-500 font-mono truncate">
-                        <span class="px-1 rounded bg-zinc-900 text-emerald-400 border border-zinc-800 uppercase font-bold text-[9px]">${escapeHTML(item.format)}</span>
-                        <span class="truncate max-w-[200px]">${escapeHTML(item.file.name)}</span>
-                        <span>• ${(item.size / (1024 * 1024)).toFixed(2)} MB</span>
+
+                    <div class="flex items-center gap-2 text-[11px] text-zinc-400 font-mono flex-wrap">
+                        <span class="px-2 py-0.5 rounded bg-zinc-900 text-emerald-400 border border-zinc-800 uppercase font-bold text-[10px]">${escapeHTML(item.format)}</span>
+                        <span class="truncate max-w-[220px] text-zinc-300" title="${escapeHTML(item.file.name)}">${escapeHTML(item.file.name)}</span>
+                        <span class="text-zinc-500">• ${(item.size / (1024 * 1024)).toFixed(2)} MB</span>
                     </div>
                 </div>
 
-                <!-- Category Selector -->
-                <div class="w-36 sm:w-44 shrink-0">
-                    <select onchange="updateStagedFileCategory(${idx}, this.value)" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500">
-                        <option value="Auto" ${item.category === 'Auto' ? 'selected' : ''}>✨ Auto (AI)</option>
-                        ${cats.map(c => `
-                            <option value="${escapeHTML(c.name)}" ${item.category === c.name ? 'selected' : ''}>${escapeHTML(c.name)}</option>
-                        `).join('')}
-                    </select>
-                </div>
+                <!-- Category Selector & Delete Button -->
+                <div class="flex items-center sm:flex-col justify-between sm:justify-center gap-2.5 w-full sm:w-44 shrink-0">
+                    <div class="w-full space-y-1">
+                        <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 hidden sm:block">Category</label>
+                        <select onchange="updateStagedFileCategory(${idx}, this.value)" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-2.5 py-2 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500">
+                            <option value="Auto" ${item.category === 'Auto' ? 'selected' : ''}>✨ Auto (AI)</option>
+                            ${cats.map(c => `
+                                <option value="${escapeHTML(c.name)}" ${item.category === c.name ? 'selected' : ''}>${escapeHTML(c.name)}</option>
+                            `).join('')}
+                        </select>
+                    </div>
 
-                <!-- Remove item button -->
-                <button type="button" onclick="removeQueuedFile(${idx})" title="Remove from import queue" class="p-1.5 text-zinc-500 hover:text-rose-400 rounded-lg hover:bg-zinc-800 transition shrink-0">
-                    <i class="fa-solid fa-xmark text-sm"></i>
-                </button>
+                    <button type="button" onclick="removeQueuedFile(${idx})" title="Remove from import queue" class="px-3 py-1.5 text-zinc-500 hover:text-rose-400 hover:bg-rose-950/30 rounded-xl border border-transparent hover:border-rose-900/50 transition flex items-center gap-1.5 text-xs self-end sm:self-center">
+                        <i class="fa-solid fa-trash-can text-xs"></i> <span class="sm:hidden text-[11px]">Remove</span>
+                    </button>
+                </div>
             </div>
         `).join('');
+    }
+
+    function openStagingPreviewModal(imgUrl, title) {
+        if (!imgUrl) return;
+        const modal = document.getElementById('stagingPreviewModal');
+        const img = document.getElementById('staging-preview-modal-img');
+        const titleEl = document.getElementById('staging-preview-modal-title');
+        if (modal && img) {
+            img.src = imgUrl;
+            if (titleEl) titleEl.textContent = title || 'Model Preview';
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+    }
+
+    function closeStagingPreviewModal() {
+        const modal = document.getElementById('stagingPreviewModal');
+        if (modal) {
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+        }
     }
 
     function toggleStagedFileSelection(idx) {
