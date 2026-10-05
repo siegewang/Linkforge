@@ -52,19 +52,32 @@
         border-color: rgba(99,102,241,0.5) !important;
     }
 
-    /* Card overflow (â‹¯) menu */
+    /* Card overflow menu */
     .card-overflow-menu {
         display: none;
         position: absolute;
         right: 0;
-        bottom: calc(100% + 6px);
+        bottom: 100%;
+        margin-bottom: 4px;
         z-index: 60;
-        min-width: 168px;
+        min-width: 172px;
         background: #18181b;
         border: 1px solid #3f3f46;
         border-radius: 14px;
         padding: 6px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+        box-shadow: 0 12px 36px rgba(0,0,0,0.8);
+    }
+    /* Invisible hover bridge eliminating the gap between button and menu */
+    .card-overflow-menu::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: -12px;
+        height: 12px;
+    }
+    .card-overflow-menu.open {
+        display: block !important;
     }
     .card-overflow-btn:hover .card-overflow-menu,
     .card-overflow-menu:hover {
@@ -93,16 +106,37 @@
         color: #e4e4e7;
     }
 
-    /* Printer status bar â€” live left accent when printing */
+    /* Printer status bar — live left accent when printing */
     #printer-status-bar.is-printing {
         border-left-width: 3px;
         border-left-color: #00ae42;
     }
 
     /* Header utility dropdown */
-    .header-util-dropdown { display: none; position: absolute; right: 0; top: calc(100% + 6px); z-index: 50; }
+    .header-util-dropdown {
+        display: none;
+        position: absolute;
+        right: 0;
+        top: 100%;
+        margin-top: 4px;
+        z-index: 50;
+    }
+    /* Invisible hover bridge eliminating gap between header button and menu */
+    .header-util-dropdown::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: -12px;
+        height: 12px;
+    }
+    .header-util-dropdown.open {
+        display: block !important;
+    }
     .header-util-btn:hover .header-util-dropdown,
-    .header-util-dropdown:hover { display: block; }
+    .header-util-dropdown:hover {
+        display: block;
+    }
 </style>
 {% endblock %}
 
@@ -142,12 +176,12 @@
             </button>
 
             <!-- Utility overflow â€” low-use actions -->
-            <div class="relative header-util-btn">
-                <button title="More tools"
+            <div class="relative header-util-btn" onclick="event.stopPropagation()">
+                <button onclick="toggleHeaderUtilDropdown(event)"
                         class="px-3 py-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/70 text-xs font-semibold transition-all flex items-center gap-1 shadow-sm">
                     <i class="fa-solid fa-ellipsis-vertical"></i>
                 </button>
-                <div class="header-util-dropdown">
+                <div class="header-util-dropdown" id="header-util-dropdown-menu">
                     <div class="bg-zinc-900 border border-zinc-700/80 rounded-2xl shadow-2xl p-1.5 w-52 space-y-0.5">
                         <button onclick="triggerAiAutoCategorize()" id="btn-header-ai-categorize"
                                 class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-zinc-300 hover:bg-indigo-950/60 hover:text-indigo-200 transition text-left">
@@ -2002,23 +2036,23 @@ chmod +x install_handlers.sh
                         </div>
 
                         <!-- â‹¯ Overflow menu -->
-                        <div class="relative card-overflow-btn">
-                            <button class="p-1.5 rounded-lg text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300 transition flex items-center gap-0.5 text-xs">
+                        <div class="relative card-overflow-btn" onclick="event.stopPropagation()">
+                            <button onclick="toggleCardMenu(event, ${model.id})" class="p-1.5 rounded-lg text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300 transition flex items-center gap-0.5 text-xs">
                                 <i class="fa-solid fa-ellipsis text-xs"></i>
                             </button>
-                            <div class="card-overflow-menu">
-                                <button onclick="openSlicerModal(${model.id})" class="card-overflow-menu-item">
+                            <div id="card-menu-${model.id}" class="card-overflow-menu" onclick="event.stopPropagation()">
+                                <button onclick="closeAllDropdowns(); openSlicerModal(${model.id})" class="card-overflow-menu-item">
                                     <i class="fa-solid fa-sliders text-indigo-400 w-4 text-center"></i> Slicer Settings
                                 </button>
-                                <button onclick="openTimelapseModal(${model.id})" class="card-overflow-menu-item ${hasTimelapse ? 'text-rose-300' : ''}">
+                                <button onclick="closeAllDropdowns(); openTimelapseModal(${model.id})" class="card-overflow-menu-item ${hasTimelapse ? 'text-rose-300' : ''}">
                                     <i class="fa-solid fa-clapperboard ${hasTimelapse ? 'text-rose-400' : 'text-zinc-500'} w-4 text-center"></i>
                                     Timelapse${hasTimelapse ? ` (${model.timelapses.length})` : ''}
                                 </button>
-                                <a href="${escapeHTML(model.download_url)}" download class="card-overflow-menu-item">
+                                <a href="${escapeHTML(model.download_url)}" download onclick="closeAllDropdowns()" class="card-overflow-menu-item">
                                     <i class="fa-solid fa-download text-zinc-400 w-4 text-center"></i> Download File
                                 </a>
                                 <div class="my-1 border-t border-zinc-700/60"></div>
-                                <button onclick="deleteModel(${model.id})" class="card-overflow-menu-item text-rose-400 hover:text-rose-300">
+                                <button onclick="closeAllDropdowns(); deleteModel(${model.id})" class="card-overflow-menu-item text-rose-400 hover:text-rose-300">
                                     <i class="fa-solid fa-trash text-rose-500 w-4 text-center"></i> Delete Model
                                 </button>
                             </div>
@@ -4426,6 +4460,49 @@ chmod +x install_handlers.sh
             showToast(`Error: ${e.message}`, 'error');
         }
     }
+
+
+    // --- Global Dropdown / Overflow Menu Management ---
+    function closeAllDropdowns() {
+        document.querySelectorAll('.card-overflow-menu.open').forEach(el => el.classList.remove('open'));
+        const headerDropdown = document.getElementById('header-util-dropdown-menu');
+        if (headerDropdown) headerDropdown.classList.remove('open');
+    }
+
+    function toggleHeaderUtilDropdown(event) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        const menu = document.getElementById('header-util-dropdown-menu');
+        if (!menu) return;
+        const isOpen = menu.classList.contains('open');
+        closeAllDropdowns();
+        if (!isOpen) {
+            menu.classList.add('open');
+        }
+    }
+
+    function toggleCardMenu(event, modelId) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        const menu = document.getElementById(`card-menu-${modelId}`);
+        if (!menu) return;
+        const isOpen = menu.classList.contains('open');
+        closeAllDropdowns();
+        if (!isOpen) {
+            menu.classList.add('open');
+        }
+    }
+
+    // Close any open dropdowns when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.card-overflow-btn') && !e.target.closest('.header-util-btn')) {
+            closeAllDropdowns();
+        }
+    });
 
     // Initial load & setup
     async function initPage() {
