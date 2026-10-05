@@ -395,6 +395,19 @@ def upload_models():
         return jsonify({"error": "No files provided"}), 400
 
     custom_instructions = request.form.get("custom_instructions", "")
+    
+    # Optional per-file custom name and category overrides
+    file_names_raw = request.form.get("file_names", "{}")
+    file_categories_raw = request.form.get("file_categories", "{}")
+    try:
+        custom_names_map = json.loads(file_names_raw) if file_names_raw else {}
+    except Exception:
+        custom_names_map = {}
+    try:
+        custom_categories_map = json.loads(file_categories_raw) if file_categories_raw else {}
+    except Exception:
+        custom_categories_map = {}
+
     created_models = []
     models_dir = get_models_dir()
     base_url = request.host_url.rstrip("/")
@@ -424,6 +437,17 @@ def upload_models():
             custom_instructions=custom_instructions
         )
 
+        # Apply custom name override if specified by user
+        user_specified_name = custom_names_map.get(f.filename)
+        model_name = user_specified_name.strip() if user_specified_name and user_specified_name.strip() else ai_data["name"]
+
+        # Apply custom category override if specified by user and not "Auto"
+        user_specified_category = custom_categories_map.get(f.filename)
+        if user_specified_category and user_specified_category.strip() and user_specified_category.lower() != "auto":
+            model_category = user_specified_category.strip()
+        else:
+            model_category = ai_data["category"]
+
         # 3. Save model record
         def _insert_model():
             c = get_db()
@@ -435,7 +459,7 @@ def upload_models():
                     material_recommendation, slicer_settings, geometry_metadata
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
-                ai_data["name"],
+                model_name,
                 f.filename,
                 dest_filename,
                 file_size,
@@ -443,7 +467,7 @@ def upload_models():
                 None,
                 ai_data["description"],
                 json.dumps(ai_data["tags"]),
-                ai_data["category"],
+                model_category,
                 ai_data["material_recommendation"],
                 json.dumps(ai_data["slicer_settings"]),
                 json.dumps(geometry)
@@ -459,7 +483,7 @@ def upload_models():
             thumbnail_file = extract_embedded_3mf_thumbnail(target_path, model_id)
 
         if not thumbnail_file:
-            thumbnail_file = generate_placeholder_thumbnail(model_id, ai_data["name"], ext)
+            thumbnail_file = generate_placeholder_thumbnail(model_id, model_name, ext)
 
         if thumbnail_file:
             def _update_thumb():

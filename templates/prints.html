@@ -608,9 +608,9 @@
     </div>
 </div>
 
-<!-- 5. Ingest 3D Models Upload Modal -->
+<!-- 5. Ingest 3D Models Upload Modal (Selective Batch Staging) -->
 <div id="uploadModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center p-4 z-50 backdrop-blur-md transition-all">
-    <div class="bg-zinc-900 border border-indigo-900/60 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+    <div class="bg-zinc-900 border border-indigo-900/60 rounded-3xl w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
         <div class="px-6 py-4 border-b border-zinc-800 bg-zinc-950/60 flex items-center justify-between">
             <div class="flex items-center gap-3">
                 <div class="w-9 h-9 rounded-xl bg-indigo-950/80 border border-indigo-600/50 flex items-center justify-center text-indigo-400">
@@ -618,7 +618,7 @@
                 </div>
                 <div>
                     <h3 class="text-sm font-bold text-white">Ingest 3D Print Assets</h3>
-                    <p class="text-xs text-zinc-400">Supports .stl, .3mf, .obj, .step with auto-AI analysis</p>
+                    <p class="text-xs text-zinc-400">Batch upload .stl, .3mf, .obj, .step & .zip archives with model preview & selective import</p>
                 </div>
             </div>
             <button onclick="closeUploadModal()" class="text-zinc-400 hover:text-white p-2">
@@ -629,22 +629,50 @@
         <div class="p-6 space-y-5 overflow-y-auto custom-scroll flex-1">
             <!-- Drag & Drop Zone -->
             <div id="drop-zone" onclick="document.getElementById('model-files-input').click()"
-                 class="border-2 border-dashed border-zinc-800 hover:border-indigo-500 bg-zinc-950/60 hover:bg-zinc-950/90 rounded-2xl p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center">
-                <input type="file" id="model-files-input" multiple accept=".stl,.3mf,.obj,.step,.stp" onchange="handleModelFilesSelected(event)" class="hidden">
-                <div class="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-indigo-400 text-2xl mb-3 shadow-inner">
+                 class="border-2 border-dashed border-zinc-800 hover:border-indigo-500 bg-zinc-950/60 hover:bg-zinc-950/90 rounded-2xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center">
+                <input type="file" id="model-files-input" multiple accept=".stl,.3mf,.obj,.step,.stp,.zip" onchange="handleModelFilesSelected(event)" class="hidden">
+                <div class="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-indigo-400 text-xl mb-2 shadow-inner">
                     <i class="fa-solid fa-cube"></i>
                 </div>
-                <p class="text-sm font-bold text-zinc-200">Drag & drop 3D files here, or <span class="text-indigo-400 underline">browse</span></p>
-                <p class="text-xs text-zinc-500 mt-1">Supports multiple files (.stl, .3mf, .obj, .step)</p>
+                <p class="text-xs font-bold text-zinc-200">Drag & drop 3D files or .ZIP archive here, or <span class="text-indigo-400 underline">browse</span></p>
+                <p class="text-[11px] text-zinc-500 mt-0.5">Supports .stl, .3mf, .obj, .step, and .zip (auto-unpacked in browser)</p>
             </div>
 
-            <!-- Queued Files List -->
-            <div id="queued-files-container" class="hidden space-y-2">
-                <div class="flex items-center justify-between text-xs text-zinc-400">
-                    <span>Selected Files (<span id="queued-count">0</span>)</span>
-                    <button onclick="clearQueuedFiles()" class="text-rose-400 hover:text-rose-300">Clear all</button>
+            <!-- Staging Review Queue -->
+            <div id="queued-files-container" class="hidden space-y-3">
+                <!-- Staging Toolbar -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-2xl bg-zinc-950/80 border border-zinc-800 text-xs">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <button type="button" onclick="setAllStagedFilesSelected(true)" class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold border border-zinc-700 transition">
+                            <i class="fa-solid fa-check-double mr-1 text-emerald-400"></i> Select All
+                        </button>
+                        <button type="button" onclick="setAllStagedFilesSelected(false)" class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white border border-zinc-700 transition">
+                            Deselect All
+                        </button>
+                        <span id="staging-summary-badge" class="px-2.5 py-1 rounded-lg font-mono text-[11px] bg-indigo-950/80 text-indigo-300 border border-indigo-800/60 font-semibold">
+                            0 of 0 selected
+                        </span>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <!-- Bulk Category Dropdown -->
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-zinc-500 text-[11px] whitespace-nowrap">Category:</span>
+                            <select id="bulk-staging-category" class="bg-zinc-900 border border-zinc-700 rounded-xl px-2 py-1 text-[11px] text-zinc-200 focus:outline-none focus:border-indigo-500">
+                                <!-- Populated dynamically -->
+                            </select>
+                            <button type="button" onclick="applyBulkStagingCategory()" class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition text-[11px]">
+                                Apply
+                            </button>
+                        </div>
+                        <button type="button" onclick="clearQueuedFiles()" class="text-rose-400 hover:text-rose-300 px-2 py-1 text-xs">
+                            Clear
+                        </button>
+                    </div>
                 </div>
-                <div id="queued-files-list" class="max-h-40 overflow-y-auto custom-scroll space-y-1.5 pr-1"></div>
+
+                <!-- Staged Files List (with Previews) -->
+                <div id="queued-files-list" class="max-h-72 overflow-y-auto custom-scroll space-y-2 pr-1"></div>
             </div>
 
             <!-- Gemini AI Custom Instructions -->
@@ -660,16 +688,19 @@
             </div>
 
             <!-- Progress state -->
-            <div id="upload-progress-state" class="hidden p-3 bg-indigo-950/30 border border-indigo-800/50 rounded-xl text-indigo-300 text-xs flex items-center gap-2">
-                <i class="fa-solid fa-circle-notch fa-spin"></i>
-                <span id="upload-progress-msg">Uploading files and analyzing geometry...</span>
+            <div id="upload-progress-state" class="hidden p-3.5 bg-indigo-950/30 border border-indigo-800/50 rounded-2xl text-indigo-300 text-xs flex items-center gap-3">
+                <i class="fa-solid fa-circle-notch fa-spin text-lg"></i>
+                <div class="flex-1">
+                    <p id="upload-progress-msg" class="font-semibold text-zinc-200">Ingesting selected 3D models...</p>
+                    <span class="text-[10px] text-indigo-400">Parsing geometry and analyzing with Gemini AI</span>
+                </div>
             </div>
         </div>
 
         <div class="px-6 py-4 border-t border-zinc-800 bg-zinc-950/60 flex items-center justify-between">
             <button onclick="closeUploadModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white">Cancel</button>
-            <button onclick="submitUploadModels()" id="btn-submit-upload" class="px-5 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-950/50 flex items-center gap-2 transition-all">
-                <i class="fa-solid fa-cloud-arrow-up"></i> Ingest & Analyze
+            <button onclick="submitUploadModels()" id="btn-submit-upload" class="px-5 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-950/50 flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                <i class="fa-solid fa-cloud-arrow-up"></i> <span id="btn-submit-upload-label">Ingest Selected</span>
             </button>
         </div>
     </div>
@@ -2526,12 +2557,22 @@ chmod +x install_handlers.sh
         }
     }
 
-    // --- Ingest / Upload Models Modal ---
+    // --- Ingest / Upload Models Modal (Selective Batch Staging & ZIP Support) ---
     function openUploadModal() {
         queuedUploadFiles = [];
         renderQueuedFiles();
         document.getElementById('upload-custom-prompt').value = '';
         document.getElementById('upload-progress-state').classList.add('hidden');
+
+        // Populate bulk category dropdown
+        const bulkCatSelect = document.getElementById('bulk-staging-category');
+        if (bulkCatSelect) {
+            const cats = Array.isArray(loadedCategories) ? loadedCategories : [];
+            bulkCatSelect.innerHTML = `
+                <option value="Auto">✨ Auto (AI)</option>
+                ${cats.map(c => `<option value="${escapeHTML(c.name)}">${escapeHTML(c.name)}</option>`).join('')}
+            `;
+        }
 
         const modal = document.getElementById('uploadModal');
         modal.classList.remove('hidden');
@@ -2544,6 +2585,7 @@ chmod +x install_handlers.sh
             modal.classList.remove('flex');
             modal.classList.add('hidden');
         }
+        queuedUploadFiles = [];
     }
 
     function handleModelFilesSelected(event) {
@@ -2552,51 +2594,217 @@ chmod +x install_handlers.sh
         event.target.value = '';
     }
 
-    function addFilesToQueue(files) {
+    async function addFilesToQueue(files) {
         const validExtensions = ['.stl', '.3mf', '.obj', '.step', '.stp'];
-        const validFiles = files.filter(f => {
-            const ext = '.' + f.name.split('.').pop().toLowerCase();
-            return validExtensions.includes(ext);
-        });
+        
+        for (const file of files) {
+            const lowerName = file.name.toLowerCase();
 
-        if (validFiles.length < files.length) {
-            const rejected = files.length - validFiles.length;
-            console.warn(`Filtered out ${rejected} non-3D model file(s).`);
+            // 1. Unpack ZIP Archives directly in browser via fflate
+            if (lowerName.endsWith('.zip')) {
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const unzipped = fflate.unzipSync(new Uint8Array(arrayBuffer));
+                    
+                    for (const internalPath in unzipped) {
+                        const cleanPath = internalPath.replace(/^\/+/, '');
+                        if (cleanPath.startsWith('__MACOSX') || cleanPath.endsWith('/') || cleanPath.startsWith('.')) continue;
+                        
+                        const ext = '.' + cleanPath.split('.').pop().toLowerCase();
+                        if (!validExtensions.includes(ext)) continue;
+                        
+                        const filename = cleanPath.split('/').pop();
+                        const fileBytes = unzipped[internalPath];
+                        const extractedFile = new File([fileBytes], filename, { type: 'application/octet-stream' });
+                        
+                        // Extract 3MF embedded thumbnail if present
+                        let thumbUrl = null;
+                        if (ext === '.3mf') {
+                            try {
+                                const innerUnzipped = fflate.unzipSync(fileBytes);
+                                const tKey = Object.keys(innerUnzipped).find(k => k.toLowerCase().startsWith('metadata/') && (k.endsWith('.png') || k.endsWith('.jpg')));
+                                if (tKey) {
+                                    const blob = new Blob([innerUnzipped[tKey]], { type: 'image/png' });
+                                    thumbUrl = URL.createObjectURL(blob);
+                                }
+                            } catch (e) {}
+                        }
+
+                        addStagedItem(extractedFile, thumbUrl, ext);
+                    }
+                } catch (err) {
+                    console.error('Error unpacking zip in browser:', err);
+                    showToast(`Failed to unpack zip "${file.name}": ${err.message}`, 'error');
+                }
+                continue;
+            }
+
+            // 2. Direct 3D Model File
+            const ext = '.' + lowerName.split('.').pop();
+            if (!validExtensions.includes(ext)) continue;
+
+            let thumbUrl = null;
+            if (ext === '.3mf') {
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const unzipped = fflate.unzipSync(new Uint8Array(arrayBuffer));
+                    const tKey = Object.keys(unzipped).find(k => k.toLowerCase().startsWith('metadata/') && (k.endsWith('.png') || k.endsWith('.jpg')));
+                    if (tKey) {
+                        const blob = new Blob([unzipped[tKey]], { type: 'image/png' });
+                        thumbUrl = URL.createObjectURL(blob);
+                    }
+                } catch (e) {}
+            }
+
+            addStagedItem(file, thumbUrl, ext);
         }
 
-        // Avoid exact duplicate file names/sizes already queued
-        validFiles.forEach(newFile => {
-            const exists = queuedUploadFiles.some(existing => existing.name === newFile.name && existing.size === newFile.size);
-            if (!exists) {
-                queuedUploadFiles.push(newFile);
-            }
-        });
-
         renderQueuedFiles();
+    }
+
+    function addStagedItem(file, thumbUrl, ext) {
+        // Prevent duplicate file references already in queue
+        const exists = queuedUploadFiles.some(existing => existing.file.name === file.name && existing.file.size === file.size);
+        if (exists) return;
+
+        const baseStem = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+        const cleanName = baseStem.replace(/[_-]+/g, ' ').trim();
+        const isDuplicate = allModels.some(m => m.filename.toLowerCase() === file.name.toLowerCase());
+
+        queuedUploadFiles.push({
+            id: 'q_' + Math.random().toString(36).substring(2, 9),
+            file: file,
+            name: cleanName || file.name,
+            category: 'Auto',
+            selected: true,
+            thumbnailUrl: thumbUrl,
+            format: ext.replace('.', '').toUpperCase(),
+            size: file.size,
+            isDuplicate: isDuplicate
+        });
     }
 
     function renderQueuedFiles() {
         const container = document.getElementById('queued-files-container');
         const list = document.getElementById('queued-files-list');
-        const count = document.getElementById('queued-count');
+        const summaryBadge = document.getElementById('staging-summary-badge');
+        const submitBtn = document.getElementById('btn-submit-upload');
+        const submitBtnLabel = document.getElementById('btn-submit-upload-label');
+
+        if (!container || !list) return;
 
         if (queuedUploadFiles.length === 0) {
             container.classList.add('hidden');
+            if (submitBtn) submitBtn.disabled = true;
+            if (submitBtnLabel) submitBtnLabel.textContent = 'Ingest Selected';
             return;
         }
 
         container.classList.remove('hidden');
-        count.textContent = queuedUploadFiles.length;
-        list.innerHTML = queuedUploadFiles.map((f, idx) => `
-            <div class="flex items-center justify-between px-3 py-2 rounded-xl bg-zinc-950/80 border border-zinc-800 text-xs text-zinc-200">
-                <div class="flex items-center gap-2 truncate">
-                    <span class="uppercase text-[10px] px-1.5 py-0.5 rounded font-mono bg-zinc-800 text-emerald-400 border border-zinc-700">${f.name.split('.').pop()}</span>
-                    <span class="truncate max-w-sm">${escapeHTML(f.name)}</span>
-                    <span class="text-[11px] text-zinc-500">(${(f.size / (1024 * 1024)).toFixed(2)} MB)</span>
+        const selectedCount = queuedUploadFiles.filter(item => item.selected).length;
+        const selectedBytes = queuedUploadFiles.filter(item => item.selected).reduce((acc, item) => acc + item.size, 0);
+        const selectedMb = (selectedBytes / (1024 * 1024)).toFixed(1);
+
+        if (summaryBadge) {
+            summaryBadge.textContent = `${selectedCount} of ${queuedUploadFiles.length} selected (${selectedMb} MB)`;
+        }
+
+        if (submitBtn) submitBtn.disabled = selectedCount === 0;
+        if (submitBtnLabel) submitBtnLabel.textContent = `Ingest ${selectedCount} Selected File${selectedCount === 1 ? '' : 's'}`;
+
+        const cats = Array.isArray(loadedCategories) ? loadedCategories : [];
+
+        list.innerHTML = queuedUploadFiles.map((item, idx) => `
+            <div class="flex items-center justify-between gap-3 p-3 rounded-2xl border transition-all ${item.selected ? 'bg-zinc-950/90 border-zinc-700/80 shadow-sm' : 'bg-zinc-950/40 border-zinc-900 opacity-60'}">
+                <!-- Checkbox -->
+                <label class="flex items-center justify-center w-6 h-6 rounded-lg bg-zinc-900 border border-zinc-700 cursor-pointer hover:border-indigo-400 shrink-0">
+                    <input type="checkbox" ${item.selected ? 'checked' : ''} onchange="toggleStagedFileSelection(${idx})" class="w-3.5 h-3.5 rounded bg-zinc-800 border-zinc-600 text-indigo-600 focus:ring-0 cursor-pointer">
+                </label>
+
+                <!-- Model Thumbnail / Preview -->
+                <div class="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center relative">
+                    ${item.thumbnailUrl ? `
+                        <img src="${item.thumbnailUrl}" alt="${escapeHTML(item.name)}" class="w-full h-full object-cover">
+                    ` : `
+                        <div class="flex flex-col items-center justify-center text-zinc-600">
+                            <i class="fa-solid fa-cube text-base"></i>
+                            <span class="text-[8px] font-mono uppercase text-zinc-500 mt-0.5">${escapeHTML(item.format)}</span>
+                        </div>
+                    `}
                 </div>
-                <button type="button" onclick="removeQueuedFile(${idx})" class="text-zinc-500 hover:text-rose-400 p-1"><i class="fa-solid fa-xmark"></i></button>
+
+                <!-- Model Info & Name Input -->
+                <div class="flex-1 min-w-0 space-y-1">
+                    <div class="flex items-center gap-2">
+                        <input type="text" value="${escapeHTML(item.name)}" oninput="updateStagedFileName(${idx}, this.value)"
+                               placeholder="Model display name"
+                               class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500 font-medium shadow-inner">
+                        ${item.isDuplicate ? `
+                            <span title="A model with this filename already exists in your library" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-950/80 text-amber-300 border border-amber-800/80 whitespace-nowrap shrink-0 flex items-center gap-1">
+                                <i class="fa-solid fa-triangle-exclamation text-[9px]"></i> Duplicate
+                            </span>
+                        ` : ''}
+                    </div>
+                    <div class="flex items-center gap-2 text-[10px] text-zinc-500 font-mono truncate">
+                        <span class="px-1 rounded bg-zinc-900 text-emerald-400 border border-zinc-800 uppercase font-bold text-[9px]">${escapeHTML(item.format)}</span>
+                        <span class="truncate max-w-[200px]">${escapeHTML(item.file.name)}</span>
+                        <span>• ${(item.size / (1024 * 1024)).toFixed(2)} MB</span>
+                    </div>
+                </div>
+
+                <!-- Category Selector -->
+                <div class="w-36 sm:w-44 shrink-0">
+                    <select onchange="updateStagedFileCategory(${idx}, this.value)" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500">
+                        <option value="Auto" ${item.category === 'Auto' ? 'selected' : ''}>✨ Auto (AI)</option>
+                        ${cats.map(c => `
+                            <option value="${escapeHTML(c.name)}" ${item.category === c.name ? 'selected' : ''}>${escapeHTML(c.name)}</option>
+                        `).join('')}
+                    </select>
+                </div>
+
+                <!-- Remove item button -->
+                <button type="button" onclick="removeQueuedFile(${idx})" title="Remove from import queue" class="p-1.5 text-zinc-500 hover:text-rose-400 rounded-lg hover:bg-zinc-800 transition shrink-0">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
             </div>
         `).join('');
+    }
+
+    function toggleStagedFileSelection(idx) {
+        if (queuedUploadFiles[idx]) {
+            queuedUploadFiles[idx].selected = !queuedUploadFiles[idx].selected;
+            renderQueuedFiles();
+        }
+    }
+
+    function setAllStagedFilesSelected(isSelected) {
+        queuedUploadFiles.forEach(item => item.selected = isSelected);
+        renderQueuedFiles();
+    }
+
+    function updateStagedFileName(idx, newName) {
+        if (queuedUploadFiles[idx]) {
+            queuedUploadFiles[idx].name = newName;
+        }
+    }
+
+    function updateStagedFileCategory(idx, newCategory) {
+        if (queuedUploadFiles[idx]) {
+            queuedUploadFiles[idx].category = newCategory;
+        }
+    }
+
+    function applyBulkStagingCategory() {
+        const bulkSelect = document.getElementById('bulk-staging-category');
+        if (!bulkSelect) return;
+        const targetCategory = bulkSelect.value;
+        queuedUploadFiles.forEach(item => {
+            if (item.selected) {
+                item.category = targetCategory;
+            }
+        });
+        renderQueuedFiles();
+        showToast(`Applied category "${targetCategory}" to selected files`, 'info');
     }
 
     function removeQueuedFile(idx) {
@@ -2610,14 +2818,31 @@ chmod +x install_handlers.sh
     }
 
     async function submitUploadModels() {
-        if (queuedUploadFiles.length === 0) return;
+        const selectedItems = queuedUploadFiles.filter(item => item.selected);
+        if (selectedItems.length === 0) {
+            showToast('Please select at least one file to import', 'warning');
+            return;
+        }
+
         const btn = document.getElementById('btn-submit-upload');
         const progressBox = document.getElementById('upload-progress-state');
+        const progressMsg = document.getElementById('upload-progress-msg');
         btn.disabled = true;
         progressBox.classList.remove('hidden');
+        if (progressMsg) progressMsg.textContent = `Ingesting and analyzing ${selectedItems.length} model(s)...`;
 
         const formData = new FormData();
-        queuedUploadFiles.forEach(f => formData.append('files', f));
+        const namesMap = {};
+        const categoriesMap = {};
+
+        selectedItems.forEach(item => {
+            formData.append('files', item.file);
+            namesMap[item.file.name] = item.name;
+            categoriesMap[item.file.name] = item.category;
+        });
+
+        formData.append('file_names', JSON.stringify(namesMap));
+        formData.append('file_categories', JSON.stringify(categoriesMap));
         formData.append('custom_instructions', document.getElementById('upload-custom-prompt').value.trim());
 
         try {
@@ -2625,14 +2850,20 @@ chmod +x install_handlers.sh
                 method: 'POST',
                 body: formData
             });
+
             if (res.ok) {
+                const created = await res.json();
+                const count = Array.isArray(created) ? created.length : selectedItems.length;
+                showToast(`✓ Successfully ingested ${count} model${count === 1 ? '' : 's'} into library`, 'success');
                 closeUploadModal();
-                loadModels();
+                await loadCategories();
+                await loadModels();
             } else {
-                alert('Upload failed.');
+                const errData = await res.json().catch(() => ({}));
+                showToast(`Upload failed: ${errData.error || 'Server error'}`, 'error');
             }
         } catch (e) {
-            alert('Error during upload.');
+            showToast(`Error during upload: ${e.message}`, 'error');
         } finally {
             btn.disabled = false;
             progressBox.classList.add('hidden');
