@@ -41,6 +41,68 @@
     .toast-animate {
         animation: toast-slide-up 0.25s ease-out forwards;
     }
+
+    /* Premium card hover glow */
+    .model-card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .model-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0 0 1px rgba(99,102,241,0.45), 0 8px 32px rgba(99,102,241,0.18), 0 2px 8px rgba(0,0,0,0.5);
+        border-color: rgba(99,102,241,0.5) !important;
+    }
+
+    /* Card overflow (â‹¯) menu */
+    .card-overflow-menu {
+        display: none;
+        position: absolute;
+        right: 0;
+        bottom: calc(100% + 6px);
+        z-index: 60;
+        min-width: 168px;
+        background: #18181b;
+        border: 1px solid #3f3f46;
+        border-radius: 14px;
+        padding: 6px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+    }
+    .card-overflow-btn:hover .card-overflow-menu,
+    .card-overflow-menu:hover {
+        display: block;
+    }
+    .card-overflow-menu-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 7px 10px;
+        border-radius: 9px;
+        font-size: 11px;
+        font-weight: 500;
+        color: #a1a1aa;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        text-align: left;
+        text-decoration: none;
+        transition: background 0.15s, color 0.15s;
+        white-space: nowrap;
+    }
+    .card-overflow-menu-item:hover {
+        background: #27272a;
+        color: #e4e4e7;
+    }
+
+    /* Printer status bar â€” live left accent when printing */
+    #printer-status-bar.is-printing {
+        border-left-width: 3px;
+        border-left-color: #00ae42;
+    }
+
+    /* Header utility dropdown */
+    .header-util-dropdown { display: none; position: absolute; right: 0; top: calc(100% + 6px); z-index: 50; }
+    .header-util-btn:hover .header-util-dropdown,
+    .header-util-dropdown:hover { display: block; }
 </style>
 {% endblock %}
 
@@ -66,59 +128,89 @@
             </div>
         </div>
 
-        <!-- Header Actions -->
-        <div class="flex items-center gap-2.5 flex-wrap">
-            <button onclick="triggerAiAutoCategorize()" id="btn-header-ai-categorize" title="Auto-classify all models into maker categories using Gemini AI" class="px-3.5 py-2 rounded-xl bg-purple-950/70 hover:bg-purple-900/80 text-purple-300 border border-purple-800/60 text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm">
-                <i class="fa-solid fa-wand-magic-sparkles text-purple-400"></i> AI Auto-Categorize
+        <!-- Header Actions â€” grouped by importance -->
+        <div class="flex items-center gap-2 flex-wrap">
+
+            <!-- Secondary: Categories & Filament Vault -->
+            <button onclick="openCategoryManagerModal()" title="Manage 3D model categories"
+                    class="px-3.5 py-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border border-zinc-700/70 text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm">
+                <i class="fa-solid fa-folder-tree text-indigo-400"></i> Categories
             </button>
-            <button onclick="openCategoryManagerModal()" title="Manage 3D model categories" class="px-3.5 py-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm">
-                <i class="fa-solid fa-folder-tree text-amber-400"></i> Categories
-            </button>
-            <button onclick="openSpoolVaultModal()" title="Manage filament spools & AMS inventory" class="px-3.5 py-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-amber-300 border border-zinc-700 text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm">
+            <button onclick="openSpoolVaultModal()" title="Manage filament spools & AMS inventory"
+                    class="px-3.5 py-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border border-zinc-700/70 text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm">
                 <i class="fa-solid fa-spool text-amber-400"></i> Filament Vault
             </button>
-            <button onclick="openProtocolHelpModal()" class="px-3.5 py-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm">
-                <i class="fa-solid fa-desktop text-sky-400"></i> Desktop Handlers
-            </button>
-            <button onclick="backfillThumbnails()" title="Scan & extract embedded 3MF thumbnails" class="px-3 py-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-white border border-zinc-700 text-xs font-semibold transition-all">
-                <i class="fa-solid fa-camera text-indigo-400"></i>
-            </button>
-            <button onclick="openUploadModal()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 via-teal-600 to-emerald-600 hover:from-indigo-500 hover:to-emerald-500 text-white text-xs font-bold transition-all shadow-lg shadow-indigo-950/40 flex items-center gap-2">
+
+            <!-- Utility overflow â€” low-use actions -->
+            <div class="relative header-util-btn">
+                <button title="More tools"
+                        class="px-3 py-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/70 text-xs font-semibold transition-all flex items-center gap-1 shadow-sm">
+                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                </button>
+                <div class="header-util-dropdown">
+                    <div class="bg-zinc-900 border border-zinc-700/80 rounded-2xl shadow-2xl p-1.5 w-52 space-y-0.5">
+                        <button onclick="triggerAiAutoCategorize()" id="btn-header-ai-categorize"
+                                class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-zinc-300 hover:bg-indigo-950/60 hover:text-indigo-200 transition text-left">
+                            <i class="fa-solid fa-wand-magic-sparkles text-indigo-400 w-4 text-center"></i> AI Auto-Categorize
+                        </button>
+                        <button onclick="openProtocolHelpModal()"
+                                class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-zinc-300 hover:bg-zinc-800 transition text-left">
+                            <i class="fa-solid fa-desktop text-zinc-400 w-4 text-center"></i> Desktop Handlers
+                        </button>
+                        <button onclick="backfillThumbnails()" title="Scan & extract embedded 3MF thumbnails"
+                                class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-zinc-300 hover:bg-zinc-800 transition text-left">
+                            <i class="fa-solid fa-camera text-zinc-400 w-4 text-center"></i> Scan Thumbnails
+                        </button>
+                        <button onclick="openTagManagerModal()"
+                                class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-zinc-300 hover:bg-zinc-800 transition text-left">
+                            <i class="fa-solid fa-tags text-zinc-400 w-4 text-center"></i> Tag Manager
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Primary CTA -->
+            <button onclick="openUploadModal()"
+                    class="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold transition-all shadow-lg shadow-indigo-950/50 flex items-center gap-2 ring-1 ring-indigo-500/30">
                 <i class="fa-solid fa-cloud-arrow-up"></i> Ingest 3D Models
             </button>
         </div>
     </div>
 
     <!-- Live Bambu Printer & AMS Status Widget -->
-    <div id="printer-status-bar" class="p-4 bg-zinc-900/60 border border-zinc-800 rounded-2xl shadow-sm flex flex-wrap items-center justify-between gap-4">
+    <div id="printer-status-bar" class="px-5 py-3.5 bg-zinc-900/60 border border-zinc-800 rounded-2xl shadow-sm flex flex-wrap items-center justify-between gap-4 transition-all">
         <div class="flex items-center gap-3">
-            <span id="printer-status-dot" class="w-3 h-3 rounded-full bg-emerald-400 animate-ping"></span>
+            <div class="relative w-3 h-3">
+                <span id="printer-status-dot-bg" class="absolute inset-0 rounded-full bg-zinc-600"></span>
+                <span id="printer-status-dot" class="absolute inset-0 rounded-full bg-zinc-500"></span>
+            </div>
             <div>
                 <div class="text-xs font-bold text-zinc-200 flex items-center gap-2">
                     <span id="printer-model-name">Bambu Lab P2S</span>
                     <span id="printer-serial-badge" class="text-[10px] text-zinc-500 font-mono">(01P2S999990001)</span>
                 </div>
-                <span class="text-[11px] text-zinc-400">Status: <b id="printer-state-text" class="text-emerald-400">IDLE</b></span>
+                <span class="text-[11px] text-zinc-400">Status: <b id="printer-state-text" class="text-zinc-400">CONNECTINGâ€¦</b></span>
             </div>
         </div>
 
-        <div class="flex items-center gap-4 text-xs">
+        <div class="flex items-center gap-5 text-xs">
             <div class="flex items-center gap-1.5 text-zinc-400">
-                <i class="fa-solid fa-temperature-half text-amber-400"></i>
-                <span>Nozzle: <b id="printer-temp-nozzle" class="text-zinc-200">28°C</b></span>
+                <i class="fa-solid fa-temperature-half text-amber-400/80"></i>
+                <span>Nozzle: <b id="printer-temp-nozzle" class="text-zinc-200">â€”Â°C</b></span>
             </div>
             <div class="flex items-center gap-1.5 text-zinc-400">
-                <i class="fa-solid fa-temperature-high text-rose-400"></i>
-                <span>Bed: <b id="printer-temp-bed" class="text-zinc-200">24°C</b></span>
+                <i class="fa-solid fa-temperature-high text-amber-400/60"></i>
+                <span>Bed: <b id="printer-temp-bed" class="text-zinc-200">â€”Â°C</b></span>
             </div>
             <!-- Live AMS 4-Tray Status Bar -->
-            <div id="ams-mini-pills" class="flex items-center gap-1.5 border-l border-zinc-800 pl-3">
+            <div id="ams-mini-pills" class="flex items-center gap-1.5 border-l border-zinc-800 pl-4">
                 <!-- Populated dynamically by renderAmsStatusWidget() -->
             </div>
         </div>
     </div>
 
     <!-- Filters & Search Toolbar -->
+
     <div class="space-y-3 bg-zinc-900/30 p-4 rounded-2xl border border-zinc-800/60">
         <div class="flex flex-col sm:flex-row items-center gap-3">
             <div class="relative flex-1 w-full">
@@ -281,7 +373,7 @@
                 </span>
                 <h3 id="viewer-model-name" class="text-sm font-bold text-white truncate max-w-md">3D Model Preview</h3>
                 <span id="viewer-dimensions" class="hidden md:inline text-xs text-zinc-400 bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800 font-mono">
-                    -- × -- × -- mm
+                    -- Ã— -- Ã— -- mm
                 </span>
             </div>
 
@@ -330,7 +422,7 @@
             <!-- Bambu Plate Badge -->
             <div class="absolute bottom-3 left-4 z-10 text-[11px] text-zinc-500 font-mono flex items-center gap-2 pointer-events-none">
                 <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-                <span>Bambu P2S Build Plate (256 × 256 mm)</span>
+                <span>Bambu P2S Build Plate (256 Ã— 256 mm)</span>
             </div>
         </div>
     </div>
@@ -373,7 +465,7 @@
                 <i class="fa-solid fa-sparkles text-indigo-400 mt-0.5"></i>
                 <div class="text-zinc-300">
                     <strong class="text-indigo-300">AI Print Profile:</strong>
-                    <span id="bambu-slicer-details">Layer: 0.20mm • Infill: 15% Gyroid • Walls: 3</span>
+                    <span id="bambu-slicer-details">Layer: 0.20mm â€¢ Infill: 15% Gyroid â€¢ Walls: 3</span>
                 </div>
             </div>
 
@@ -577,11 +669,11 @@
                         <input id="slicer-input-brim" type="text" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200">
                     </div>
                     <div>
-                        <label class="block text-[11px] font-semibold text-zinc-400 mb-1">Bed Temp (°C)</label>
+                        <label class="block text-[11px] font-semibold text-zinc-400 mb-1">Bed Temp (Â°C)</label>
                         <input id="slicer-input-bedtemp" type="number" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200">
                     </div>
                     <div>
-                        <label class="block text-[11px] font-semibold text-zinc-400 mb-1">Nozzle Temp (°C)</label>
+                        <label class="block text-[11px] font-semibold text-zinc-400 mb-1">Nozzle Temp (Â°C)</label>
                         <input id="slicer-input-nozzletemp" type="number" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200">
                     </div>
                 </div>
@@ -1178,18 +1270,18 @@ chmod +x install_handlers.sh
             <!-- Temps & Notes -->
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-zinc-400 font-bold mb-1">Nozzle Temp (°C)</label>
+                    <label class="block text-zinc-400 font-bold mb-1">Nozzle Temp (Â°C)</label>
                     <input id="spool-input-nozzletemp" type="number" value="220" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-zinc-200 focus:outline-none focus:border-amber-400">
                 </div>
                 <div>
-                    <label class="block text-zinc-400 font-bold mb-1">Bed Temp (°C)</label>
+                    <label class="block text-zinc-400 font-bold mb-1">Bed Temp (Â°C)</label>
                     <input id="spool-input-bedtemp" type="number" value="60" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-zinc-200 focus:outline-none focus:border-amber-400">
                 </div>
             </div>
 
             <div>
                 <label class="block text-zinc-400 font-bold mb-1">Notes</label>
-                <textarea id="spool-input-notes" rows="2" placeholder="e.g. Needs drying at 50°C for 6h, good layer adhesion at 225°C..."
+                <textarea id="spool-input-notes" rows="2" placeholder="e.g. Needs drying at 50Â°C for 6h, good layer adhesion at 225Â°C..."
                           class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-zinc-200 focus:outline-none focus:border-amber-400 resize-none"></textarea>
             </div>
 
@@ -1591,7 +1683,7 @@ chmod +x install_handlers.sh
 
             const data = await res.json();
             if (res.ok) {
-                showToast(`✓ Moved ${modelIds.length} model${modelIds.length === 1 ? '' : 's'} to "${categoryName}"`, 'success');
+                showToast(`âœ“ Moved ${modelIds.length} model${modelIds.length === 1 ? '' : 's'} to "${categoryName}"`, 'success');
                 // Clear selection if those models were selected
                 modelIds.forEach(id => selectedModelIds.delete(id));
                 updateBatchActionBar();
@@ -1672,7 +1764,7 @@ chmod +x install_handlers.sh
             });
 
             if (res.ok) {
-                showToast(`✓ Categorized ${ids.length} models into "${targetCategory}"`, 'success');
+                showToast(`âœ“ Categorized ${ids.length} models into "${targetCategory}"`, 'success');
                 clearModelSelection();
                 await loadCategories();
                 await loadModels();
@@ -1708,7 +1800,7 @@ chmod +x install_handlers.sh
 
             const data = await res.json();
             if (res.ok && data.success) {
-                showToast(`✓ AI Categorization Complete: ${data.categorized_count} models sorted across ${data.categories_count} categories!`, 'success');
+                showToast(`âœ“ AI Categorization Complete: ${data.categorized_count} models sorted across ${data.categories_count} categories!`, 'success');
                 await loadCategories();
                 await loadModels();
             } else {
@@ -1743,7 +1835,7 @@ chmod +x install_handlers.sh
 
             const data = await res.json();
             if (res.ok && data.success) {
-                showToast(`✓ AI classified ${data.categorized_count} selected models!`, 'success');
+                showToast(`âœ“ AI classified ${data.categorized_count} selected models!`, 'success');
                 clearModelSelection();
                 await loadCategories();
                 await loadModels();
@@ -1766,131 +1858,170 @@ chmod +x install_handlers.sh
         const catIcon = getCategoryIconClass(catName);
         const catColor = getCategoryColor(catName);
 
+        // Tags â€” up to 3 shown inline
         const tagsHtml = (model.tags || []).slice(0, 3).map(t => `
-            <span class="text-[10px] px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-300 border border-zinc-700 font-medium">#${escapeHTML(t)}</span>
+            <span class="text-[11px] px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-200 border border-zinc-700/80 font-medium">#${escapeHTML(t)}</span>
         `).join('') + ((model.tags || []).length > 3 ? `<span class="text-[10px] px-1 text-zinc-500 font-mono">+${model.tags.length - 3}</span>` : '');
+
+        // Slicer stats
+        const ss = model.slicer_settings || {};
+        const printTime = ss.print_time || ss.estimated_time || null;
+        const material = model.material_recommendation || ss.material || null;
+        const hasNotes = model.description && model.description !== 'No description provided.' && model.description.length > 0;
 
         return `
         <div id="model-card-${model.id}"
              draggable="true"
              ondragstart="handleCardDragStart(event, ${model.id})"
              ondragend="handleCardDragEnd(event)"
-             class="model-card group bg-zinc-900/80 hover:bg-zinc-900 border ${isSelected ? 'ring-2 ring-indigo-500 bg-indigo-950/20 border-indigo-500' : 'border-zinc-800 hover:border-zinc-700'} rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 flex flex-col justify-between cursor-default select-none">
-            
-            <!-- Thumbnail & Preview Trigger -->
-            <div class="relative aspect-[16/10] bg-zinc-950 overflow-hidden cursor-pointer" onclick="openViewerModal(${model.id})">
+             class="model-card group bg-zinc-900/90 border ${isSelected ? 'ring-2 ring-indigo-500 border-indigo-500 bg-indigo-950/20' : 'border-zinc-800'} rounded-2xl overflow-hidden shadow-md flex flex-col cursor-default select-none">
+
+            <!-- Thumbnail â€” 4:3 ratio, model fills preview -->
+            <div class="relative aspect-[4/3] bg-zinc-950 overflow-hidden cursor-pointer" onclick="openViewerModal(${model.id})">
                 ${model.thumbnail_url ? `
-                    <img src="${escapeHTML(model.thumbnail_url)}" alt="${escapeHTML(model.name)}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onerror="this.onerror=null; this.src=''; this.parentElement.innerHTML='<div class=\\'w-full h-full flex flex-col items-center justify-center text-zinc-700\\'><i class=\\'fa-solid fa-cube text-4xl mb-1\\'></i><span class=\\'text-[11px] font-mono text-zinc-500\\'>3D Mesh</span></div>';">
+                    <img src="${escapeHTML(model.thumbnail_url)}" alt="${escapeHTML(model.name)}" loading="lazy"
+                         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                         onerror="this.onerror=null; this.src=''; this.parentElement.innerHTML='<div class=\\'w-full h-full flex flex-col items-center justify-center text-zinc-600\\'><i class=\\'fa-solid fa-cube text-5xl mb-2\\'></i><span class=\\'text-xs font-mono text-zinc-500\\'>No Preview</span></div>';">
                 ` : `
-                    <div class="w-full h-full flex flex-col items-center justify-center text-zinc-700 group-hover:text-zinc-500 transition">
-                        <i class="fa-solid fa-cube text-4xl mb-1"></i>
-                        <span class="text-[11px] font-mono text-zinc-500">3D Mesh</span>
+                    <div class="w-full h-full flex flex-col items-center justify-center text-zinc-600 group-hover:text-zinc-500 transition">
+                        <i class="fa-solid fa-cube text-5xl mb-2"></i>
+                        <span class="text-xs font-mono text-zinc-500">No Preview</span>
                     </div>
                 `}
 
-                <!-- Multi-Select Checkbox (Top Left) -->
+                <!-- Top-left: Checkbox + format badge -->
                 <div class="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5" onclick="event.stopPropagation()">
                     <label class="w-6 h-6 rounded-lg bg-zinc-950/90 border border-zinc-700/80 flex items-center justify-center cursor-pointer hover:border-indigo-400 backdrop-blur-md transition shadow-md">
                         <input type="checkbox" id="model-select-check-${model.id}" ${isSelected ? 'checked' : ''}
                                onchange="toggleModelSelection(${model.id})"
                                class="w-3.5 h-3.5 rounded bg-zinc-900 border-zinc-600 text-indigo-600 focus:ring-0 cursor-pointer">
                     </label>
-                    <span class="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-zinc-950/90 text-emerald-400 border border-emerald-500/30 backdrop-blur-md">
+                    <span class="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-zinc-950/90 text-indigo-300 border border-indigo-700/40 backdrop-blur-md">
                         ${escapeHTML(model.file_format)}
                     </span>
                 </div>
 
-                <!-- Category & Timelapse Pills (Top Right) -->
-                <div class="absolute top-2.5 right-2.5 z-20 flex items-center gap-1.5">
-                    ${hasTimelapse ? `
-                        <button onclick="event.stopPropagation(); openTimelapseModal(${model.id})" class="flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-rose-950/90 text-rose-300 border border-rose-800/50 backdrop-blur-md hover:bg-rose-900 transition shadow-md">
-                            <i class="fa-solid fa-clapperboard text-rose-400 text-[10px]"></i>
-                            <span>${model.timelapses.length}</span>
-                        </button>
-                    ` : ''}
-                    <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-zinc-950/90 backdrop-blur-md border border-zinc-800 flex items-center gap-1 shadow-md" style="color: ${catColor};">
-                        <i class="${catIcon} text-[9px]"></i>
-                        <span class="max-w-[100px] truncate">${escapeHTML(catName)}</span>
-                    </span>
+                <!-- Top-right: Timelapse badge (only when present) -->
+                ${hasTimelapse ? `
+                <div class="absolute top-2.5 right-2.5 z-20">
+                    <button onclick="event.stopPropagation(); openTimelapseModal(${model.id})"
+                            class="flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-rose-950/90 text-rose-300 border border-rose-800/50 backdrop-blur-md hover:bg-rose-900 transition shadow-md">
+                        <i class="fa-solid fa-clapperboard text-rose-400 text-[10px]"></i>
+                        <span>${model.timelapses.length}</span>
+                    </button>
                 </div>
+                ` : ''}
 
-                <!-- Hover Overlay with Drag Handle Badge -->
-                <div class="absolute inset-0 bg-zinc-950/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-2">
-                    <button onclick="event.stopPropagation(); openViewerModal(${model.id})" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-zinc-900/90 text-white border border-zinc-700 shadow-xl flex items-center gap-1.5 hover:bg-indigo-600 hover:border-indigo-600 transition">
-                        <i class="fa-solid fa-eye text-xs"></i> 3D View
+                <!-- Hover overlay â€” 3D View button -->
+                <div class="absolute inset-0 bg-zinc-950/50 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                    <button onclick="event.stopPropagation(); openViewerModal(${model.id})"
+                            class="px-4 py-2 rounded-xl text-xs font-bold bg-zinc-900/95 text-white border border-indigo-500/60 shadow-xl flex items-center gap-2 hover:bg-indigo-600 hover:border-indigo-600 transition">
+                        <i class="fa-solid fa-eye text-xs"></i> View 3D Model
                     </button>
                 </div>
             </div>
 
             <!-- Card Body -->
-            <div class="p-4 flex-1 flex flex-col justify-between">
-                <div>
-                    <div class="flex items-start justify-between gap-2 mb-1">
-                        <h3 onclick="openViewerModal(${model.id})" class="text-xs font-bold text-zinc-100 hover:text-indigo-400 transition truncate cursor-pointer" title="${escapeHTML(model.name)}">
+            <div class="p-4 flex-1 flex flex-col justify-between gap-3">
+                <div class="space-y-2">
+                    <!-- Name + size -->
+                    <div class="flex items-start justify-between gap-2">
+                        <h3 onclick="openViewerModal(${model.id})"
+                            class="text-sm font-bold text-zinc-100 hover:text-indigo-300 transition truncate cursor-pointer leading-snug"
+                            title="${escapeHTML(model.name)}">
                             ${escapeHTML(model.name)}
                         </h3>
-                        <span class="text-[10px] text-zinc-500 font-mono whitespace-nowrap">${sizeMb} MB</span>
+                        <span class="text-[10px] text-zinc-500 font-mono whitespace-nowrap pt-0.5">${sizeMb} MB</span>
                     </div>
 
-                    <p class="text-[11px] text-zinc-400 line-clamp-2 mb-3 h-7 leading-3.5">
-                        ${escapeHTML(model.description || 'No description provided.')}
+                    <!-- Description -->
+                    ${hasNotes ? `
+                    <p class="text-xs text-zinc-400 line-clamp-2 leading-relaxed">
+                        ${escapeHTML(model.description)}
                     </p>
+                    ` : ''}
 
-                    <!-- Tags & Material -->
-                    <div class="flex items-center justify-between gap-2 mb-3">
-                        <div onclick="openSlicerModal(${model.id})" class="flex flex-wrap items-center gap-1 cursor-pointer group/tags" title="Edit tags & metadata">
-                            ${tagsHtml}
-                            <span class="text-[10px] text-zinc-500 hover:text-purple-400 font-mono ml-0.5">edit</span>
-                        </div>
-                        ${model.material_recommendation ? `
-                            <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-indigo-950/80 text-indigo-300 border border-indigo-800/40 whitespace-nowrap">
-                                ${escapeHTML(model.material_recommendation)}
+                    <!-- Stats row: print time | material | category -->
+                    <div class="flex items-center gap-2 flex-wrap">
+                        ${printTime ? `
+                            <span class="text-[11px] text-zinc-400 flex items-center gap-1">
+                                <i class="fa-solid fa-clock text-zinc-500 text-[10px]"></i> ${escapeHTML(String(printTime))}
                             </span>
                         ` : ''}
+                        ${material ? `
+                            <span class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-indigo-950/70 text-indigo-300 border border-indigo-800/40">
+                                ${escapeHTML(material)}
+                            </span>
+                        ` : ''}
+                        <span class="px-2 py-0.5 rounded-md text-[11px] font-medium bg-zinc-800/80 border border-zinc-700/60 flex items-center gap-1" style="color: ${catColor};">
+                            <i class="${catIcon} text-[9px]"></i>
+                            <span class="max-w-[90px] truncate">${escapeHTML(catName)}</span>
+                        </span>
                     </div>
+
+                    <!-- Tags -->
+                    ${(model.tags || []).length > 0 ? `
+                    <div class="flex flex-wrap items-center gap-1">
+                        ${tagsHtml}
+                    </div>
+                    ` : ''}
                 </div>
 
-                <!-- Action Button Row -->
-                <div class="space-y-2 pt-2 border-t border-zinc-800/80">
+                <!-- Action row -->
+                <div class="pt-2.5 border-t border-zinc-800/70 space-y-2">
+                    <!-- Primary CTAs -->
                     <div class="grid grid-cols-2 gap-2">
-                        <a href="${escapeHTML(model.bambu_studio_uri)}" title="Launch in Bambu Studio via bambustudio:// URL handler"
-                           class="px-2 py-1.5 rounded-xl text-xs font-semibold bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-700/50 flex items-center justify-center gap-1.5 transition truncate text-center">
+                        <a href="${escapeHTML(model.bambu_studio_uri)}" title="Launch in Bambu Studio"
+                           class="px-2 py-1.5 rounded-xl text-xs font-semibold bg-zinc-800/80 hover:bg-indigo-950/80 text-zinc-300 hover:text-indigo-300 border border-zinc-700/60 hover:border-indigo-700/60 flex items-center justify-center gap-1.5 transition">
                             <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i> Bambu Studio
                         </a>
 
                         ${isSTEP ? `
-                            <a href="${escapeHTML(model.fusion360_uri)}" title="Launch in Autodesk Fusion 360 via fusion360:// URL handler"
-                               class="px-2 py-1.5 rounded-xl text-xs font-semibold bg-amber-950/60 hover:bg-amber-900/60 text-amber-300 border border-amber-700/50 flex items-center justify-center gap-1.5 transition truncate text-center">
+                            <a href="${escapeHTML(model.fusion360_uri)}" title="Launch in Autodesk Fusion 360"
+                               class="px-2 py-1.5 rounded-xl text-xs font-semibold bg-zinc-800/80 hover:bg-amber-950/70 text-zinc-300 hover:text-amber-300 border border-zinc-700/60 hover:border-amber-700/60 flex items-center justify-center gap-1.5 transition">
                                 <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i> Fusion 360
                             </a>
                         ` : `
-                            <button onclick="openBambuPrintModal(${model.id})" title="Send directly to Bambu Lab P2S via Cloud MQTT"
-                                    class="px-2 py-1.5 rounded-xl text-xs font-semibold bg-indigo-950/60 hover:bg-indigo-900/60 text-indigo-300 border border-indigo-700/50 flex items-center justify-center gap-1.5 transition truncate">
-                                <i class="fa-solid fa-paper-plane text-[10px]"></i> To P2S Printer
+                            <button onclick="openBambuPrintModal(${model.id})" title="Send directly to Bambu Lab P2S"
+                                    class="px-2 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white border border-indigo-500/60 flex items-center justify-center gap-1.5 transition shadow-sm shadow-indigo-950/50">
+                                <i class="fa-solid fa-paper-plane text-[10px]"></i> To Printer
                             </button>
                         `}
                     </div>
 
-                    <!-- Secondary Utility Icons & Drag Grip -->
-                    <div class="flex items-center justify-between text-zinc-400 pt-1 text-xs">
+                    <!-- Footer row: drag grip + edit + â‹¯ overflow menu -->
+                    <div class="flex items-center justify-between">
                         <div class="flex items-center gap-1">
-                            <button onclick="openSlicerModal(${model.id})" title="Edit Slicer Profile & Metadata" class="p-1.5 rounded-lg hover:bg-zinc-800 hover:text-purple-400 transition">
-                                <i class="fa-solid fa-sliders text-xs"></i>
-                            </button>
-                            <button onclick="openTimelapseModal(${model.id})" title="Timelapse Video" class="p-1.5 rounded-lg hover:bg-zinc-800 ${hasTimelapse ? 'text-rose-400' : 'hover:text-zinc-200'} transition">
-                                <i class="fa-solid fa-clapperboard text-xs"></i>
-                            </button>
-                            <a href="${escapeHTML(model.download_url)}" download title="Download Model File" class="p-1.5 rounded-lg hover:bg-zinc-800 hover:text-zinc-200 transition">
-                                <i class="fa-solid fa-download text-xs"></i>
-                            </a>
-                        </div>
-                        <div class="flex items-center gap-1.5">
-                            <span title="Drag to category" class="cursor-grab active:cursor-grabbing text-zinc-600 hover:text-zinc-400 p-1">
+                            <span title="Drag to category" class="cursor-grab active:cursor-grabbing text-zinc-600 hover:text-zinc-400 p-1.5 rounded-lg hover:bg-zinc-800 transition">
                                 <i class="fa-solid fa-grip-vertical text-xs"></i>
                             </span>
-                            <button onclick="deleteModel(${model.id})" title="Delete Model" class="p-1.5 rounded-lg hover:bg-zinc-800 hover:text-rose-400 transition">
-                                <i class="fa-solid fa-trash text-xs"></i>
+                            <button onclick="openSlicerModal(${model.id})" title="Edit metadata & slicer settings"
+                                    class="p-1.5 rounded-lg text-zinc-500 hover:bg-zinc-800 hover:text-indigo-400 transition">
+                                <i class="fa-solid fa-sliders text-xs"></i>
                             </button>
+                        </div>
+
+                        <!-- â‹¯ Overflow menu -->
+                        <div class="relative card-overflow-btn">
+                            <button class="p-1.5 rounded-lg text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300 transition flex items-center gap-0.5 text-xs">
+                                <i class="fa-solid fa-ellipsis text-xs"></i>
+                            </button>
+                            <div class="card-overflow-menu">
+                                <button onclick="openSlicerModal(${model.id})" class="card-overflow-menu-item">
+                                    <i class="fa-solid fa-sliders text-indigo-400 w-4 text-center"></i> Slicer Settings
+                                </button>
+                                <button onclick="openTimelapseModal(${model.id})" class="card-overflow-menu-item ${hasTimelapse ? 'text-rose-300' : ''}">
+                                    <i class="fa-solid fa-clapperboard ${hasTimelapse ? 'text-rose-400' : 'text-zinc-500'} w-4 text-center"></i>
+                                    Timelapse${hasTimelapse ? ` (${model.timelapses.length})` : ''}
+                                </button>
+                                <a href="${escapeHTML(model.download_url)}" download class="card-overflow-menu-item">
+                                    <i class="fa-solid fa-download text-zinc-400 w-4 text-center"></i> Download File
+                                </a>
+                                <div class="my-1 border-t border-zinc-700/60"></div>
+                                <button onclick="deleteModel(${model.id})" class="card-overflow-menu-item text-rose-400 hover:text-rose-300">
+                                    <i class="fa-solid fa-trash text-rose-500 w-4 text-center"></i> Delete Model
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1898,6 +2029,7 @@ chmod +x install_handlers.sh
         </div>
         `;
     }
+
 
     // --- Three.js 3D Viewer Logic ---
     function openViewerModal(modelId) {
@@ -1907,7 +2039,7 @@ chmod +x install_handlers.sh
 
         document.getElementById('viewer-model-name').textContent = model.name;
         document.getElementById('viewer-format-badge').textContent = model.file_format.toUpperCase();
-        document.getElementById('viewer-dimensions').textContent = '-- × -- × -- mm';
+        document.getElementById('viewer-dimensions').textContent = '-- Ã— -- Ã— -- mm';
 
         const modal = document.getElementById('viewerModal');
         modal.classList.remove('hidden');
@@ -1970,7 +2102,7 @@ chmod +x install_handlers.sh
         box.getCenter(center);
 
         if (size.x > 0 || size.y > 0 || size.z > 0) {
-            document.getElementById('viewer-dimensions').textContent = `${(size.x).toFixed(1)} × ${(size.y).toFixed(1)} × ${(size.z).toFixed(1)} mm`;
+            document.getElementById('viewer-dimensions').textContent = `${(size.x).toFixed(1)} Ã— ${(size.y).toFixed(1)} Ã— ${(size.z).toFixed(1)} mm`;
 
             // Center on build plate (Y resting on plate bed)
             displayObj.position.x = -center.x;
@@ -2533,7 +2665,7 @@ chmod +x install_handlers.sh
 
         document.getElementById('bambu-modal-model-title').textContent = model.name;
         const slicer = model.slicer_settings || {};
-        document.getElementById('bambu-slicer-details').textContent = `Layer: ${slicer.layer_height || '0.20mm'} • Infill: ${slicer.infill_percentage || 15}% ${slicer.infill_pattern || 'Gyroid'} • Walls: ${slicer.wall_loops || 3}`;
+        document.getElementById('bambu-slicer-details').textContent = `Layer: ${slicer.layer_height || '0.20mm'} â€¢ Infill: ${slicer.infill_percentage || 15}% ${slicer.infill_pattern || 'Gyroid'} â€¢ Walls: ${slicer.wall_loops || 3}`;
 
         // Fetch AMS live info
         try {
@@ -2881,7 +3013,7 @@ chmod +x install_handlers.sh
                 body: JSON.stringify(payload)
             });
             if (res.ok) {
-                showToast('✓ Model settings and tags saved', 'success');
+                showToast('âœ“ Model settings and tags saved', 'success');
                 closeSlicerModal();
                 await loadAllKnownTags();
                 await loadModels();
@@ -2985,7 +3117,7 @@ chmod +x install_handlers.sh
             const res = await fetch(`/api/models/tags/${encodeURIComponent(tagName)}`, { method: 'DELETE' });
             const data = await res.json();
             if (res.ok) {
-                showToast(`✓ Tag "#${tagName}" deleted from ${data.affected_models_count || 0} model(s)`, 'success');
+                showToast(`âœ“ Tag "#${tagName}" deleted from ${data.affected_models_count || 0} model(s)`, 'success');
                 
                 // Remove from current slicer modal if open
                 currentSlicerTags = currentSlicerTags.filter(t => t.toLowerCase() !== tagName.toLowerCase());
@@ -3033,7 +3165,7 @@ chmod +x install_handlers.sh
                 const levelColor = spool.remaining_percent >= 50 ? 'text-emerald-400' : (spool.remaining_percent >= 20 ? 'text-amber-400' : 'text-rose-400 font-bold animate-pulse');
                 const glowStyle = `box-shadow: 0 0 8px ${spool.color_hex}40;`;
                 html += `
-                    <div onclick="openSpoolVaultModal()" title="AMS Slot ${i}: ${escapeHTML(spool.brand)} ${escapeHTML(spool.material)} (${escapeHTML(spool.color_name)}) • ${spool.remaining_percent}% full. Click to manage."
+                    <div onclick="openSpoolVaultModal()" title="AMS Slot ${i}: ${escapeHTML(spool.brand)} ${escapeHTML(spool.material)} (${escapeHTML(spool.color_name)}) â€¢ ${spool.remaining_percent}% full. Click to manage."
                          class="group flex items-center gap-1.5 px-2 py-1 rounded-xl bg-zinc-950 border border-zinc-800 hover:border-amber-500/70 cursor-pointer transition-all shadow-sm">
                         <span class="w-2.5 h-2.5 rounded-full border border-zinc-700 shrink-0" style="background-color: ${escapeHTML(spool.color_hex)}; ${glowStyle}"></span>
                         <span class="text-[10px] font-mono font-bold text-zinc-400">S${i}</span>
@@ -3091,7 +3223,7 @@ chmod +x install_handlers.sh
                             </div>
                             <div class="flex items-center gap-2 text-[10px] text-zinc-500">
                                 <span>${escapeHTML(s.location)}</span>
-                                <span>• ${s.nozzle_temp}°C / ${s.bed_temp}°C</span>
+                                <span>â€¢ ${s.nozzle_temp}Â°C / ${s.bed_temp}Â°C</span>
                             </div>
                         </div>
                     </div>
@@ -3192,7 +3324,7 @@ chmod +x install_handlers.sh
                                         <span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/80 font-bold">Slot ${i}</span>
                                         <h5 class="text-xs font-bold text-zinc-100 truncate">${escapeHTML(spool.material)}</h5>
                                     </div>
-                                    <span class="text-[11px] text-zinc-400 truncate block">${escapeHTML(spool.brand)} • ${escapeHTML(spool.color_name)}</span>
+                                    <span class="text-[11px] text-zinc-400 truncate block">${escapeHTML(spool.brand)} â€¢ ${escapeHTML(spool.color_name)}</span>
                                 </div>
                             </div>
                             <button onclick="openEditSpoolModal(${spool.id})" class="text-zinc-500 hover:text-amber-400 p-1 rounded-lg hover:bg-zinc-900 transition">
@@ -3280,7 +3412,7 @@ chmod +x install_handlers.sh
                                     <h5 class="text-xs font-bold text-zinc-200 truncate">${escapeHTML(spool.material)}</h5>
                                     <span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-zinc-900 text-zinc-400 border border-zinc-800">${escapeHTML(spool.sub_type || 'Basic')}</span>
                                 </div>
-                                <span class="text-[11px] text-zinc-400 truncate block">${escapeHTML(spool.brand)} • ${escapeHTML(spool.color_name)}</span>
+                                <span class="text-[11px] text-zinc-400 truncate block">${escapeHTML(spool.brand)} â€¢ ${escapeHTML(spool.color_name)}</span>
                             </div>
                         </div>
 
@@ -3320,7 +3452,7 @@ chmod +x install_handlers.sh
                         </span>
                         <div class="w-36">
                             <select onchange="assignSpoolToAmsSlot(${spool.id}, this.value)" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1 text-[10px] text-amber-300 font-semibold focus:outline-none focus:border-amber-400">
-                                <option value="">Assign to AMS ▾</option>
+                                <option value="">Assign to AMS â–¾</option>
                                 <option value="1">Load in Slot 1</option>
                                 <option value="2">Load in Slot 2</option>
                                 <option value="3">Load in Slot 3</option>
@@ -3452,7 +3584,7 @@ chmod +x install_handlers.sh
             });
 
             if (res.ok) {
-                showToast(`✓ Spool "${brand} ${material} (${color_name})" saved`, 'success');
+                showToast(`âœ“ Spool "${brand} ${material} (${color_name})" saved`, 'success');
                 closeSpoolEditModal();
                 await loadSpools();
             } else {
@@ -3472,7 +3604,7 @@ chmod +x install_handlers.sh
         try {
             const res = await fetch(`/api/spools/${spoolId}`, { method: 'DELETE' });
             if (res.ok) {
-                showToast(`✓ Spool deleted`, 'success');
+                showToast(`âœ“ Spool deleted`, 'success');
                 await loadSpools();
             }
         } catch (e) {
@@ -3489,7 +3621,7 @@ chmod +x install_handlers.sh
                 body: JSON.stringify({ ams_slot: targetSlot })
             });
             if (res.ok) {
-                showToast(`✓ Spool assigned to ${targetSlot ? 'AMS Slot ' + targetSlot : 'Storage'}`, 'success');
+                showToast(`âœ“ Spool assigned to ${targetSlot ? 'AMS Slot ' + targetSlot : 'Storage'}`, 'success');
                 await loadSpools();
             }
         } catch (e) {
@@ -3618,7 +3750,7 @@ chmod +x install_handlers.sh
         if (bulkCatSelect) {
             const cats = Array.isArray(loadedCategories) ? loadedCategories : [];
             bulkCatSelect.innerHTML = `
-                <option value="Auto">✨ Auto (AI)</option>
+                <option value="Auto">âœ¨ Auto (AI)</option>
                 ${cats.map(c => `<option value="${escapeHTML(c.name)}">${escapeHTML(c.name)}</option>`).join('')}
             `;
         }
@@ -3812,7 +3944,7 @@ chmod +x install_handlers.sh
                     <div class="flex items-center gap-2 text-[11px] text-zinc-400 font-mono flex-wrap">
                         <span class="px-2 py-0.5 rounded bg-zinc-900 text-emerald-400 border border-zinc-800 uppercase font-bold text-[10px]">${escapeHTML(item.format)}</span>
                         <span class="truncate max-w-[220px] text-zinc-300" title="${escapeHTML(item.file.name)}">${escapeHTML(item.file.name)}</span>
-                        <span class="text-zinc-500">• ${(item.size / (1024 * 1024)).toFixed(2)} MB</span>
+                        <span class="text-zinc-500">â€¢ ${(item.size / (1024 * 1024)).toFixed(2)} MB</span>
                     </div>
                 </div>
 
@@ -3821,7 +3953,7 @@ chmod +x install_handlers.sh
                     <div class="w-full space-y-1">
                         <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 hidden sm:block">Category</label>
                         <select onchange="updateStagedFileCategory(${idx}, this.value)" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-2.5 py-2 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500">
-                            <option value="Auto" ${item.category === 'Auto' ? 'selected' : ''}>✨ Auto (AI)</option>
+                            <option value="Auto" ${item.category === 'Auto' ? 'selected' : ''}>âœ¨ Auto (AI)</option>
                             ${cats.map(c => `
                                 <option value="${escapeHTML(c.name)}" ${item.category === c.name ? 'selected' : ''}>${escapeHTML(c.name)}</option>
                             `).join('')}
@@ -3941,7 +4073,7 @@ chmod +x install_handlers.sh
             if (res.ok) {
                 const created = await res.json();
                 const count = Array.isArray(created) ? created.length : selectedItems.length;
-                showToast(`✓ Successfully ingested ${count} model${count === 1 ? '' : 's'} into library`, 'success');
+                showToast(`âœ“ Successfully ingested ${count} model${count === 1 ? '' : 's'} into library`, 'success');
                 closeUploadModal();
                 await loadCategories();
                 await loadModels();
@@ -3974,21 +4106,53 @@ chmod +x install_handlers.sh
 
     // --- Live Printer Status Poll ---
     async function pollPrinterStatus() {
+        const dot = document.getElementById('printer-status-dot');
+        const dotBg = document.getElementById('printer-status-dot-bg');
+        const stateEl = document.getElementById('printer-state-text');
+        const bar = document.getElementById('printer-status-bar');
+
         try {
             const res = await fetch('/api/printer/status');
             if (res.ok) {
                 const data = await res.json();
                 document.getElementById('printer-model-name').textContent = data.model || 'Bambu Lab P2S';
                 document.getElementById('printer-serial-badge').textContent = `(${data.device_serial || '01P2S999990001'})`;
-                document.getElementById('printer-state-text').textContent = data.state || 'IDLE';
+                const state = data.state || 'IDLE';
+                stateEl.textContent = state;
+
+                const isPrinting = ['PRINTING', 'RUNNING', 'PREPARE', 'SLICING'].includes(state.toUpperCase());
+                const isIdle = state.toUpperCase() === 'IDLE';
+
+                // Status dot: animate-ping only when printing
+                if (isPrinting) {
+                    dot.className = 'absolute inset-0 rounded-full bg-emerald-400 animate-ping';
+                    dotBg.className = 'absolute inset-0 rounded-full bg-emerald-500';
+                    stateEl.className = 'text-emerald-400';
+                    bar.classList.add('is-printing');
+                } else if (isIdle) {
+                    dot.className = 'absolute inset-0 rounded-full bg-emerald-400';
+                    dotBg.className = 'absolute inset-0 rounded-full bg-emerald-600';
+                    stateEl.className = 'text-emerald-400';
+                    bar.classList.remove('is-printing');
+                } else {
+                    dot.className = 'absolute inset-0 rounded-full bg-zinc-500';
+                    dotBg.className = 'absolute inset-0 rounded-full bg-zinc-600';
+                    stateEl.className = 'text-zinc-400';
+                    bar.classList.remove('is-printing');
+                }
+
                 if (data.temperatures) {
-                    document.getElementById('printer-temp-nozzle').textContent = `${data.temperatures.nozzle || 28}°C`;
-                    document.getElementById('printer-temp-bed').textContent = `${data.temperatures.bed || 24}°C`;
+                    document.getElementById('printer-temp-nozzle').textContent = `${data.temperatures.nozzle || '—'}°C`;
+                    document.getElementById('printer-temp-bed').textContent = `${data.temperatures.bed || '—'}°C`;
                 }
             }
-        } catch (e) {}
+        } catch (e) {
+            if (dot) dot.className = 'absolute inset-0 rounded-full bg-zinc-600';
+            if (stateEl) { stateEl.textContent = 'OFFLINE'; stateEl.className = 'text-zinc-500'; }
+        }
         setTimeout(pollPrinterStatus, 8000);
     }
+
 
     // Setup Drag & Drop Event Listeners
     function setupDragAndDrop() {
@@ -4229,7 +4393,7 @@ chmod +x install_handlers.sh
 
             const data = await res.json();
             if (res.ok) {
-                showToast(`✓ Category "${name}" saved successfully`, 'success');
+                showToast(`âœ“ Category "${name}" saved successfully`, 'success');
                 closeCategoryEditModal();
                 await loadCategories();
                 await loadModels();
@@ -4252,7 +4416,7 @@ chmod +x install_handlers.sh
             const res = await fetch(`/api/models/categories/${catId}`, { method: 'DELETE' });
             const data = await res.json();
             if (res.ok) {
-                showToast(`✓ Category "${catName}" deleted`, 'success');
+                showToast(`âœ“ Category "${catName}" deleted`, 'success');
                 await loadCategories();
                 await loadModels();
             } else {
