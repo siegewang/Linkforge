@@ -1,4 +1,4 @@
-const CACHE_NAME = 'linkforge-cache-v2.3.8';
+const CACHE_NAME = 'linkforge-cache-v2.3.9';
 const STATIC_ASSETS = [
     '/',
     '/static/manifest.json',

@@ -320,6 +320,45 @@ def init_db(app=None):
             FOREIGN KEY (model_id) REFERENCES model_assets(id) ON DELETE SET NULL
         )""")
 
+        # 3D Print Library: Filament Spool Inventory & AMS
+        conn.execute("""CREATE TABLE IF NOT EXISTS filament_spools (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            brand TEXT NOT NULL,
+            material TEXT NOT NULL,
+            sub_type TEXT DEFAULT 'Basic',
+            color_name TEXT NOT NULL,
+            color_hex TEXT NOT NULL,
+            remaining_percent INTEGER DEFAULT 100,
+            location TEXT DEFAULT 'Shelf',
+            ams_slot INTEGER DEFAULT NULL,
+            nozzle_temp INTEGER DEFAULT 220,
+            bed_temp INTEGER DEFAULT 60,
+            notes TEXT,
+            is_active INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""")
+
+        # Seed default sample spools if table is empty
+        try:
+            spool_count = conn.execute("SELECT COUNT(*) FROM filament_spools").fetchone()[0]
+            if spool_count == 0:
+                default_spools = [
+                    ('Bambu Lab', 'PLA', 'Basic', 'Bambu Green', '#00ae42', 85, 'AMS Slot 1', 1, 220, 55, 'Official Bambu RFID Spool'),
+                    ('Bambu Lab', 'PLA', 'Basic', 'Jade White', '#f8fafc', 95, 'AMS Slot 2', 2, 220, 55, 'High opacity white'),
+                    ('Bambu Lab', 'PETG', 'HF', 'Charcoal Black', '#1e293b', 70, 'AMS Slot 3', 3, 255, 75, 'High flow PETG for functional parts'),
+                    ('eSun', 'PLA', 'PLA+', 'Fire Red', '#dc2626', 40, 'AMS Slot 4', 4, 215, 60, 'Tough impact PLA+'),
+                    ('Sunlu', 'TPU', '95A', 'Sky Blue', '#38bdf8', 100, 'Dry Box #1', None, 230, 45, 'Flexible filament for gaskets & bumpers'),
+                    ('Polymaker', 'ASA', 'PolyLite', 'Galaxy Silver', '#94a3b8', 60, 'Dry Box #2', None, 260, 90, 'UV and heat resistant outdoor filament')
+                ]
+                for b, m, st, cn, ch, rp, loc, slot, ntemp, btemp, notes in default_spools:
+                    conn.execute("""
+                        INSERT INTO filament_spools (brand, material, sub_type, color_name, color_hex, remaining_percent, location, ams_slot, nozzle_temp, bed_temp, notes)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (b, m, st, cn, ch, rp, loc, slot, ntemp, btemp, notes))
+        except Exception as e:
+            logger.warning(f"Could not seed default filament spools: {e}")
+
         # 3D Print Library: Printer Config & AMS
         conn.execute("""CREATE TABLE IF NOT EXISTS printer_configs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

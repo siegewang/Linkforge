@@ -313,6 +313,207 @@ def delete_global_tag(tag_name):
     })
 
 
+def _format_spool_row(row) -> dict:
+    return {
+        "id": row["id"],
+        "brand": row["brand"],
+        "material": row["material"],
+        "sub_type": row["sub_type"] or "Basic",
+        "color_name": row["color_name"],
+        "color_hex": row["color_hex"],
+        "remaining_percent": max(0, min(100, int(row["remaining_percent"] or 0))),
+        "location": row["location"] or "Shelf",
+        "ams_slot": row["ams_slot"],
+        "nozzle_temp": row["nozzle_temp"] or 220,
+        "bed_temp": row["bed_temp"] or 60,
+        "notes": row["notes"] or "",
+        "is_active": row["is_active"],
+        "created_at": str(row["created_at"]),
+        "updated_at": str(row["updated_at"])
+    }
+
+
+# --- Filament Spool Inventory API ---
+@prints_bp.route("/api/spools", methods=["GET"])
+def list_spools():
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT * FROM filament_spools 
+        WHERE is_active = 1 
+        ORDER BY 
+            CASE WHEN ams_slot IS NOT NULL THEN 0 ELSE 1 END ASC,
+            ams_slot ASC,
+            updated_at DESC
+    """).fetchall()
+    return jsonify([_format_spool_row(r) for r in rows])
+
+
+@prints_bp.route("/api/spools", methods=["POST"])
+def create_spool():
+    data = request.get_json() or {}
+    brand = (data.get("brand") or "Generic").strip()
+    material = (data.get("material") or "PLA").strip()
+    sub_type = (data.get("sub_type") or "Basic").strip()
+    color_name = (data.get("color_name") or "Default").strip()
+    color_hex = (data.get("color_hex") or "#6366f1").strip()
+    remaining_percent = max(0, min(100, int(data.get("remaining_percent", 100))))
+    location = (data.get("location") or "Shelf").strip()
+    ams_slot = data.get("ams_slot")
+    if ams_slot is not None and str(ams_slot).isdigit():
+        ams_slot = int(ams_slot)
+        if ams_slot not in (1, 2, 3, 4):
+            ams_slot = None
+    else:
+        ams_slot = None
+    nozzle_temp = int(data.get("nozzle_temp", 220))
+    bed_temp = int(data.get("bed_temp", 60))
+    notes = (data.get("notes") or "").strip()
+
+    def _insert():
+        c = get_db()
+        if ams_slot is not None:
+            c.execute("UPDATE filament_spools SET ams_slot = NULL, location = 'Shelf' WHERE ams_slot = ?", (ams_slot,))
+        cursor = c.cursor()
+        cursor.execute("""
+            INSERT INTO filament_spools (
+                brand, material, sub_type, color_name, color_hex,
+                remaining_percent, location, ams_slot, nozzle_temp, bed_temp, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (brand, material, sub_type, color_name, color_hex, remaining_percent, location, ams_slot, nozzle_temp, bed_temp, notes))
+        c.commit()
+        return cursor.lastrowid
+
+    spool_id = retry_write(_insert)
+    conn = get_db()
+    row = conn.execute("SELECT * FROM filament_spools WHERE id = ?", (spool_id,)).fetchone()
+    return jsonify(_format_spool_row(row)), 201
+
+
+@prints_bp.route("/api/spools/<int:spool_id>", methods=["GET"])
+def get_spool(spool_id):
+    conn = get_db()
+    row = conn.execute("SELECT * FROM filament_spools WHERE id = ?", (spool_id,)).fetchone()
+    if not row:
+        return jsonify({"error": "Spool not found"}), 404
+    return jsonify(_format_spool_row(row))
+
+
+@prints_bp.route("/api/spools/<int:spool_id>", methods=["PUT", "POST"])
+def update_spool(spool_id):
+    data = request.get_json() or {}
+    conn = get_db()
+    existing = conn.execute("SELECT * FROM filament_spools WHERE id = ?", (spool_id,)).fetchone()
+    if not existing:
+        return jsonify({"error": "Spool not found"}), 404
+
+    brand = (data.get("brand") or existing["brand"]).strip()
+    material = (data.get("material") or existing["material"]).strip()
+    sub_type = (data.get("sub_type") or existing["sub_type"]).strip()
+    color_name = (data.get("color_name") or existing["color_name"]).strip()
+    color_hex = (data.get("color_hex") or existing["color_hex"]).strip()
+    remaining_percent = max(0, min(100, int(data.get("remaining_percent", existing["remaining_percent"]))))
+    location = (data.get("location") or existing["location"]).strip()
+    
+    ams_slot = data.get("ams_slot", existing["ams_slot"])
+    if ams_slot is not None and str(ams_slot).isdigit():
+        ams_slot = int(ams_slot)
+        if ams_slot not in (1, 2, 3, 4):
+            ams_slot = None
+    else:
+        ams_slot = None
+
+    nozzle_temp = int(data.get("nozzle_temp", existing["nozzle_temp"]))
+    bed_temp = int(data.get("bed_temp", existing["bed_temp"]))
+    notes = data.get("notes", existing["notes"])
+
+    def _update():
+        c = get_db()
+        if ams_slot is not None and ams_slot != existing["ams_slot"]:
+            c.execute("UPDATE filament_spools SET ams_slot = NULL, location = 'Shelf' WHERE ams_slot = ? AND id != ?", (ams_slot, spool_id))
+        c.execute("""
+            UPDATE filament_spools SET
+                brand = ?, material = ?, sub_type = ?, color_name = ?, color_hex = ?,
+                remaining_percent = ?, location = ?, ams_slot = ?, nozzle_temp = ?, bed_temp = ?,
+                notes = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        """, (brand, material, sub_type, color_name, color_hex, remaining_percent, location, ams_slot, nozzle_temp, bed_temp, notes, spool_id))
+        c.commit()
+
+    retry_write(_update)
+    updated = conn.execute("SELECT * FROM filament_spools WHERE id = ?", (spool_id,)).fetchone()
+    return jsonify(_format_spool_row(updated))
+
+
+@prints_bp.route("/api/spools/<int:spool_id>", methods=["DELETE"])
+def delete_spool(spool_id):
+    conn = get_db()
+    existing = conn.execute("SELECT * FROM filament_spools WHERE id = ?", (spool_id,)).fetchone()
+    if not existing:
+        return jsonify({"error": "Spool not found"}), 404
+
+    def _delete():
+        c = get_db()
+        c.execute("DELETE FROM filament_spools WHERE id = ?", (spool_id,))
+        c.commit()
+
+    retry_write(_delete)
+    return jsonify({"success": True, "message": "Spool deleted successfully"})
+
+
+@prints_bp.route("/api/spools/<int:spool_id>/assign-ams", methods=["POST"])
+def assign_spool_ams(spool_id):
+    data = request.get_json() or {}
+    slot = data.get("ams_slot")
+    conn = get_db()
+    existing = conn.execute("SELECT * FROM filament_spools WHERE id = ?", (spool_id,)).fetchone()
+    if not existing:
+        return jsonify({"error": "Spool not found"}), 404
+
+    target_slot = None
+    if slot is not None and str(slot).isdigit() and int(slot) in (1, 2, 3, 4):
+        target_slot = int(slot)
+
+    def _assign():
+        c = get_db()
+        if target_slot is not None:
+            c.execute("UPDATE filament_spools SET ams_slot = NULL, location = 'Shelf' WHERE ams_slot = ? AND id != ?", (target_slot, spool_id))
+            c.execute("UPDATE filament_spools SET ams_slot = ?, location = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (target_slot, f"AMS Slot {target_slot}", spool_id))
+        else:
+            c.execute("UPDATE filament_spools SET ams_slot = NULL, location = 'Shelf', updated_at = CURRENT_TIMESTAMP WHERE id = ?", (spool_id,))
+        c.commit()
+
+    retry_write(_assign)
+    updated = conn.execute("SELECT * FROM filament_spools WHERE id = ?", (spool_id,)).fetchone()
+    return jsonify({
+        "success": True,
+        "spool": _format_spool_row(updated),
+        "message": f"Spool assigned to {'AMS Slot ' + str(target_slot) if target_slot else 'Storage'}"
+    })
+
+
+@prints_bp.route("/api/spools/<int:spool_id>/adjust-level", methods=["POST"])
+def adjust_spool_level(spool_id):
+    data = request.get_json() or {}
+    level = data.get("remaining_percent")
+    if level is None:
+        return jsonify({"error": "remaining_percent is required"}), 400
+
+    new_level = max(0, min(100, int(level)))
+    conn = get_db()
+    existing = conn.execute("SELECT * FROM filament_spools WHERE id = ?", (spool_id,)).fetchone()
+    if not existing:
+        return jsonify({"error": "Spool not found"}), 404
+
+    def _adjust():
+        c = get_db()
+        c.execute("UPDATE filament_spools SET remaining_percent = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (new_level, spool_id))
+        c.commit()
+
+    retry_write(_adjust)
+    updated = conn.execute("SELECT * FROM filament_spools WHERE id = ?", (spool_id,)).fetchone()
+    return jsonify(_format_spool_row(updated))
+
+
 @prints_bp.route("/api/models/batch-categorize", methods=["POST"])
 def batch_categorize():
     data = request.get_json() or {}
