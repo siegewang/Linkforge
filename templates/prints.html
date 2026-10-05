@@ -165,6 +165,9 @@
                     <span class="text-xs font-bold text-zinc-300 uppercase tracking-wider">Categories</span>
                 </div>
                 <div class="flex items-center gap-1">
+                    <button onclick="openTagManagerModal()" title="Manage Library Tags" class="w-7 h-7 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-amber-400 flex items-center justify-center text-xs border border-zinc-700 transition">
+                        <i class="fa-solid fa-tags"></i>
+                    </button>
                     <button onclick="openAddCategoryModal()" title="Add Custom Category" class="w-7 h-7 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white flex items-center justify-center text-xs border border-zinc-700 transition">
                         <i class="fa-solid fa-plus"></i>
                     </button>
@@ -447,15 +450,7 @@
                     <div>
                         <label class="block text-[11px] font-semibold text-zinc-400 mb-1">Category</label>
                         <select id="slicer-input-category" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500">
-                            <option value="General">General</option>
-                            <option value="Tools & Utility">Tools & Utility</option>
-                            <option value="Desk & Organization">Desk & Organization</option>
-                            <option value="Home & Living">Home & Living</option>
-                            <option value="Toys & Figures">Toys & Figures</option>
-                            <option value="Electronics & Gadgets">Electronics & Gadgets</option>
-                            <option value="Mechanical">Mechanical</option>
-                            <option value="Calibration & Test">Calibration & Test</option>
-                            <option value="Art & Decor">Art & Decor</option>
+                            <!-- Populated dynamically by openSlicerModal() -->
                         </select>
                     </div>
                 </div>
@@ -479,18 +474,45 @@
                     <h4 class="text-xs font-bold text-zinc-200 uppercase tracking-wider flex items-center gap-1.5">
                         <i class="fa-solid fa-tags text-amber-400"></i> Model Tags
                     </h4>
-                    <button onclick="inferModelTags()" type="button" class="text-xs text-purple-300 hover:text-purple-200 bg-purple-950/60 border border-purple-800/60 px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5">
-                        <i class="fa-solid fa-wand-magic-sparkles text-xs"></i> Infer Tags from Description
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <button onclick="openTagManagerModal()" type="button" class="text-[11px] text-zinc-400 hover:text-amber-300 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 px-2.5 py-1 rounded-lg transition-all flex items-center gap-1">
+                            <i class="fa-solid fa-tags text-xs text-amber-400"></i> Manage All Tags
+                        </button>
+                        <button onclick="inferModelTags()" type="button" class="text-[11px] text-purple-300 hover:text-purple-200 bg-purple-950/60 border border-purple-800/60 px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5">
+                            <i class="fa-solid fa-wand-magic-sparkles text-xs"></i> Infer Tags
+                        </button>
+                    </div>
                 </div>
 
-                <div id="slicer-tags-chips" class="flex flex-wrap gap-1.5 min-h-[32px] p-2 bg-zinc-900 border border-zinc-800 rounded-xl"></div>
+                <!-- Current Model Tag Chips -->
+                <div id="slicer-tags-chips" class="flex flex-wrap gap-1.5 min-h-[36px] p-2 bg-zinc-900 border border-zinc-800 rounded-xl items-center"></div>
 
-                <div class="flex gap-2">
-                    <input id="slicer-new-tag-input" type="text" placeholder="Add a new tag and press Enter..."
-                           onkeydown="if(event.key === 'Enter') { event.preventDefault(); addSlicerTag(); }"
-                           class="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-amber-400">
-                    <button onclick="addSlicerTag()" type="button" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-xl text-xs font-semibold border border-zinc-700">Add</button>
+                <!-- Combobox Tag Input (Datalist + Free Typing) -->
+                <div class="space-y-2">
+                    <div class="flex gap-2">
+                        <div class="relative flex-1">
+                            <input id="slicer-new-tag-input" type="text" list="all-known-tags-datalist"
+                                   placeholder="Select known tag or type new tag and press Enter..."
+                                   autocomplete="off"
+                                   onkeydown="if(event.key === 'Enter') { event.preventDefault(); addSlicerTag(); }"
+                                   class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-amber-400 shadow-inner">
+                            <datalist id="all-known-tags-datalist">
+                                <!-- Populated dynamically with all known library tags -->
+                            </datalist>
+                        </div>
+                        <button onclick="addSlicerTag()" type="button" class="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-amber-950/40 shrink-0">
+                            <i class="fa-solid fa-plus text-xs"></i> Add Tag
+                        </button>
+                    </div>
+
+                    <!-- Quick Select Available Library Tags -->
+                    <div id="slicer-known-tags-section" class="space-y-1 pt-1 hidden">
+                        <div class="flex items-center justify-between text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">
+                            <span><i class="fa-solid fa-layer-group mr-1 text-zinc-600"></i> Known Library Tags:</span>
+                            <span id="slicer-known-tags-count" class="font-mono text-zinc-500"></span>
+                        </div>
+                        <div id="slicer-known-tags-list" class="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto custom-scroll p-1.5 bg-zinc-900/40 rounded-xl border border-zinc-800/60"></div>
+                    </div>
                 </div>
             </div>
 
@@ -883,6 +905,53 @@ chmod +x install_handlers.sh
                 <button type="submit" id="btn-save-category" class="px-5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg transition">Save Category</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- 9. Tag Manager Modal -->
+<div id="tagManagerModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center p-4 z-50 backdrop-blur-md transition-all">
+    <div class="bg-zinc-900 border border-amber-900/60 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
+        <div class="px-6 py-4 border-b border-zinc-800 bg-zinc-950/60 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-amber-950/80 border border-amber-600/50 flex items-center justify-center text-amber-400">
+                    <i class="fa-solid fa-tags"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-white">Library Tag Manager</h3>
+                    <p class="text-xs text-zinc-400">View, search, and delete tags across all 3D print assets</p>
+                </div>
+            </div>
+            <button onclick="closeTagManagerModal()" class="text-zinc-400 hover:text-white p-2">
+                <i class="fa-solid fa-xmark text-sm"></i>
+            </button>
+        </div>
+
+        <div class="p-6 space-y-4 overflow-y-auto custom-scroll flex-1">
+            <div class="flex items-center gap-3">
+                <div class="relative flex-1">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 text-xs"></i>
+                    <input id="tag-manager-search-input" type="text" placeholder="Search library tags..."
+                           oninput="filterTagManagerList(this.value)"
+                           class="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-2 pl-9 pr-3 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-amber-400">
+                </div>
+                <span id="tag-manager-summary-badge" class="text-xs font-mono px-3 py-1.5 rounded-xl bg-zinc-950 border border-zinc-800 text-amber-300 font-semibold shrink-0">
+                    0 Tags
+                </span>
+            </div>
+
+            <p class="text-[11px] text-zinc-400">
+                Deleting a tag will permanently remove it from all 3D models in your library.
+            </p>
+
+            <!-- Tags Table / List -->
+            <div id="tag-manager-list" class="space-y-2 max-h-[45vh] overflow-y-auto custom-scroll pr-1">
+                <!-- Rendered dynamically by renderTagManagerList() -->
+            </div>
+        </div>
+
+        <div class="px-6 py-4 border-t border-zinc-800 bg-zinc-950/60 flex items-center justify-end">
+            <button onclick="closeTagManagerModal()" class="px-5 py-2.5 rounded-xl text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition">Done</button>
+        </div>
     </div>
 </div>
 
@@ -2300,9 +2369,69 @@ chmod +x install_handlers.sh
     }
 
     // --- Slicer Settings & Metadata Modal ---
+    let allKnownTags = [];
     let currentSlicerTags = [];
     let currentSlicerMaterial = 'PLA';
     const MATERIALS_LIST = ['PLA', 'PETG', 'TPU', 'ABS', 'ASA', 'PC', 'PVA', 'PA-CF'];
+
+    async function loadAllKnownTags() {
+        try {
+            const res = await fetch('/api/models/tags');
+            if (res.ok) {
+                const data = await res.json();
+                allKnownTags = data.tags || [];
+                updateKnownTagsDatalist();
+                renderSlicerKnownTags();
+                const tagManagerModal = document.getElementById('tagManagerModal');
+                if (tagManagerModal && !tagManagerModal.classList.contains('hidden')) {
+                    const searchVal = document.getElementById('tag-manager-search-input')?.value || '';
+                    renderTagManagerList(searchVal);
+                }
+            }
+        } catch (e) {
+            console.warn('Could not load library tags:', e);
+        }
+    }
+
+    function updateKnownTagsDatalist() {
+        const datalist = document.getElementById('all-known-tags-datalist');
+        if (datalist) {
+            datalist.innerHTML = allKnownTags.map(t => `<option value="${escapeHTML(t.name)}">#${escapeHTML(t.name)} (${t.count} model${t.count === 1 ? '' : 's'})</option>`).join('');
+        }
+    }
+
+    function renderSlicerKnownTags() {
+        const container = document.getElementById('slicer-known-tags-list');
+        const section = document.getElementById('slicer-known-tags-section');
+        const countBadge = document.getElementById('slicer-known-tags-count');
+        if (!container || !section) return;
+
+        const availableTags = allKnownTags.filter(t => !currentSlicerTags.includes(t.name.toLowerCase()));
+        if (availableTags.length === 0) {
+            section.classList.add('hidden');
+            return;
+        }
+
+        section.classList.remove('hidden');
+        if (countBadge) countBadge.textContent = `${availableTags.length} available`;
+
+        container.innerHTML = availableTags.map(t => `
+            <button type="button" onclick="addKnownTagToSlicer('${escapeHTML(t.name)}')" title="Click to add #${escapeHTML(t.name)} to model"
+                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-950 hover:bg-zinc-800 text-zinc-300 hover:text-amber-300 border border-zinc-800 hover:border-amber-500/50 text-[11px] font-medium transition group">
+                <span class="text-amber-400/80 group-hover:text-amber-400">+ #${escapeHTML(t.name)}</span>
+                <span class="text-[9px] text-zinc-500 font-mono">(${t.count})</span>
+            </button>
+        `).join('');
+    }
+
+    function addKnownTagToSlicer(tag) {
+        const cleanTag = tag.trim().toLowerCase().replace(/^#/, '');
+        if (cleanTag && !currentSlicerTags.includes(cleanTag)) {
+            currentSlicerTags.push(cleanTag);
+            renderSlicerTagChips();
+            renderSlicerKnownTags();
+        }
+    }
 
     function openSlicerModal(modelId) {
         const model = allModels.find(m => m.id === modelId);
@@ -2311,7 +2440,19 @@ chmod +x install_handlers.sh
 
         document.getElementById('slicer-modal-model-title').textContent = model.name;
         document.getElementById('slicer-input-name').value = model.name || '';
-        document.getElementById('slicer-input-category').value = model.category || 'General';
+        
+        // Populate category dropdown dynamically from loadedCategories
+        const catSelect = document.getElementById('slicer-input-category');
+        if (catSelect) {
+            const cats = Array.isArray(loadedCategories) ? loadedCategories : [];
+            catSelect.innerHTML = cats.map(c => `
+                <option value="${escapeHTML(c.name)}" ${model.category === c.name ? 'selected' : ''}>${escapeHTML(c.name)}</option>
+            `).join('');
+            if (model.category && !cats.some(c => c.name === model.category)) {
+                catSelect.insertAdjacentHTML('afterbegin', `<option value="${escapeHTML(model.category)}" selected>${escapeHTML(model.category)}</option>`);
+            }
+        }
+
         document.getElementById('slicer-input-desc').value = model.description || '';
 
         currentSlicerMaterial = model.material_recommendation || 'PLA';
@@ -2319,6 +2460,10 @@ chmod +x install_handlers.sh
 
         currentSlicerTags = [...(model.tags || [])];
         renderSlicerTagChips();
+        const tagInput = document.getElementById('slicer-new-tag-input');
+        if (tagInput) tagInput.value = '';
+
+        loadAllKnownTags();
 
         const s = model.slicer_settings || {};
         document.getElementById('slicer-input-layer').value = s.layer_height || '0.20mm';
@@ -2353,12 +2498,12 @@ chmod +x install_handlers.sh
     function renderSlicerTagChips() {
         const container = document.getElementById('slicer-tags-chips');
         if (currentSlicerTags.length === 0) {
-            container.innerHTML = '<span class="text-xs text-zinc-500 italic py-0.5">No tags yet.</span>';
+            container.innerHTML = '<span class="text-xs text-zinc-500 italic py-0.5">No tags yet. Select or type tags below.</span>';
             return;
         }
         container.innerHTML = currentSlicerTags.map(tag => `
             <span class="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-zinc-800 text-zinc-200 border border-zinc-700 font-medium">
-                <span>#${escapeHTML(tag)}</span>
+                <span class="text-amber-300">#${escapeHTML(tag)}</span>
                 <button type="button" onclick="removeSlicerTag('${escapeHTML(tag)}')" class="hover:text-rose-400"><i class="fa-solid fa-xmark text-[10px]"></i></button>
             </span>
         `).join('');
@@ -2371,12 +2516,14 @@ chmod +x install_handlers.sh
             currentSlicerTags.push(val);
             input.value = '';
             renderSlicerTagChips();
+            renderSlicerKnownTags();
         }
     }
 
     function removeSlicerTag(tag) {
         currentSlicerTags = currentSlicerTags.filter(t => t !== tag);
         renderSlicerTagChips();
+        renderSlicerKnownTags();
     }
 
     async function inferModelTags() {
@@ -2386,6 +2533,7 @@ chmod +x install_handlers.sh
             const data = await res.json();
             currentSlicerTags = data.tags || [];
             renderSlicerTagChips();
+            renderSlicerKnownTags();
         } catch (e) {}
     }
 
@@ -2464,8 +2612,10 @@ chmod +x install_handlers.sh
                 body: JSON.stringify(payload)
             });
             if (res.ok) {
+                showToast('✓ Model settings and tags saved', 'success');
                 closeSlicerModal();
-                loadModels();
+                await loadAllKnownTags();
+                await loadModels();
             }
         } catch (e) {
             alert('Failed to save settings.');
@@ -2480,6 +2630,105 @@ chmod +x install_handlers.sh
         if (modal) {
             modal.classList.remove('flex');
             modal.classList.add('hidden');
+        }
+    }
+
+    // --- Tag Manager Modal Handlers ---
+    function openTagManagerModal() {
+        loadAllKnownTags();
+        const searchInput = document.getElementById('tag-manager-search-input');
+        if (searchInput) searchInput.value = '';
+        renderTagManagerList();
+        const modal = document.getElementById('tagManagerModal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+    }
+
+    function closeTagManagerModal() {
+        const modal = document.getElementById('tagManagerModal');
+        if (modal) {
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+        }
+    }
+
+    function renderTagManagerList(filterText = '') {
+        const container = document.getElementById('tag-manager-list');
+        const summaryBadge = document.getElementById('tag-manager-summary-badge');
+        if (!container) return;
+
+        const cleanFilter = (filterText || '').trim().toLowerCase().replace(/^#/, '');
+        const filtered = allKnownTags.filter(t => !cleanFilter || t.name.toLowerCase().includes(cleanFilter));
+
+        if (summaryBadge) {
+            summaryBadge.textContent = `${allKnownTags.length} Tag${allKnownTags.length === 1 ? '' : 's'}`;
+        }
+
+        if (filtered.length === 0) {
+            container.innerHTML = `
+                <div class="py-12 text-center text-zinc-500 text-xs border border-dashed border-zinc-800 rounded-2xl">
+                    <i class="fa-solid fa-tags text-2xl text-zinc-600 mb-2"></i>
+                    <p>${cleanFilter ? 'No matching tags found.' : 'No tags found in 3D Print Library.'}</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = filtered.map(t => `
+            <div class="flex items-center justify-between p-3 rounded-2xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-8 h-8 rounded-xl bg-amber-950/40 border border-amber-800/50 flex items-center justify-center text-amber-400 shrink-0">
+                        <i class="fa-solid fa-tag text-xs"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold text-zinc-200 truncate">#${escapeHTML(t.name)}</span>
+                            <span class="text-[10px] text-zinc-400 px-2 py-0.5 rounded-full bg-zinc-900 border border-zinc-800 font-mono">
+                                ${t.count} model${t.count === 1 ? '' : 's'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 shrink-0">
+                    <button onclick="deleteGlobalTag('${escapeHTML(t.name)}')" title="Delete tag from all library models"
+                            class="p-2 rounded-xl bg-zinc-900 hover:bg-rose-950/40 text-zinc-400 hover:text-rose-400 border border-zinc-800 hover:border-rose-800/50 transition flex items-center gap-1.5 text-xs">
+                        <i class="fa-solid fa-trash-can text-xs"></i>
+                        <span class="hidden sm:inline text-[11px] font-semibold">Delete Tag</span>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function filterTagManagerList(val) {
+        renderTagManagerList(val);
+    }
+
+    async function deleteGlobalTag(tagName) {
+        if (!confirm(`Are you sure you want to delete tag "#${tagName}" from all models across your 3D print library?`)) {
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/models/tags/${encodeURIComponent(tagName)}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (res.ok) {
+                showToast(`✓ Tag "#${tagName}" deleted from ${data.affected_models_count || 0} model(s)`, 'success');
+                
+                // Remove from current slicer modal if open
+                currentSlicerTags = currentSlicerTags.filter(t => t.toLowerCase() !== tagName.toLowerCase());
+                renderSlicerTagChips();
+                
+                await loadAllKnownTags();
+                await loadModels();
+            } else {
+                showToast(`Failed to delete tag: ${data.error || 'Server error'}`, 'error');
+            }
+        } catch (e) {
+            showToast(`Error deleting tag: ${e.message}`, 'error');
         }
     }
 
@@ -3237,6 +3486,7 @@ chmod +x install_handlers.sh
         setupDragAndDrop();
         await loadCategories();
         await loadModels();
+        loadAllKnownTags();
         pollPrinterStatus();
     }
     initPage();

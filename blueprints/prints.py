@@ -249,6 +249,70 @@ def delete_category(cat_id):
     return jsonify({"success": True, "message": f"Category '{cat_name}' deleted and models moved to 'General & Other'"})
 
 
+# --- Tags Management API ---
+@prints_bp.route("/api/models/tags", methods=["GET"])
+def get_all_tags():
+    conn = get_db()
+    rows = conn.execute("SELECT tags FROM model_assets WHERE tags IS NOT NULL").fetchall()
+    tag_counts = {}
+    for r in rows:
+        raw = r["tags"]
+        if not raw:
+            continue
+        try:
+            tags = json.loads(raw) if isinstance(raw, str) and raw.startswith("[") else [t.strip() for t in raw.split(",") if t.strip()]
+        except Exception:
+            tags = [raw]
+        if isinstance(tags, list):
+            for t in tags:
+                if isinstance(t, str):
+                    clean_t = t.strip().lower().replace("#", "")
+                    if clean_t:
+                        tag_counts[clean_t] = tag_counts.get(clean_t, 0) + 1
+    sorted_tags = sorted([{"name": k, "count": v} for k, v in tag_counts.items()], key=lambda x: (-x["count"], x["name"]))
+    return jsonify({
+        "tags": sorted_tags,
+        "total_unique": len(sorted_tags)
+    })
+
+
+@prints_bp.route("/api/models/tags/<path:tag_name>", methods=["DELETE"])
+def delete_global_tag(tag_name):
+    clean_tag = tag_name.strip().lower().replace("#", "")
+    if not clean_tag:
+        return jsonify({"error": "Invalid tag name"}), 400
+
+    conn = get_db()
+    rows = conn.execute("SELECT id, tags FROM model_assets WHERE tags IS NOT NULL").fetchall()
+    affected_ids = []
+
+    def _delete_tag():
+        nonlocal affected_ids
+        c = get_db()
+        for r in rows:
+            raw = r["tags"]
+            if not raw:
+                continue
+            try:
+                tags = json.loads(raw) if isinstance(raw, str) and raw.startswith("[") else [t.strip() for t in raw.split(",") if t.strip()]
+            except Exception:
+                tags = [raw]
+            if isinstance(tags, list):
+                new_tags = [t for t in tags if isinstance(t, str) and t.strip().lower().replace("#", "") != clean_tag]
+                if len(new_tags) != len(tags):
+                    c.execute("UPDATE model_assets SET tags = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (json.dumps(new_tags), r["id"]))
+                    affected_ids.append(r["id"])
+        c.commit()
+
+    retry_write(_delete_tag)
+    return jsonify({
+        "success": True,
+        "tag": clean_tag,
+        "affected_models_count": len(affected_ids),
+        "message": f"Tag '#{clean_tag}' deleted from {len(affected_ids)} model(s)"
+    })
+
+
 @prints_bp.route("/api/models/batch-categorize", methods=["POST"])
 def batch_categorize():
     data = request.get_json() or {}
